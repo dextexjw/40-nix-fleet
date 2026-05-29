@@ -165,6 +165,60 @@ in
   };
 
   fleet.gateway.homepage = {
+    bookmarks = [
+      {
+        Links = [
+          {
+            TorrentPeek = [
+              {
+                href = "https://torrentpeek.net/";
+                icon = "si-bittorrent";
+              }
+            ];
+          }
+          {
+            GitHub = [
+              {
+                href = "https://github.com/";
+                icon = "github.png";
+              }
+            ];
+          }
+          {
+            "NixOS Search" = [
+              {
+                href = "https://search.nixos.org/";
+                icon = "nixos.png";
+              }
+            ];
+          }
+          {
+            "Homepage Docs" = [
+              {
+                href = "https://gethomepage.dev/";
+                icon = "homepage.png";
+              }
+            ];
+          }
+          {
+            "Traefik Docs" = [
+              {
+                href = "https://doc.traefik.io/traefik/";
+                icon = "traefik.png";
+              }
+            ];
+          }
+          {
+            "Technitium GitHub" = [
+              {
+                href = "https://github.com/TechnitiumSoftware/DnsServer";
+                icon = "technitium.png";
+              }
+            ];
+          }
+        ];
+      }
+    ];
     customCSS = ''
       .service-description {
         white-space: pre-line;
@@ -173,6 +227,32 @@ in
     directAddress = host.ip;
     enable = true;
     host = "homepage.${serviceDomain}";
+    layout = [
+      {
+        Gateway = {
+          columns = 4;
+          style = "row";
+        };
+      }
+      {
+        Media = {
+          columns = 4;
+          style = "row";
+        };
+      }
+      {
+        Productivity = {
+          columns = 4;
+          style = "row";
+        };
+      }
+      {
+        Links = {
+          columns = 3;
+          style = "row";
+        };
+      }
+    ];
     linkTarget = "_blank";
     listenPort = 8082;
     openFirewall = true;
@@ -186,30 +266,56 @@ in
             description = "Home of all my selfhosted services\nhttp://${host.ip}:8082";
             href = "http://homepage.${serviceDomain}/";
             icon = "homepage.png";
+            siteMonitor = "http://127.0.0.1:8082/";
           }
           {
             name = "Traefik";
             description = "Ingress dashboard\nhttp://${host.ip}:8080/dashboard/";
             href = "http://traefik.${serviceDomain}/dashboard/";
             icon = "traefik.png";
+            siteMonitor = "http://127.0.0.1:8080/dashboard/";
           }
           {
             name = "Technitium";
             description = "DNS administration and DoH endpoint\nhttp://${host.ip}:5380";
             href = "http://technitium.${serviceDomain}/";
             icon = "technitium.png";
+            siteMonitor = "http://127.0.0.1:5380/";
           }
           {
             name = "Gluetun";
             description = "Gluetun WebUI\n❗ Not accessible via LAN";
             href = "http://gluetun.${serviceDomain}/";
             icon = "gluetun.png";
+            siteMonitor = "http://127.0.0.1:3000/api/health";
           }
           {
             name = "Netboot.xyz";
             description = "PXE boot menu and local asset manager\nTFTP ${host.ip}:69/udp";
             href = "http://netbootxyz.${serviceDomain}/";
             icon = "netboot.png";
+            siteMonitor = "http://127.0.0.1:3001/";
+          }
+          {
+            name = "Homepage Direct IP";
+            description = "Direct LAN Homepage endpoint\nURL http://homepage.${serviceDomain}/";
+            href = "http://${host.ip}:8082/";
+            icon = "homepage.png";
+            siteMonitor = "http://${host.ip}:8082/";
+          }
+          {
+            name = "Traefik Dashboard IP";
+            description = "Metrics\nhttp://${host.ip}:8080/metrics";
+            href = "http://${host.ip}:8080/dashboard/";
+            icon = "traefik.png";
+            siteMonitor = "http://${host.ip}:8080/dashboard/";
+          }
+          {
+            name = "Technitium Direct IP";
+            description = "http://technitium.${serviceDomain}/";
+            href = "http://${host.ip}:5380/";
+            icon = "technitium.png";
+            siteMonitor = "http://${host.ip}:5380/";
           }
         ];
       }
@@ -221,60 +327,77 @@ in
             description = "http://${hosts.media-vm.ip}:8096";
             href = "http://jellyfin.${serviceDomain}/";
             icon = "jellyfin.png";
+            siteMonitor = "http://${hosts.media-vm.ip}:8096/";
           }
           {
             name = "Audiobookshelf";
             description = "http://${hosts.media-vm.ip}:8000";
             href = "http://audiobookshelf.${serviceDomain}/";
             icon = "audiobookshelf.png";
+            siteMonitor = "http://${hosts.media-vm.ip}:8000/";
           }
           {
             name = "Kavita";
             description = "eBooks library\nhttp://${hosts.media-vm.ip}:5000";
             href = "http://kavita.${serviceDomain}/";
             icon = "kavita.png";
+            siteMonitor = "http://${hosts.media-vm.ip}:5000/";
           }
           {
             name = "Sonarr";
             description = "TV management\nhttp://${hosts.media-vm.ip}:8989";
             href = "http://sonarr.${serviceDomain}/";
             icon = "sonarr.png";
+            siteMonitor = "http://${hosts.media-vm.ip}:8989/";
           }
           {
             name = "Radarr";
             description = "Movie management\nhttp://${hosts.media-vm.ip}:7878";
             href = "http://radarr.${serviceDomain}/";
             icon = "radarr.png";
+            siteMonitor = "http://${hosts.media-vm.ip}:7878/";
           }
           {
             name = "Prowlarr";
             description = "Indexer management\nhttp://${hosts.media-vm.ip}:9696";
             href = "http://prowlarr.${serviceDomain}/";
             icon = "prowlarr.png";
+            siteMonitor = "http://${hosts.media-vm.ip}:9696/";
           }
           {
             name = "Bazarr";
             description = "http://${hosts.media-vm.ip}:6767";
             href = "http://bazarr.${serviceDomain}/";
             icon = "bazarr.png";
+            siteMonitor = "http://${hosts.media-vm.ip}:6767/";
           }
           {
             name = "qBittorrent";
             description = "http://${hosts.media-vm.ip}:8080";
             href = "http://qbittorrent.${serviceDomain}/";
             icon = "qbittorrent.png";
+            siteMonitor = "http://${hosts.media-vm.ip}:8080/";
+          }
+          {
+            name = "Media Gluetun";
+            description = "Download client VPN status\nhttp://${hosts.media-vm.ip}:3001";
+            href = "http://media-gluetun.${serviceDomain}/";
+            icon = "gluetun.png";
+            siteMonitor = "http://${hosts.media-vm.ip}:3001/api/health";
           }
           {
             name = "SABnzbd";
             description = "http://${hosts.media-vm.ip}:8085";
             href = "http://sabnzbd.${serviceDomain}/";
             icon = "sabnzbd.png";
+            siteMonitor = "http://${hosts.media-vm.ip}:8085/";
           }
           {
             name = "Seerr";
             description = "Media requests\nhttp://${hosts.media-vm.ip}:5055";
             href = "http://seerr.${serviceDomain}/";
             icon = "seerr.png";
+            siteMonitor = "http://${hosts.media-vm.ip}:5055/";
           }
         ];
       }
@@ -286,78 +409,91 @@ in
             description = "Git repositories\nhttp://${hosts.productivity-vm.ip}:3000";
             href = "http://gitea.${serviceDomain}/";
             icon = "gitea.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}:3000/";
           }
           {
             name = "Docs";
             description = "Material for MkDocs\nhttp://${hosts.productivity-vm.ip}:80";
             href = "http://docs.${serviceDomain}/";
             icon = "mkdocs.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}/";
           }
           {
             name = "Paperless";
             description = "Document OCR and archive\nhttp://${hosts.productivity-vm.ip}:80";
             href = "http://paperless.${serviceDomain}/";
             icon = "paperless-ngx.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}/";
           }
           {
             name = "FreshRSS";
             description = "RSS reader\nhttp://${hosts.productivity-vm.ip}:80";
             href = "http://freshrss.${serviceDomain}/";
             icon = "freshrss.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}/";
           }
           {
             name = "SearXNG";
             description = "Private metasearch\nhttp://${hosts.productivity-vm.ip}:8087";
             href = "http://searxng.${serviceDomain}/";
             icon = "searxng.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}:8087/";
           }
           {
             name = "PrivateBin";
             description = "Encrypted temporary text sharing\nhttp://${hosts.productivity-vm.ip}:80";
             href = "http://privatebin.${serviceDomain}/";
             icon = "privatebin.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}/";
           }
           {
             name = "Vaultwarden";
             description = "Password vault\nhttp://${hosts.productivity-vm.ip}:8222";
             href = "http://vaultwarden.${serviceDomain}/";
             icon = "vaultwarden.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}:8222/";
           }
           {
             name = "Syncthing";
             description = "File synchronization\nhttp://${hosts.productivity-vm.ip}:8384";
             href = "http://syncthing.${serviceDomain}/";
             icon = "syncthing.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}:8384/";
           }
           {
             name = "Stirling PDF";
             description = "PDF toolkit\nhttp://${hosts.productivity-vm.ip}:8086";
             href = "http://stirling-pdf.${serviceDomain}/";
             icon = "stirling-pdf.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}:8086/";
           }
           {
             name = "Firefly III";
             description = "Personal finance\nhttp://${hosts.productivity-vm.ip}:80";
             href = "http://firefly.${serviceDomain}/";
             icon = "firefly-iii.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}/";
           }
           {
             name = "Nextcloud";
             description = "Private cloud files\nhttp://${hosts.productivity-vm.ip}:80";
             href = "http://nextcloud.${serviceDomain}/";
             icon = "nextcloud.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}/";
           }
           {
             name = "Garage";
             description = "Static website endpoint\nhttp://${hosts.productivity-vm.ip}:3902";
             href = "http://garage-web.${serviceDomain}/";
             icon = "garage.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}:3902/";
           }
           {
             name = "ntfy";
             description = "Push notifications\nhttp://${hosts.productivity-vm.ip}:2586";
             href = "http://ntfy.${serviceDomain}/";
             icon = "ntfy.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}:2586/v1/health";
           }
         ];
       }
@@ -512,6 +648,11 @@ in
         host = "qbittorrent.${serviceDomain}";
         url = "http://${hosts.media-vm.ip}:8080";
       };
+      media-gluetun = {
+        description = "MediaVM Gluetun WebUI for download clients";
+        host = "media-gluetun.${serviceDomain}";
+        url = "http://${hosts.media-vm.ip}:3001";
+      };
       radarr = {
         description = "Radarr movie management";
         host = "radarr.${serviceDomain}";
@@ -639,6 +780,7 @@ in
       http://prowlarr.${serviceDomain}
       http://bazarr.${serviceDomain}
       http://qbittorrent.${serviceDomain}
+      http://media-gluetun.${serviceDomain}
       http://sabnzbd.${serviceDomain}
       http://seerr.${serviceDomain}
       http://gitea.${serviceDomain}
@@ -702,6 +844,9 @@ in
       Technitium, NetBird, and Tailscale keep
       upstream-compatible bind mounts from /srv/appsdata/<service_name>.
       Homepage service cards are generated from Nix under /etc/homepage-dashboard;
+      Gateway, Media, and Productivity render as four-card rows, internal HTTP
+      cards use direct backend site monitors, and the bottom Links bookmark group
+      renders as a three-column external reference row with icons and service names.
       it has no authoritative mutable app state in this fleet pass and is restored
       by redeploying gateway-vm.
 

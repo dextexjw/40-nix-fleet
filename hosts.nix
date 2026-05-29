@@ -35,7 +35,6 @@
     gateway = "10.2.20.1";
     nameservers = [
       "10.2.20.1"
-      "9.9.9.9"
     ];
     user = "smoke";
     tags = [

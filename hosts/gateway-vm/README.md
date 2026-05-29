@@ -47,6 +47,7 @@ Service access:
 - Technitium HTTPS and DNS-over-HTTPS: `https://10.2.20.112:53443`
 - Gluetun HTTP proxy: `http://10.2.20.112:8888`
 - Gluetun WebUI: `http://gluetun.h/` through Traefik; backend only on `127.0.0.1:3000`
+- MediaVM Gluetun WebUI: `http://media-gluetun.h/` through Traefik; backend on `10.2.20.113:3001`
 - netboot.xyz WebUI: `http://netbootxyz.h/` through Traefik; backend only on `127.0.0.1:3001`
 - netboot.xyz local assets: backend only on `127.0.0.1:8083`
 - netboot.xyz TFTP: `10.2.20.112:69/udp`, boot file `netboot.xyz.efi`
@@ -57,9 +58,15 @@ Technitium admin HTTP is available directly at `http://10.2.20.112:5380` and
 through Traefik at `http://technitium.h/`.
 
 Homepage is declared in Nix and generated into `/etc/homepage-dashboard`. Its
-first-pass dashboard lists Gateway-owned `.h` routes, including MediaVM-backed
-routes that Traefik already proxies, plus direct Gateway IP URLs. It does not
-use service API widgets or mutable UI configuration in this pass.
+dashboard lists Gateway-owned `.h` routes, including MediaVM-backed routes that
+Traefik already proxies, plus direct Gateway IP URLs. Gateway, Media, and
+Productivity sections use row layouts with four cards per row. Homepage site
+monitors use direct backend URLs for the internal HTTP cards so status checks do
+not depend on browser routing through Traefik. A bottom `Links` bookmark section
+uses a compact three-column layout with icons and service names for external
+references such as TorrentPeek, GitHub, NixOS Search, Homepage docs, Traefik
+docs, and Technitium GitHub. It does not use service API widgets or mutable UI
+configuration in this pass.
 
 Traefik writes JSON access logs to the `traefik.service` journal. Prometheus
 metrics are exposed on the existing dashboard entrypoint at
@@ -84,6 +91,13 @@ The Gluetun WebUI runs as `podman-gluetun-webui.service` and is available on
 the LAN through Traefik at `http://gluetun.h/`. It has no native UI login, so
 the direct backend listener stays bound to `127.0.0.1:3000` and is not opened
 on the LAN as a separate port.
+
+The MediaVM Gluetun WebUI runs on `media-vm` as
+`podman-media-gluetun-webui.service`, shares the `media-gluetun` network
+namespace used by qBittorrent and SABnzbd, and is available through Gateway Traefik at
+`http://media-gluetun.h/`. Gateway only routes to its MediaVM LAN backend on
+`10.2.20.113:3001`; the VPN container and downloader kill switch still live on
+`media-vm`.
 
 The netboot.xyz container runs as `podman-netbootxyz.service`. Its web
 configuration UI is available through Traefik at `http://netbootxyz.h/`, while
@@ -128,6 +142,7 @@ Traefik ingress routes are declared explicitly for:
 - `prowlarr.h`
 - `bazarr.h`
 - `qbittorrent.h`
+- `media-gluetun.h`
 - `sabnzbd.h`
 - `seerr.h`
 - `gitea.h`

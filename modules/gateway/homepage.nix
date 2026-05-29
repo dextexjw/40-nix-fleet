@@ -9,6 +9,7 @@ with lib;
 
 let
   cfg = config.fleet.gateway.homepage;
+  settingsFormat = pkgs.formats.yaml { };
 
   allowedHosts = concatStringsSep "," (
     unique (
@@ -30,6 +31,8 @@ let
       inherit (service) description href;
     } // optionalAttrs (service.icon != null) {
       inherit (service) icon;
+    } // optionalAttrs (service.siteMonitor != null) {
+      inherit (service) siteMonitor;
     };
   };
 
@@ -44,6 +47,26 @@ in
 
   options.fleet.gateway.homepage = {
     enable = mkEnableOption "Homepage dashboard for gateway-vm services";
+
+    bookmarks = mkOption {
+      inherit (settingsFormat) type;
+      default = [ ];
+      description = "Homepage bookmarks configuration.";
+      example = [
+        {
+          Links = [
+            {
+              GitHub = [
+                {
+                  href = "https://github.com/";
+                  icon = "github.png";
+                }
+              ];
+            }
+          ];
+        }
+      ];
+    };
 
     directAddress = mkOption {
       type = types.nullOr types.str;
@@ -70,6 +93,20 @@ in
       default = "_self";
       description = "Browser target used when opening Homepage service card links.";
       example = "_blank";
+    };
+
+    layout = mkOption {
+      inherit (settingsFormat) type;
+      default = { };
+      description = "Homepage layout settings keyed by service or bookmark group name.";
+      example = [
+        {
+          Gateway = {
+            columns = 4;
+            style = "row";
+          };
+        }
+      ];
     };
 
     listenPort = mkOption {
@@ -129,6 +166,13 @@ in
                       description = "Optional Homepage icon reference.";
                       example = "traefik.png";
                     };
+
+                    siteMonitor = mkOption {
+                      type = types.nullOr types.str;
+                      default = null;
+                      description = "Optional URL Homepage should monitor for this service card.";
+                      example = "http://traefik.h/dashboard/";
+                    };
                   };
                 }
               );
@@ -150,6 +194,7 @@ in
   config = mkIf cfg.enable {
     services.homepage-dashboard = {
       allowedHosts = allowedHosts;
+      bookmarks = cfg.bookmarks;
       customCSS = cfg.customCSS;
       enable = true;
       listenPort = cfg.listenPort;
@@ -159,8 +204,9 @@ in
       settings = {
         description = "Declarative service directory for gateway-vm.";
         disableUpdateCheck = true;
+        layout = cfg.layout;
         target = cfg.linkTarget;
-        title = "Gateway";
+        title = "homepage.h";
       };
     };
 

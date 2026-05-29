@@ -14,8 +14,10 @@ KEY_SERVICES=(
   sonarr
   prowlarr
   bazarr
-  qbittorrent
-  sabnzbd
+  podman-media-gluetun
+  podman-media-qbittorrent
+  podman-media-sabnzbd
+  podman-media-gluetun-webui
   seerr
   flaresolverr
 )
@@ -91,6 +93,10 @@ phase_check_upgrade_readiness() {
   if grep -q 'CHANGE_ME' <<<"$decrypted_secrets"; then
     die "$SECRETS still contains CHANGE_ME placeholders"
   fi
+
+  for required_key in admin-password-hash media-gluetun-control-api-key media-gluetun-openvpn-password media-gluetun-openvpn-username qbittorrent-webui-password qbittorrent-webui-username restic-password smb-credentials; do
+    grep -q "^$required_key:" <<<"$decrypted_secrets" || die "$SECRETS is missing required key: $required_key"
+  done
 
   confirm_ssh_access
 

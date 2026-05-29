@@ -6,7 +6,7 @@ HOST="media-vm"
 REPOSITORY="/mnt/backups/restic/appdata/media-stack-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
-SERVICES="jellyfin audiobookshelf kavita radarr sonarr prowlarr bazarr qbittorrent sabnzbd seerr flaresolverr"
+SERVICES="jellyfin audiobookshelf kavita radarr sonarr prowlarr bazarr podman-media-gluetun-webui podman-media-qbittorrent podman-media-sabnzbd podman-media-gluetun seerr flaresolverr"
 SNAPSHOT="${1:-}"
 
 die() {
@@ -115,17 +115,18 @@ chmod 0770 "\$source_path"
 [ -d "\$source_path/radarr" ] && chown -R radarr:media "\$source_path/radarr"
 [ -d "\$source_path/sonarr" ] && chown -R sonarr:media "\$source_path/sonarr"
 if [ -d "\$source_path/prowlarr" ]; then
-  if getent passwd prowlarr >/dev/null && getent group prowlarr >/dev/null; then
-    chown -R prowlarr:prowlarr "\$source_path/prowlarr"
-  elif [ -e "\$source_path/prowlarr/config.xml" ]; then
+  if [ -e "\$source_path/prowlarr/config.xml" ]; then
     prowlarr_owner="\$(stat -c '%u:%g' "\$source_path/prowlarr/config.xml")"
     chown -R "\$prowlarr_owner" "\$source_path/prowlarr"
   else
-    echo 'Prowlarr dynamic user is unavailable and no config.xml exists; leaving ownership for service startup.'
+    echo 'Prowlarr config.xml is unavailable; leaving contents as restored and repairing the top directory for DynamicUser startup.'
   fi
+  chown nobody:nogroup "\$source_path/prowlarr"
+  chmod 0700 "\$source_path/prowlarr"
 fi
 [ -d "\$source_path/bazarr" ] && chown -R bazarr:media "\$source_path/bazarr"
 [ -d "\$source_path/qbittorrent" ] && chown -R qbittorrent:media "\$source_path/qbittorrent"
+[ -d "\$source_path/gluetun" ] && chown -R root:media "\$source_path/gluetun"
 [ -d "\$source_path/sabnzbd" ] && chown -R sabnzbd:media "\$source_path/sabnzbd"
 if [ -d "\$source_path/jellyseerr" ] && [ ! -e "\$source_path/seerr" ]; then
   mv "\$source_path/jellyseerr" "\$source_path/seerr"
@@ -137,6 +138,11 @@ find "\$source_path" -type f \( -name '*.pid' -o -name 'plexmediaserver.pid' \) 
 
 echo 'Reapplying declared directories and restarting media services...'
 systemd-tmpfiles --create
+if [ -d "\$source_path/prowlarr" ]; then
+  chown nobody:nogroup "\$source_path/prowlarr"
+  chmod 0700 "\$source_path/prowlarr"
+fi
+systemctl restart media-gluetun-control-auth-config.service
 systemctl restart kavita-token-key.service
 systemctl start \$services
 systemctl start appsdata-backup.timer

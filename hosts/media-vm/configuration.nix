@@ -42,8 +42,15 @@ in
       admin-password-hash = {
         neededForUsers = true;
       };
-      qbittorrent-webui-password.restartUnits = [ "qbittorrent.service" ];
-      qbittorrent-webui-username.restartUnits = [ "qbittorrent.service" ];
+      media-gluetun-control-api-key.restartUnits = [
+        "media-gluetun-control-auth-config.service"
+        "podman-media-gluetun.service"
+        "podman-media-gluetun-webui.service"
+      ];
+      media-gluetun-openvpn-password.restartUnits = [ "podman-media-gluetun.service" ];
+      media-gluetun-openvpn-username.restartUnits = [ "podman-media-gluetun.service" ];
+      qbittorrent-webui-password.restartUnits = [ "podman-media-qbittorrent.service" ];
+      qbittorrent-webui-username.restartUnits = [ "podman-media-qbittorrent.service" ];
       restic-password = { };
       smb-credentials = { };
     };
@@ -67,6 +74,23 @@ in
 
   fleet.media.stack = {
     enable = true;
+    gluetun = {
+      controlServer.apiKeyFile =
+        if secretsEnabled then
+          config.sops.secrets.media-gluetun-control-api-key.path
+        else
+          "/run/secrets/media-gluetun-control-api-key";
+      openvpnPasswordFile =
+        if secretsEnabled then
+          config.sops.secrets.media-gluetun-openvpn-password.path
+        else
+          "/run/secrets/media-gluetun-openvpn-password";
+      openvpnUsernameFile =
+        if secretsEnabled then
+          config.sops.secrets.media-gluetun-openvpn-username.path
+        else
+          "/run/secrets/media-gluetun-openvpn-username";
+    };
     jellyfin.publishedServerUrl = "http://${host.ip}:8096";
     secrets.enable = secretsEnabled;
     smb = {
@@ -91,7 +115,10 @@ in
       networkConfig = {
         Address = "${host.ip}/24";
         DNS = host.nameservers;
-        Domains = host.domain;
+        Domains = [
+          host.domain
+          "~${host.domain}"
+        ];
         Gateway = host.gateway;
       };
     };

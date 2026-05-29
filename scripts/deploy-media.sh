@@ -22,9 +22,13 @@ if [[ ! -f "$SECRETS" ]]; then
   die "missing $SECRETS"
 fi
 
-if ! sops --decrypt "$SECRETS" >/dev/null; then
+if ! decrypted_secrets="$(sops --decrypt "$SECRETS")"; then
   die "unable to decrypt $SECRETS locally; rekey it for your local/admin key"
 fi
+
+for required_key in admin-password-hash media-gluetun-control-api-key media-gluetun-openvpn-password media-gluetun-openvpn-username qbittorrent-webui-password qbittorrent-webui-username restic-password smb-credentials; do
+  grep -q "^$required_key:" <<<"$decrypted_secrets" || die "$SECRETS is missing required key: $required_key"
+done
 
 if ! target_recipient="$(
   ssh \
