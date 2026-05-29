@@ -96,6 +96,20 @@
             ./hosts/media-vm/configuration.nix
           ];
         };
+
+        productivity-vm = {
+          deployment = {
+            sshOptions = ephemeralSshOptions;
+            targetHost = hosts.productivity-vm.ip;
+            targetUser = hosts.productivity-vm.user;
+            tags = hosts.productivity-vm.tags;
+          };
+
+          imports = [
+            sops-nix.nixosModules.sops
+            ./hosts/productivity-vm/configuration.nix
+          ];
+        };
       };
     in
     {

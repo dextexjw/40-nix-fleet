@@ -7,6 +7,7 @@ The current fleet is intentionally small:
 
 - `gateway-vm` runs Traefik ingress, Technitium DNS, netboot.xyz, NetBird, and Tailscale.
 - `media-vm` runs Jellyfin, Audiobookshelf, Kavita, ARR apps, downloads, SMB media mounts, and appdata backups.
+- `productivity-vm` runs Git, docs, documents, RSS, search, vault, file sync, finance, cloud files, S3, notifications, and appdata backups.
 
 Treat this repo as the source of truth for hosts, services, secrets workflow,
 and recovery notes. The fleet-wide service standard is captured in
@@ -19,6 +20,7 @@ should follow that blueprint before being treated as production-ready.
 | --- | --- | --- | --- | --- |
 | `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway` | Ingress, DNS, netboot, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
 | `media-vm` | `10.2.20.113` | `media` | Media services, downloads, SMB media, Restic appdata backups | [`hosts/media-vm/README.md`](hosts/media-vm/README.md) |
+| `productivity-vm` | `10.2.20.114` | `productivity` | Productivity services, documents, S3, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
 
 Inventory lives in `hosts.nix`. Per-host configuration and host-specific
 runbooks live under `hosts/<name>/`.
@@ -30,8 +32,10 @@ runbooks live under `hosts/<name>/`.
 - `hosts/common.nix`: shared Nix, SSH, user, firewall, package, and node-exporter defaults.
 - `hosts/gateway-vm/`: gateway host configuration, hardware profile, and runbook.
 - `hosts/media-vm/`: media host configuration, hardware profile, and runbook.
+- `hosts/productivity-vm/`: productivity host configuration, hardware profile, and runbook.
 - `modules/gateway/`: Traefik, Technitium, netboot.xyz, NetBird, Tailscale, and gateway backup modules.
 - `modules/media/stack.nix`: the main `media-vm` service stack, SMB mounts, backups, and recovery notes.
+- `modules/productivity/stack.nix`: the main `productivity-vm` service stack, PostgreSQL, backups, and recovery notes.
 - `modules/monitoring/`: available Prometheus, Grafana, and node exporter modules.
 - `modules/networking/reverse-proxy.nix`: available nginx virtual hosts module.
 - `modules/security/self-signed-ca.nix`: internal self-signed CA and per-domain cert generation.
@@ -50,6 +54,7 @@ Use the host READMEs as operational runbooks:
 
 - [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md): direct ports, Traefik routes, netboot notes, state backup, bootstrap, and validation.
 - [`hosts/media-vm/README.md`](hosts/media-vm/README.md): service URLs, media/appdata paths, SMB mounts, secrets, bootstrap, upgrade, backup, restore, and validation.
+- [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md): service URLs, appdata paths, secrets, bootstrap, upgrade, backup, restore, and validation.
 
 Generated on-host notes under `/etc/fleet/<host>.md` are emergency recovery
 references. Keep them aligned with the host README when changing backup,
@@ -72,6 +77,8 @@ Useful local checks:
 nix flake check
 colmena build --on media-vm
 colmena apply --on media-vm dry-activate
+colmena build --on productivity-vm
+colmena apply --on productivity-vm dry-activate
 ```
 
 The repo also has a focused check helper:
@@ -89,6 +96,7 @@ Deploy one host:
 ```sh
 colmena apply --on media-vm switch
 colmena apply --on gateway-vm switch
+colmena apply --on productivity-vm switch
 ```
 
 Deploy by tag only when intentionally targeting a group:
@@ -96,6 +104,7 @@ Deploy by tag only when intentionally targeting a group:
 ```sh
 colmena apply --on @media switch
 colmena apply --on @gateway switch
+colmena apply --on @productivity switch
 ```
 
 Deploy the whole fleet only when that is really the goal:

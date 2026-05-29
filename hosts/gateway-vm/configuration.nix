@@ -282,22 +282,82 @@ in
         name = "Productivity";
         services = [
           {
-            name = "Homepage Direct IP";
-            description = "Direct LAN Homepage endpoint\nURL http://homepage.${serviceDomain}/";
-            href = "http://${host.ip}:8082/";
-            icon = "homepage.png";
+            name = "Gitea";
+            description = "Git repositories\nhttp://${hosts.productivity-vm.ip}:3000";
+            href = "http://gitea.${serviceDomain}/";
+            icon = "gitea.png";
           }
           {
-            name = "Traefik Dashboard IP";
-            description = "Metrics\nhttp://${host.ip}:8080/metrics";
-            href = "http://${host.ip}:8080/dashboard/";
-            icon = "traefik.png";
+            name = "Docs";
+            description = "Material for MkDocs\nhttp://${hosts.productivity-vm.ip}:80";
+            href = "http://docs.${serviceDomain}/";
+            icon = "mkdocs.png";
           }
           {
-            name = "Technitium Direct IP";
-            description = "http://technitium.${serviceDomain}/";
-            href = "http://${host.ip}:5380/";
-            icon = "technitium.png";
+            name = "Paperless";
+            description = "Document OCR and archive\nhttp://${hosts.productivity-vm.ip}:80";
+            href = "http://paperless.${serviceDomain}/";
+            icon = "paperless-ngx.png";
+          }
+          {
+            name = "FreshRSS";
+            description = "RSS reader\nhttp://${hosts.productivity-vm.ip}:80";
+            href = "http://freshrss.${serviceDomain}/";
+            icon = "freshrss.png";
+          }
+          {
+            name = "SearXNG";
+            description = "Private metasearch\nhttp://${hosts.productivity-vm.ip}:8087";
+            href = "http://searxng.${serviceDomain}/";
+            icon = "searxng.png";
+          }
+          {
+            name = "PrivateBin";
+            description = "Encrypted temporary text sharing\nhttp://${hosts.productivity-vm.ip}:80";
+            href = "http://privatebin.${serviceDomain}/";
+            icon = "privatebin.png";
+          }
+          {
+            name = "Vaultwarden";
+            description = "Password vault\nhttp://${hosts.productivity-vm.ip}:8222";
+            href = "http://vaultwarden.${serviceDomain}/";
+            icon = "vaultwarden.png";
+          }
+          {
+            name = "Syncthing";
+            description = "File synchronization\nhttp://${hosts.productivity-vm.ip}:8384";
+            href = "http://syncthing.${serviceDomain}/";
+            icon = "syncthing.png";
+          }
+          {
+            name = "Stirling PDF";
+            description = "PDF toolkit\nhttp://${hosts.productivity-vm.ip}:8086";
+            href = "http://stirling-pdf.${serviceDomain}/";
+            icon = "stirling-pdf.png";
+          }
+          {
+            name = "Firefly III";
+            description = "Personal finance\nhttp://${hosts.productivity-vm.ip}:80";
+            href = "http://firefly.${serviceDomain}/";
+            icon = "firefly-iii.png";
+          }
+          {
+            name = "Nextcloud";
+            description = "Private cloud files\nhttp://${hosts.productivity-vm.ip}:80";
+            href = "http://nextcloud.${serviceDomain}/";
+            icon = "nextcloud.png";
+          }
+          {
+            name = "Garage";
+            description = "Static website endpoint\nhttp://${hosts.productivity-vm.ip}:3902";
+            href = "http://garage-web.${serviceDomain}/";
+            icon = "garage.png";
+          }
+          {
+            name = "ntfy";
+            description = "Push notifications\nhttp://${hosts.productivity-vm.ip}:2586";
+            href = "http://ntfy.${serviceDomain}/";
+            icon = "ntfy.png";
           }
         ];
       }
@@ -382,10 +442,60 @@ in
         host = "homepage.${serviceDomain}";
         url = "http://127.0.0.1:8082";
       };
+      docs = {
+        description = "Material for MkDocs knowledge base";
+        host = "docs.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:80";
+      };
+      firefly = {
+        description = "Firefly III personal finance";
+        host = "firefly.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:80";
+      };
+      freshrss = {
+        description = "FreshRSS reader";
+        host = "freshrss.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:80";
+      };
+      garage = {
+        description = "Garage standalone S3 API";
+        host = "garage.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:3900";
+      };
+      garage-web = {
+        description = "Garage static website endpoint";
+        host = "garage-web.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:3902";
+      };
+      gitea = {
+        description = "Gitea Git repositories";
+        host = "gitea.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:3000";
+      };
       netbootxyz = {
         description = "netboot.xyz web configuration UI";
         host = "netbootxyz.${serviceDomain}";
         url = "http://127.0.0.1:3001";
+      };
+      nextcloud = {
+        description = "Nextcloud private cloud files";
+        host = "nextcloud.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:80";
+      };
+      ntfy = {
+        description = "ntfy push notifications";
+        host = "ntfy.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:2586";
+      };
+      paperless = {
+        description = "Paperless-ngx document archive";
+        host = "paperless.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:80";
+      };
+      privatebin = {
+        description = "PrivateBin temporary text sharing";
+        host = "privatebin.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:80";
       };
       kavita = {
         description = "Kavita library";
@@ -412,15 +522,35 @@ in
         host = "sabnzbd.${serviceDomain}";
         url = "http://${hosts.media-vm.ip}:8085";
       };
+      searxng = {
+        description = "SearXNG private metasearch";
+        host = "searxng.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:8087";
+      };
       sonarr = {
         description = "Sonarr TV management";
         host = "sonarr.${serviceDomain}";
         url = "http://${hosts.media-vm.ip}:8989";
       };
+      stirling-pdf = {
+        description = "Stirling PDF toolkit";
+        host = "stirling-pdf.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:8086";
+      };
+      syncthing = {
+        description = "Syncthing file synchronization";
+        host = "syncthing.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:8384";
+      };
       technitium = {
         description = "Technitium DNS administration and DoH endpoint";
         host = "technitium.${serviceDomain}";
         url = "http://127.0.0.1:5380";
+      };
+      vaultwarden = {
+        description = "Vaultwarden password vault";
+        host = "vaultwarden.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:8222";
       };
     };
   };
@@ -511,6 +641,20 @@ in
       http://qbittorrent.${serviceDomain}
       http://sabnzbd.${serviceDomain}
       http://seerr.${serviceDomain}
+      http://gitea.${serviceDomain}
+      http://docs.${serviceDomain}
+      http://paperless.${serviceDomain}
+      http://freshrss.${serviceDomain}
+      http://searxng.${serviceDomain}
+      http://privatebin.${serviceDomain}
+      http://vaultwarden.${serviceDomain}
+      http://syncthing.${serviceDomain}
+      http://stirling-pdf.${serviceDomain}
+      http://firefly.${serviceDomain}
+      http://nextcloud.${serviceDomain}
+      http://garage.${serviceDomain}
+      http://garage-web.${serviceDomain}
+      http://ntfy.${serviceDomain}
 
     Network boot:
       Configure the LAN DHCP server to point option 66 at ${hosts.gateway-vm.ip}

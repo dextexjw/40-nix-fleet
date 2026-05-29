@@ -51,11 +51,14 @@ let
   mkService =
     name: route:
     nameValuePair (mkName name) {
-      loadBalancer.servers = [
-        {
-          url = route.url;
-        }
-      ];
+      loadBalancer = {
+        passHostHeader = true;
+        servers = [
+          {
+            url = route.url;
+          }
+        ];
+      };
     };
 
   dashboardRouters = optionalAttrs cfg.dashboard.enable {

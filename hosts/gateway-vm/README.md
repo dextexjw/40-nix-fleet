@@ -130,6 +130,20 @@ Traefik ingress routes are declared explicitly for:
 - `qbittorrent.h`
 - `sabnzbd.h`
 - `seerr.h`
+- `gitea.h`
+- `docs.h`
+- `paperless.h`
+- `freshrss.h`
+- `searxng.h`
+- `privatebin.h`
+- `vaultwarden.h`
+- `syncthing.h`
+- `stirling-pdf.h`
+- `firefly.h`
+- `nextcloud.h`
+- `garage.h`
+- `garage-web.h`
+- `ntfy.h`
 
 For netboot.xyz, configure the LAN DHCP server to point option 66 at
 `10.2.20.112` and option 67 at `netboot.xyz.efi`. `gateway-vm` serves the
