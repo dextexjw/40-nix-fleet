@@ -12,6 +12,8 @@ let
   cfg = config.fleet.productivity.stack;
   appdata = cfg.appdataRoot;
   serviceHosts = cfg.serviceHosts;
+  rustfsGid = 10001;
+  rustfsUid = 10001;
 
   secretPath =
     name:
@@ -63,6 +65,7 @@ let
 
   statefulServices = [
     "gitea.service"
+    "forgejo.service"
     "nginx.service"
     "paperless-scheduler.service"
     "paperless-task-queue.service"
@@ -80,6 +83,7 @@ let
     "firefly-iii-cron.timer"
     "phpfpm-nextcloud.service"
     "garage.service"
+    "podman-rustfs.service"
     "ntfy-sh.service"
   ];
 in
@@ -114,6 +118,7 @@ in
       default = {
         docs = "docs.h";
         firefly = "firefly.h";
+        forgejo = "forgejo.h";
         freshrss = "freshrss.h";
         garage = "garage.h";
         garageWeb = "garage-web.h";
@@ -122,6 +127,8 @@ in
         ntfy = "ntfy.h";
         paperless = "paperless.h";
         privatebin = "privatebin.h";
+        rustfs = "rustfs.h";
+        rustfsConsole = "rustfs-console.h";
         searxng = "searxng.h";
         stirlingPdf = "stirling-pdf.h";
         syncthing = "syncthing.h";
@@ -133,12 +140,15 @@ in
     ports = mkOption {
       type = types.attrsOf types.port;
       default = {
+        forgejo = 3002;
         garageAdmin = 3903;
         garageRpc = 3901;
         garageS3 = 3900;
         garageWeb = 3902;
         gitea = 3000;
         ntfy = 2586;
+        rustfsApi = 9000;
+        rustfsConsole = 9001;
         searxng = 8087;
         stirlingPdf = 8086;
         syncthing = 8384;
@@ -230,6 +240,8 @@ in
       ++ [
         "d '${appdata}/firefly-iii' 0750 firefly-iii nginx - -"
         "z '${appdata}/firefly-iii' 0750 firefly-iii nginx - -"
+        "d '${appdata}/forgejo' 0750 forgejo forgejo - -"
+        "z '${appdata}/forgejo' 0750 forgejo forgejo - -"
         "d '${appdata}/freshrss' 0750 freshrss freshrss - -"
         "z '${appdata}/freshrss' 0750 freshrss freshrss - -"
         "d '${appdata}/garage' 0750 garage garage - -"
@@ -268,6 +280,10 @@ in
         "z '${appdata}/postgresql-dumps' 0700 postgres postgres - -"
         "d '${appdata}/privatebin' 0750 privatebin nginx - -"
         "z '${appdata}/privatebin' 0750 privatebin nginx - -"
+        "d '${appdata}/rustfs' 0750 ${toString rustfsUid} ${toString rustfsGid} - -"
+        "z '${appdata}/rustfs' 0750 ${toString rustfsUid} ${toString rustfsGid} - -"
+        "d '${appdata}/rustfs/data' 0750 ${toString rustfsUid} ${toString rustfsGid} - -"
+        "z '${appdata}/rustfs/data' 0750 ${toString rustfsUid} ${toString rustfsGid} - -"
         "d '${appdata}/searxng' 0750 searx searx - -"
         "z '${appdata}/searxng' 0750 searx searx - -"
         "d '${appdata}/stirling-pdf' 0750 stirling-pdf stirling-pdf - -"
@@ -345,6 +361,37 @@ in
           HTTP_ADDR = "0.0.0.0";
           HTTP_PORT = cfg.ports.gitea;
           ROOT_URL = "http://${serviceHosts.gitea}/";
+          SSH_PORT = 22;
+        };
+        service = {
+          DISABLE_REGISTRATION = true;
+          REQUIRE_SIGNIN_VIEW = false;
+        };
+      };
+    };
+
+    services.forgejo = {
+      enable = true;
+      package = pkgs.forgejo;
+      lfs.enable = true;
+      stateDir = "${appdata}/forgejo";
+      database = {
+        type = "postgres";
+        createDatabase = true;
+      };
+      dump = {
+        enable = true;
+        backupDir = "${appdata}/forgejo/dump";
+        type = "tar.zst";
+      };
+      settings = {
+        DEFAULT.APP_NAME = "Fleet Forgejo";
+        repository.DEFAULT_BRANCH = "main";
+        server = {
+          DOMAIN = serviceHosts.forgejo;
+          HTTP_ADDR = "0.0.0.0";
+          HTTP_PORT = cfg.ports.forgejo;
+          ROOT_URL = "http://${serviceHosts.forgejo}/";
           SSH_PORT = 22;
         };
         service = {
@@ -541,6 +588,42 @@ in
       };
     };
 
+    virtualisation.oci-containers.backend = "podman";
+    virtualisation.oci-containers.containers.rustfs = {
+      image = "docker.io/rustfs/rustfs@sha256:029bab58b7cfca8b3b3483d49ac073075f555d7cc50abdd706d7df74bf6ec432";
+      pull = "missing";
+
+      environment = {
+        RUSTFS_ADDRESS = "0.0.0.0:${toString cfg.ports.rustfsApi}";
+        RUSTFS_CONSOLE_ADDRESS = "0.0.0.0:${toString cfg.ports.rustfsConsole}";
+        RUSTFS_CONSOLE_ENABLE = "true";
+        RUSTFS_SERVER_DOMAINS = serviceHosts.rustfs;
+        RUSTFS_VOLUMES = "/data";
+      };
+      environmentFiles = [ (secretPath "rustfs-environment") ];
+
+      extraOptions = [
+        "--cap-drop=ALL"
+        "--health-cmd=sh -c 'curl -f http://127.0.0.1:${toString cfg.ports.rustfsApi}/health && curl -f http://127.0.0.1:${toString cfg.ports.rustfsConsole}/rustfs/console/health'"
+        "--health-interval=30s"
+        "--health-retries=3"
+        "--health-start-period=40s"
+        "--health-timeout=10s"
+        "--security-opt=no-new-privileges"
+      ];
+
+      podman.sdnotify = "healthy";
+
+      ports = [
+        "0.0.0.0:${toString cfg.ports.rustfsApi}:${toString cfg.ports.rustfsApi}/tcp"
+        "0.0.0.0:${toString cfg.ports.rustfsConsole}:${toString cfg.ports.rustfsConsole}/tcp"
+      ];
+
+      volumes = [
+        "${appdata}/rustfs/data:/data"
+      ];
+    };
+
     # --------------------------------------------------------------------------
     # MATERIAL FOR MKDOCS
     # --------------------------------------------------------------------------
@@ -630,6 +713,12 @@ in
       DynamicUser = mkForce false;
       User = "garage";
       Group = "garage";
+    };
+
+    systemd.services.podman-rustfs = {
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+      serviceConfig.RestartSec = "30s";
     };
 
     systemd.services.ntfy-sh.serviceConfig = {
@@ -864,10 +953,13 @@ in
 
     networking.firewall.allowedTCPPorts = [
       80
+      cfg.ports.forgejo
       cfg.ports.garageS3
       cfg.ports.garageWeb
       cfg.ports.gitea
       cfg.ports.ntfy
+      cfg.ports.rustfsApi
+      cfg.ports.rustfsConsole
       cfg.ports.searxng
       cfg.ports.stirlingPdf
       cfg.ports.syncthing
@@ -882,10 +974,10 @@ in
       productivity-vm service model
       =============================
 
-      productivity-vm runs Gitea, Material for MkDocs, Paperless-ngx,
+      productivity-vm runs Gitea, Forgejo, Material for MkDocs, Paperless-ngx,
       FreshRSS, SearXNG, Vaultwarden, PrivateBin, Syncthing, Stirling PDF,
-      Firefly III, Nextcloud, Garage, ntfy, nginx, PostgreSQL, and Restic
-      appdata backups.
+      Firefly III, Nextcloud, Garage, RustFS, ntfy, nginx, PostgreSQL, and
+      Restic appdata backups.
 
       Persistent state root:
         ${appdata}
@@ -898,6 +990,7 @@ in
 
       Internal routes through gateway-vm:
         http://${serviceHosts.gitea}
+        http://${serviceHosts.forgejo}
         http://${serviceHosts.docs}
         http://${serviceHosts.paperless}
         http://${serviceHosts.freshrss}
@@ -910,16 +1003,21 @@ in
         http://${serviceHosts.nextcloud}
         http://${serviceHosts.garage}
         http://${serviceHosts.garageWeb}
+        http://${serviceHosts.rustfs}
+        http://${serviceHosts.rustfsConsole}
         http://${serviceHosts.ntfy}
 
       Direct LAN ports:
         Gitea: ${toString cfg.ports.gitea}
+        Forgejo: ${toString cfg.ports.forgejo}
         SearXNG: ${toString cfg.ports.searxng}
         Vaultwarden: ${toString cfg.ports.vaultwarden}
         Syncthing GUI: ${toString cfg.ports.syncthing}
         Stirling PDF: ${toString cfg.ports.stirlingPdf}
         Garage S3 API: ${toString cfg.ports.garageS3}
         Garage static web: ${toString cfg.ports.garageWeb}
+        RustFS S3 API: ${toString cfg.ports.rustfsApi}
+        RustFS console: ${toString cfg.ports.rustfsConsole}
         ntfy: ${toString cfg.ports.ntfy}
         nginx-backed services: 80
 
@@ -946,6 +1044,10 @@ in
       requests to / should return AccessDenied. garage-web.h is the static
       website endpoint; buckets must still be created and enabled for website
       hosting with the upstream Garage CLI before serving content.
+
+      RustFS is a separate S3-compatible object store in this pass. It does not
+      share Garage buckets or credentials. rustfs.h is the S3 API and
+      rustfs-console.h is the RustFS console.
     '';
   };
 }

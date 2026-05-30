@@ -1,7 +1,8 @@
 # productivity-vm
 
 `productivity-vm` runs the personal productivity stack, nginx-backed internal
-apps, standalone Garage S3, PostgreSQL, appdata backups, and restore checks.
+apps, Git forges, standalone Garage and RustFS object storage, PostgreSQL,
+appdata backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
 `configuration.nix` and imports the stack from
@@ -14,7 +15,7 @@ Important host values:
 - FQDN: `productivity-vm.home.arpa`
 - IP: `10.2.20.114`
 - Gateway: `10.2.20.1`
-- DNS: `10.2.20.1`, `9.9.9.9`
+- DNS: `10.2.20.1`
 - Time zone: `America/New_York`
 - Admin user: `smoke`
 - VM disk: `/dev/sda`
@@ -30,6 +31,7 @@ path backed up by Restic.
 | Service | Route | Backend |
 | --- | --- | --- |
 | Gitea | `http://gitea.h` | `10.2.20.114:3000` |
+| Forgejo | `http://forgejo.h` | `10.2.20.114:3002` |
 | Material for MkDocs | `http://docs.h` | `10.2.20.114:80` |
 | Paperless-ngx | `http://paperless.h` | `10.2.20.114:80` |
 | FreshRSS | `http://freshrss.h` | `10.2.20.114:80` |
@@ -42,6 +44,8 @@ path backed up by Restic.
 | Nextcloud | `http://nextcloud.h` | `10.2.20.114:80` |
 | Garage S3 API | `http://garage.h` | `10.2.20.114:3900` |
 | Garage static web | `http://garage-web.h` | `10.2.20.114:3902` |
+| RustFS S3 API | `http://rustfs.h` | `10.2.20.114:9000` |
+| RustFS console | `http://rustfs-console.h` | `10.2.20.114:9001` |
 | ntfy | `http://ntfy.h` | `10.2.20.114:2586` |
 
 Traefik routes and Homepage cards are declared on `gateway-vm`.
@@ -51,6 +55,7 @@ Traefik routes and Homepage cards are declared on `gateway-vm`.
 Important appdata paths:
 
 - `/srv/appsdata/gitea`
+- `/srv/appsdata/forgejo`
 - `/srv/appsdata/mkdocs`
 - `/srv/appsdata/paperless`
 - `/srv/appsdata/freshrss`
@@ -61,6 +66,7 @@ Important appdata paths:
 - `/srv/appsdata/syncthing`
 - `/srv/appsdata/stirling-pdf`
 - `/srv/appsdata/garage`
+- `/srv/appsdata/rustfs`
 - `/srv/appsdata/ntfy`
 - `/srv/appsdata/postgresql`
 - `/srv/appsdata/postgresql-dumps`
@@ -85,6 +91,7 @@ Required productivity secrets:
 - `garage-rpc-secret`
 - `nextcloud-admin-password`
 - `paperless-admin-password`
+- `rustfs-environment`
 - `searxng-environment`
 - `syncthing-gui-password`
 - `vaultwarden-environment`
@@ -205,3 +212,6 @@ storage. `garage.h` is the authenticated S3 API, so anonymous browser requests
 to `/` should return AccessDenied. `garage-web.h` is the static website
 endpoint; buckets must still be created and enabled for website hosting with
 the upstream Garage CLI before serving content.
+
+RustFS is separate S3-compatible storage. It does not share Garage buckets or
+credentials. `rustfs.h` is the S3 API and `rustfs-console.h` is the console.

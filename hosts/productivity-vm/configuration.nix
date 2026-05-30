@@ -80,6 +80,9 @@ in
       restic-password = {
         restartUnits = [ "productivity-appdata-backup.service" ];
       };
+      rustfs-environment = {
+        restartUnits = [ "podman-rustfs.service" ];
+      };
       searxng-environment = {
         restartUnits = [
           "searx-init.service"

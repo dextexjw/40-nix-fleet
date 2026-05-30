@@ -7,7 +7,7 @@ The current fleet is intentionally small:
 
 - `gateway-vm` runs Traefik ingress, Technitium DNS, netboot.xyz, NetBird, and Tailscale.
 - `media-vm` runs Jellyfin, Audiobookshelf, Kavita, ARR apps, Gluetun-gated downloads, SMB media mounts, and appdata backups.
-- `productivity-vm` runs Git, docs, documents, RSS, search, vault, file sync, finance, cloud files, S3, notifications, and appdata backups.
+- `productivity-vm` runs Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, S3-compatible object storage, notifications, and appdata backups.
 
 Treat this repo as the source of truth for hosts, services, secrets workflow,
 and recovery notes. The fleet-wide service standard is captured in
@@ -20,7 +20,7 @@ should follow that blueprint before being treated as production-ready.
 | --- | --- | --- | --- | --- |
 | `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway` | Ingress, DNS, netboot, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
 | `media-vm` | `10.2.20.113` | `media` | Media services, Gluetun-gated downloads, SMB media, Restic appdata backups | [`hosts/media-vm/README.md`](hosts/media-vm/README.md) |
-| `productivity-vm` | `10.2.20.114` | `productivity` | Productivity services, documents, S3, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
+| `productivity-vm` | `10.2.20.114` | `productivity` | Productivity services, documents, Git forges, object storage, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
 
 Inventory lives in `hosts.nix`. Per-host configuration and host-specific
 runbooks live under `hosts/<name>/`.
@@ -119,6 +119,7 @@ a matching SOPS recipient before switching:
 ```sh
 scripts/deploy-media.sh
 scripts/gateway-vm/deploy-gateway.sh
+scripts/productivity-vm/deploy-productivity.sh
 ```
 
 See the host runbooks for bootstrap, upgrade, backup, restore, and validation
@@ -159,6 +160,7 @@ install or host key change, capture the host recipient, add the printed
 ```sh
 ssh smoke@10.2.20.113 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
 ssh smoke@10.2.20.112 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
+ssh smoke@10.2.20.114 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
 sops updatekeys secrets/secrets.yaml
 sops --decrypt secrets/secrets.yaml >/dev/null && echo ok
 ```

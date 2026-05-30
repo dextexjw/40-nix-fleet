@@ -137,7 +137,10 @@ check_dns_record() {
 }
 
 check_dns_record audiobookshelf.h "$HOST_IP"
+check_dns_record forgejo.h "$HOST_IP"
 check_dns_record gluetun.h "$HOST_IP"
+check_dns_record rustfs.h "$HOST_IP"
+check_dns_record rustfs-console.h "$HOST_IP"
 check_dns_record homepage.h "$HOST_IP"
 check_dns_record jellyfin.h "$HOST_IP"
 check_dns_record kavita.h "$HOST_IP"
@@ -162,6 +165,10 @@ wait_for_remote "MediaVM Gluetun WebUI route failed" "curl -fsS -H 'Host: media-
 wait_for_remote "Jellyfin route failed" "curl -fsS -o /dev/null -H 'Host: jellyfin.h' http://127.0.0.1/"
 wait_for_remote "Kavita route failed" "curl -fsS -o /dev/null -H 'Host: kavita.h' http://127.0.0.1/"
 wait_for_remote "Seerr route failed" "curl -fsS -o /dev/null -H 'Host: seerr.h' http://127.0.0.1/"
+wait_for_remote "Gitea route failed" "curl -fsS -o /dev/null -H 'Host: gitea.h' http://127.0.0.1/"
+wait_for_remote "Forgejo route failed" "curl -fsS -o /dev/null -H 'Host: forgejo.h' http://127.0.0.1/"
+wait_for_remote "RustFS route failed" "curl -fsS -H 'Host: rustfs.h' http://127.0.0.1/health >/dev/null"
+wait_for_remote "RustFS console route failed" "curl -fsS -H 'Host: rustfs-console.h' http://127.0.0.1/rustfs/console/health >/dev/null"
 wait_for_remote "Technitium route failed" "curl -fsS -H 'Host: technitium.h' http://127.0.0.1/ >/dev/null"
 
 if [[ "$CHECK_NETBOOTXYZ" == 1 ]]; then
@@ -192,6 +199,12 @@ homepage_checks="$homepage_checks && grep -Fq 'media-gluetun.h' /etc/homepage-da
 homepage_checks="$homepage_checks && grep -Fq '10.2.20.113:3001/api/health' /etc/homepage-dashboard/services.yaml"
 homepage_checks="$homepage_checks && grep -Fq 'seerr.h' /etc/homepage-dashboard/services.yaml"
 homepage_checks="$homepage_checks && grep -Fq '10.2.20.113:5055' /etc/homepage-dashboard/services.yaml"
+homepage_checks="$homepage_checks && grep -Fq 'forgejo.h' /etc/homepage-dashboard/services.yaml"
+homepage_checks="$homepage_checks && grep -Fq '10.2.20.114:3002' /etc/homepage-dashboard/services.yaml"
+homepage_checks="$homepage_checks && grep -Fq 'rustfs.h' /etc/homepage-dashboard/services.yaml"
+homepage_checks="$homepage_checks && grep -Fq '10.2.20.114:9000/health' /etc/homepage-dashboard/services.yaml"
+homepage_checks="$homepage_checks && grep -Fq 'rustfs-console.h' /etc/homepage-dashboard/services.yaml"
+homepage_checks="$homepage_checks && grep -Fq '10.2.20.114:9001/rustfs/console/health' /etc/homepage-dashboard/services.yaml"
 homepage_checks="$homepage_checks && grep -Fq 'TorrentPeek' /etc/homepage-dashboard/bookmarks.yaml"
 homepage_checks="$homepage_checks && grep -Fq 'https://github.com/' /etc/homepage-dashboard/bookmarks.yaml"
 if [[ "$CHECK_NETBOOTXYZ" == 1 ]]; then

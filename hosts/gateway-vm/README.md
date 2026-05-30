@@ -146,6 +146,7 @@ Traefik ingress routes are declared explicitly for:
 - `sabnzbd.h`
 - `seerr.h`
 - `gitea.h`
+- `forgejo.h`
 - `docs.h`
 - `paperless.h`
 - `freshrss.h`
@@ -158,6 +159,8 @@ Traefik ingress routes are declared explicitly for:
 - `nextcloud.h`
 - `garage.h`
 - `garage-web.h`
+- `rustfs.h`
+- `rustfs-console.h`
 - `ntfy.h`
 
 For netboot.xyz, configure the LAN DHCP server to point option 66 at

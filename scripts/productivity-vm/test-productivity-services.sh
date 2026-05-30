@@ -5,9 +5,11 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="productivity-vm"
 REPOSITORY="/mnt/backups/restic/appdata/productivity-vm"
 SOURCE="/srv/appsdata"
+ALLOW_MISSING_NEW_SERVICES=0
 KEY_SERVICES=(
   postgresql
   gitea
+  forgejo
   nginx
   paperless-scheduler
   paperless-task-queue
@@ -23,11 +25,13 @@ KEY_SERVICES=(
   phpfpm-firefly-iii
   phpfpm-nextcloud
   garage
+  podman-rustfs
   ntfy-sh
 )
 
 HOST_ROUTES=(
   gitea.h
+  forgejo.h
   docs.h
   paperless.h
   freshrss.h
@@ -40,12 +44,67 @@ HOST_ROUTES=(
   nextcloud.h
   garage.h
   garage-web.h
+  rustfs.h
+  rustfs-console.h
   ntfy.h
 )
+
+declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
+  [forgejo]=1
+  [podman-rustfs]=1
+)
+declare -A SKIPPED_SERVICE=()
 
 die() {
   printf 'error: %s\n' "$*" >&2
   exit 1
+}
+
+usage() {
+  cat <<EOF
+Usage:
+  scripts/productivity-vm/test-productivity-services.sh [--allow-missing-new-services]
+EOF
+}
+
+case "${1:-}" in
+  --allow-missing-new-services)
+    ALLOW_MISSING_NEW_SERVICES=1
+    shift
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+esac
+[[ $# -eq 0 ]] || die "unknown argument: $1"
+
+service_unit_exists() {
+  local service="$1"
+
+  colmena exec --on "$HOST" -- "systemctl cat '$service.service' >/dev/null 2>&1" >/dev/null 2>&1
+}
+
+service_is_skipped() {
+  local service="$1"
+
+  [[ "${SKIPPED_SERVICE[$service]:-0}" == 1 ]]
+}
+
+route_is_skipped() {
+  local route="$1"
+
+  case "$route" in
+    forgejo.h)
+      service_is_skipped forgejo
+      ;;
+    rustfs.h | rustfs-console.h)
+      service_is_skipped podman-rustfs
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 command -v colmena >/dev/null 2>&1 || die "colmena is missing; run nix develop first"
@@ -54,6 +113,14 @@ cd "$ROOT"
 
 printf 'Checking key productivity services...\n'
 for service in "${KEY_SERVICES[@]}"; do
+  if (( ALLOW_MISSING_NEW_SERVICES )) \
+    && [[ "${OPTIONAL_FIRST_DEPLOY_SERVICE[$service]:-0}" == 1 ]] \
+    && ! service_unit_exists "$service"; then
+    printf 'Skipping %s.service because it is not deployed yet.\n' "$service"
+    SKIPPED_SERVICE[$service]=1
+    continue
+  fi
+
   colmena exec --on "$HOST" -- systemctl is-active --quiet "$service.service"
 done
 
@@ -70,10 +137,17 @@ colmena exec --on "$HOST" -- env \
 
 printf 'Checking direct service listeners and nginx vhosts...\n'
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/ >/dev/null"
+if ! service_is_skipped forgejo; then
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3002/ >/dev/null"
+fi
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8087/ >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8222/ >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8384/ >/dev/null"
 colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 http://127.0.0.1:8086/); case \"\$status\" in 2*|3*|401) exit 0 ;; *) echo \"unexpected Stirling PDF status: \$status\" >&2; exit 1 ;; esac'"
+if ! service_is_skipped podman-rustfs; then
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9000/health >/dev/null"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9001/rustfs/console/health >/dev/null"
+fi
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:2586/v1/health >/dev/null"
 
 printf 'Checking Garage layout and endpoints...\n'
@@ -85,6 +159,11 @@ fi
 colmena exec --on "$HOST" -- garage bucket list >/dev/null
 
 for route in "${HOST_ROUTES[@]}"; do
+  if route_is_skipped "$route"; then
+    printf 'Skipping %s route because its service is not deployed yet.\n' "$route"
+    continue
+  fi
+
   case "$route" in
     garage.h)
       colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; status=\$(curl -sS -o \"\$tmp\" -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:3900/); case \"\$status\" in 403) ;; *) echo \"unexpected Garage S3 anonymous status for $route: \$status\" >&2; cat \"\$tmp\" >&2; exit 1 ;; esac; grep -q AccessDenied \"\$tmp\" || { echo \"Garage S3 anonymous response did not contain AccessDenied\" >&2; cat \"\$tmp\" >&2; exit 1; }'"
@@ -95,8 +174,17 @@ for route in "${HOST_ROUTES[@]}"; do
     gitea.h)
       colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:3000/ >/dev/null"
       ;;
+    forgejo.h)
+      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:3002/ >/dev/null"
+      ;;
     ntfy.h)
       colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:2586/v1/health >/dev/null"
+      ;;
+    rustfs.h)
+      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9000/health >/dev/null"
+      ;;
+    rustfs-console.h)
+      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9001/rustfs/console/health >/dev/null"
       ;;
     searxng.h)
       colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8087/ >/dev/null"

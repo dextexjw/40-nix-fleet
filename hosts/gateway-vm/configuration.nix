@@ -412,6 +412,13 @@ in
             siteMonitor = "http://${hosts.productivity-vm.ip}:3000/";
           }
           {
+            name = "Forgejo";
+            description = "Software forge\nhttp://${hosts.productivity-vm.ip}:3002";
+            href = "http://forgejo.${serviceDomain}/";
+            icon = "forgejo.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}:3002/";
+          }
+          {
             name = "Docs";
             description = "Material for MkDocs\nhttp://${hosts.productivity-vm.ip}:80";
             href = "http://docs.${serviceDomain}/";
@@ -487,6 +494,20 @@ in
             href = "http://garage-web.${serviceDomain}/";
             icon = "garage.png";
             siteMonitor = "http://${hosts.productivity-vm.ip}:3902/";
+          }
+          {
+            name = "RustFS";
+            description = "S3-compatible object storage\nhttp://${hosts.productivity-vm.ip}:9000";
+            href = "http://rustfs.${serviceDomain}/";
+            icon = "rustfs.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}:9000/health";
+          }
+          {
+            name = "RustFS Console";
+            description = "Object storage console\nhttp://${hosts.productivity-vm.ip}:9001";
+            href = "http://rustfs-console.${serviceDomain}/";
+            icon = "rustfs.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}:9001/rustfs/console/health";
           }
           {
             name = "ntfy";
@@ -593,6 +614,11 @@ in
         host = "freshrss.${serviceDomain}";
         url = "http://${hosts.productivity-vm.ip}:80";
       };
+      forgejo = {
+        description = "Forgejo software forge";
+        host = "forgejo.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:3002";
+      };
       garage = {
         description = "Garage standalone S3 API";
         host = "garage.${serviceDomain}";
@@ -657,6 +683,16 @@ in
         description = "Radarr movie management";
         host = "radarr.${serviceDomain}";
         url = "http://${hosts.media-vm.ip}:7878";
+      };
+      rustfs = {
+        description = "RustFS S3-compatible object storage";
+        host = "rustfs.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:9000";
+      };
+      rustfs-console = {
+        description = "RustFS object storage console";
+        host = "rustfs-console.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:9001";
       };
       sabnzbd = {
         description = "SABnzbd downloads";
@@ -784,6 +820,7 @@ in
       http://sabnzbd.${serviceDomain}
       http://seerr.${serviceDomain}
       http://gitea.${serviceDomain}
+      http://forgejo.${serviceDomain}
       http://docs.${serviceDomain}
       http://paperless.${serviceDomain}
       http://freshrss.${serviceDomain}
@@ -796,6 +833,8 @@ in
       http://nextcloud.${serviceDomain}
       http://garage.${serviceDomain}
       http://garage-web.${serviceDomain}
+      http://rustfs.${serviceDomain}
+      http://rustfs-console.${serviceDomain}
       http://ntfy.${serviceDomain}
 
     Network boot:

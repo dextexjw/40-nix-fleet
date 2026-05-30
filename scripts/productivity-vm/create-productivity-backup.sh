@@ -9,6 +9,7 @@ REPOSITORY="/mnt/backups/restic/appdata/productivity-vm"
 SOURCE="/srv/appsdata"
 SERVICES=(
   gitea.service
+  forgejo.service
   nginx.service
   paperless-scheduler.service
   paperless-task-queue.service
@@ -24,6 +25,7 @@ SERVICES=(
   phpfpm-firefly-iii.service
   phpfpm-nextcloud.service
   garage.service
+  podman-rustfs.service
   ntfy-sh.service
 )
 
@@ -85,4 +87,4 @@ ssh_productivity_vm "sudo env RESTIC_REPOSITORY='$REPOSITORY' RESTIC_PASSWORD_FI
 trap - EXIT
 restart_services
 
-"$ROOT/scripts/productivity-vm/test-productivity-services.sh"
+"$ROOT/scripts/productivity-vm/test-productivity-services.sh" --allow-missing-new-services
