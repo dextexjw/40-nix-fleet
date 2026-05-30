@@ -263,28 +263,28 @@ in
         services = [
           {
             name = "Homepage";
-            description = "Home of all my selfhosted services\nhttp://${host.ip}:8082";
+            description = "http://${host.ip}:8082";
             href = "http://homepage.${serviceDomain}/";
             icon = "homepage.png";
             siteMonitor = "http://127.0.0.1:8082/";
           }
           {
             name = "Traefik";
-            description = "Ingress dashboard\nhttp://${host.ip}:8080/dashboard/";
+            description = "http://${host.ip}:8080/dashboard/";
             href = "http://traefik.${serviceDomain}/dashboard/";
             icon = "traefik.png";
             siteMonitor = "http://127.0.0.1:8080/dashboard/";
           }
           {
             name = "Technitium";
-            description = "DNS administration and DoH endpoint\nhttp://${host.ip}:5380";
+            description = "http://${host.ip}:5380";
             href = "http://technitium.${serviceDomain}/";
             icon = "technitium.png";
             siteMonitor = "http://127.0.0.1:5380/";
           }
           {
             name = "Gluetun";
-            description = "Gluetun WebUI\n❗ Not accessible via LAN";
+            description = "HTTP proxy: gateway.vm.home.arpa:8888\mSOCKS v5 Host: gateway.vm.home.arpa:8388";
             href = "http://gluetun.${serviceDomain}/";
             icon = "gluetun.png";
             siteMonitor = "http://127.0.0.1:3000/api/health";
@@ -297,15 +297,8 @@ in
             siteMonitor = "http://127.0.0.1:3001/";
           }
           {
-            name = "Homepage Direct IP";
-            description = "Direct LAN Homepage endpoint\nURL http://homepage.${serviceDomain}/";
-            href = "http://${host.ip}:8082/";
-            icon = "homepage.png";
-            siteMonitor = "http://${host.ip}:8082/";
-          }
-          {
             name = "Traefik Dashboard IP";
-            description = "Metrics\nhttp://${host.ip}:8080/metrics";
+            description = "http://${host.ip}:8080/metrics";
             href = "http://${host.ip}:8080/dashboard/";
             icon = "traefik.png";
             siteMonitor = "http://${host.ip}:8080/dashboard/";
@@ -338,35 +331,35 @@ in
           }
           {
             name = "Kavita";
-            description = "eBooks library\nhttp://${hosts.media-vm.ip}:5000";
+            description = "http://${hosts.media-vm.ip}:5000";
             href = "http://kavita.${serviceDomain}/";
             icon = "kavita.png";
             siteMonitor = "http://${hosts.media-vm.ip}:5000/";
           }
           {
             name = "Sonarr";
-            description = "TV management\nhttp://${hosts.media-vm.ip}:8989";
+            description = "http://${hosts.media-vm.ip}:8989";
             href = "http://sonarr.${serviceDomain}/";
             icon = "sonarr.png";
             siteMonitor = "http://${hosts.media-vm.ip}:8989/";
           }
           {
             name = "Radarr";
-            description = "Movie management\nhttp://${hosts.media-vm.ip}:7878";
+            description = "http://${hosts.media-vm.ip}:7878";
             href = "http://radarr.${serviceDomain}/";
             icon = "radarr.png";
             siteMonitor = "http://${hosts.media-vm.ip}:7878/";
           }
           {
             name = "Prowlarr";
-            description = "Indexer management\nhttp://${hosts.media-vm.ip}:9696";
+            description = "http://${hosts.media-vm.ip}:9696";
             href = "http://prowlarr.${serviceDomain}/";
             icon = "prowlarr.png";
             siteMonitor = "http://${hosts.media-vm.ip}:9696/";
           }
           {
             name = "Bazarr";
-            description = "http://${hosts.media-vm.ip}:6767";
+            description = "Subtitles http://${hosts.media-vm.ip}:6767";
             href = "http://bazarr.${serviceDomain}/";
             icon = "bazarr.png";
             siteMonitor = "http://${hosts.media-vm.ip}:6767/";
@@ -380,7 +373,7 @@ in
           }
           {
             name = "Media Gluetun";
-            description = "Download client VPN status\nhttp://${hosts.media-vm.ip}:3001";
+            description = "media VPN @ http://${hosts.media-vm.ip}:3001";
             href = "http://media-gluetun.${serviceDomain}/";
             icon = "gluetun.png";
             siteMonitor = "http://${hosts.media-vm.ip}:3001/api/health";
@@ -394,7 +387,7 @@ in
           }
           {
             name = "Seerr";
-            description = "Media requests\nhttp://${hosts.media-vm.ip}:5055";
+            description = "http://${hosts.media-vm.ip}:5055";
             href = "http://seerr.${serviceDomain}/";
             icon = "seerr.png";
             siteMonitor = "http://${hosts.media-vm.ip}:5055/";
@@ -413,7 +406,7 @@ in
           }
           {
             name = "Forgejo";
-            description = "Software forge\nhttp://${hosts.productivity-vm.ip}:3002";
+            description = "Gitea community forge\nhttp://${hosts.productivity-vm.ip}:3002";
             href = "http://forgejo.${serviceDomain}/";
             icon = "forgejo.png";
             siteMonitor = "http://${hosts.productivity-vm.ip}:3002/";
