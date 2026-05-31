@@ -482,6 +482,13 @@ in
             siteMonitor = "http://${hosts.productivity-vm.ip}/";
           }
           {
+            name = "Shlink";
+            description = "Short-link web client\nhttp://${hosts.productivity-vm.ip}:8089";
+            href = "http://shlink.${serviceDomain}/";
+            icon = "shlink.png";
+            siteMonitor = "http://${hosts.productivity-vm.ip}:8089/";
+          }
+          {
             name = "Garage";
             description = "Static website endpoint\nhttp://${hosts.productivity-vm.ip}:3902";
             href = "http://garage-web.${serviceDomain}/";
@@ -697,6 +704,16 @@ in
         host = "searxng.${serviceDomain}";
         url = "http://${hosts.productivity-vm.ip}:8087";
       };
+      shlink = {
+        description = "Shlink short-link API and redirect service";
+        host = "s.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:8088";
+      };
+      shlink-web = {
+        description = "Shlink Web Client";
+        host = "shlink.${serviceDomain}";
+        url = "http://${hosts.productivity-vm.ip}:8089";
+      };
       sonarr = {
         description = "Sonarr TV management";
         host = "sonarr.${serviceDomain}";
@@ -824,6 +841,8 @@ in
       http://stirling-pdf.${serviceDomain}
       http://firefly.${serviceDomain}
       http://nextcloud.${serviceDomain}
+      http://s.${serviceDomain}
+      http://shlink.${serviceDomain}
       http://garage.${serviceDomain}
       http://garage-web.${serviceDomain}
       http://rustfs.${serviceDomain}

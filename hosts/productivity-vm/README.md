@@ -1,8 +1,8 @@
 # productivity-vm
 
 `productivity-vm` runs the personal productivity stack, nginx-backed internal
-apps, Git forges, standalone Garage and RustFS object storage, PostgreSQL,
-appdata backups, and restore checks.
+apps, Git forges, Shlink short links, standalone Garage and RustFS object
+storage, PostgreSQL, appdata backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
 `configuration.nix` and imports the stack from
@@ -42,6 +42,8 @@ path backed up by Restic.
 | Stirling PDF | `http://stirling-pdf.h` | `10.2.20.114:8086` |
 | Firefly III | `http://firefly.h` | `10.2.20.114:80` |
 | Nextcloud | `http://nextcloud.h` | `10.2.20.114:80` |
+| Shlink short links/API | `http://s.h` | `10.2.20.114:8088` |
+| Shlink Web Client | `http://shlink.h` | `10.2.20.114:8089` |
 | Garage S3 API | `http://garage.h` | `10.2.20.114:3900` |
 | Garage static web | `http://garage-web.h` | `10.2.20.114:3902` |
 | RustFS S3 API | `http://rustfs.h` | `10.2.20.114:9000` |
@@ -60,6 +62,7 @@ Important appdata paths:
 - `/srv/appsdata/paperless`
 - `/srv/appsdata/freshrss`
 - `/srv/appsdata/privatebin`
+- `/srv/appsdata/shlink`
 - `/srv/appsdata/firefly-iii`
 - `/srv/appsdata/nextcloud`
 - `/srv/appsdata/vaultwarden`
@@ -93,6 +96,7 @@ Required productivity secrets:
 - `paperless-admin-password`
 - `rustfs-environment`
 - `searxng-environment`
+- `shlink-environment`
 - `syncthing-gui-password`
 - `vaultwarden-environment`
 
@@ -215,3 +219,9 @@ the upstream Garage CLI before serving content.
 
 RustFS is separate S3-compatible storage. It does not share Garage buckets or
 credentials. `rustfs.h` is the S3 API and `rustfs-console.h` is the console.
+
+Shlink uses `s.h` for short links and its API. The local Shlink Web Client is
+served at `shlink.h`. Get the API key from the encrypted
+`shlink-environment` secret, then add `http://s.h` in the web client. Do not
+preconfigure the web client with the API key because that static configuration
+is browser-readable.

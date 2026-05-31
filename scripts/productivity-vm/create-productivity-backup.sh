@@ -25,6 +25,8 @@ SERVICES=(
   phpfpm-firefly-iii.service
   phpfpm-nextcloud.service
   garage.service
+  podman-shlink.service
+  podman-shlink-web.service
   podman-rustfs.service
   ntfy-sh.service
 )

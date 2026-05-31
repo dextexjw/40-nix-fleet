@@ -89,6 +89,12 @@ in
           "searx.service"
         ];
       };
+      shlink-environment = {
+        restartUnits = [
+          "shlink-postgresql-password.service"
+          "podman-shlink.service"
+        ];
+      };
       smb-credentials = { };
       syncthing-gui-password = {
         owner = "syncthing";

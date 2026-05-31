@@ -157,6 +157,8 @@ Traefik ingress routes are declared explicitly for:
 - `stirling-pdf.h`
 - `firefly.h`
 - `nextcloud.h`
+- `s.h`
+- `shlink.h`
 - `garage.h`
 - `garage-web.h`
 - `rustfs.h`

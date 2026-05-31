@@ -141,6 +141,8 @@ check_dns_record forgejo.h "$HOST_IP"
 check_dns_record gluetun.h "$HOST_IP"
 check_dns_record rustfs.h "$HOST_IP"
 check_dns_record rustfs-console.h "$HOST_IP"
+check_dns_record s.h "$HOST_IP"
+check_dns_record shlink.h "$HOST_IP"
 check_dns_record homepage.h "$HOST_IP"
 check_dns_record jellyfin.h "$HOST_IP"
 check_dns_record kavita.h "$HOST_IP"
@@ -169,6 +171,8 @@ wait_for_remote "Gitea route failed" "curl -fsS -o /dev/null -H 'Host: gitea.h' 
 wait_for_remote "Forgejo route failed" "curl -fsS -o /dev/null -H 'Host: forgejo.h' http://127.0.0.1/"
 wait_for_remote "RustFS route failed" "curl -fsS -H 'Host: rustfs.h' http://127.0.0.1/health >/dev/null"
 wait_for_remote "RustFS console route failed" "curl -fsS -H 'Host: rustfs-console.h' http://127.0.0.1/rustfs/console/health >/dev/null"
+wait_for_remote "Shlink route failed" "curl -fsS -H 'Host: s.h' http://127.0.0.1/rest/health >/dev/null"
+wait_for_remote "Shlink Web Client route failed" "curl -fsS -o /dev/null -H 'Host: shlink.h' http://127.0.0.1/"
 wait_for_remote "Technitium route failed" "curl -fsS -H 'Host: technitium.h' http://127.0.0.1/ >/dev/null"
 
 if [[ "$CHECK_NETBOOTXYZ" == 1 ]]; then
@@ -205,6 +209,8 @@ homepage_checks="$homepage_checks && grep -Fq 'rustfs.h' /etc/homepage-dashboard
 homepage_checks="$homepage_checks && grep -Fq '10.2.20.114:9000/health' /etc/homepage-dashboard/services.yaml"
 homepage_checks="$homepage_checks && grep -Fq 'rustfs-console.h' /etc/homepage-dashboard/services.yaml"
 homepage_checks="$homepage_checks && grep -Fq '10.2.20.114:9001/rustfs/console/health' /etc/homepage-dashboard/services.yaml"
+homepage_checks="$homepage_checks && grep -Fq 'shlink.h' /etc/homepage-dashboard/services.yaml"
+homepage_checks="$homepage_checks && grep -Fq '10.2.20.114:8089' /etc/homepage-dashboard/services.yaml"
 homepage_checks="$homepage_checks && grep -Fq 'TorrentPeek' /etc/homepage-dashboard/bookmarks.yaml"
 homepage_checks="$homepage_checks && grep -Fq 'https://github.com/' /etc/homepage-dashboard/bookmarks.yaml"
 if [[ "$CHECK_NETBOOTXYZ" == 1 ]]; then

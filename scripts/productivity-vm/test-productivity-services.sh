@@ -25,6 +25,8 @@ KEY_SERVICES=(
   phpfpm-firefly-iii
   phpfpm-nextcloud
   garage
+  podman-shlink
+  podman-shlink-web
   podman-rustfs
   ntfy-sh
 )
@@ -46,11 +48,15 @@ HOST_ROUTES=(
   garage-web.h
   rustfs.h
   rustfs-console.h
+  s.h
+  shlink.h
   ntfy.h
 )
 
 declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
   [forgejo]=1
+  [podman-shlink]=1
+  [podman-shlink-web]=1
   [podman-rustfs]=1
 )
 declare -A SKIPPED_SERVICE=()
@@ -101,6 +107,12 @@ route_is_skipped() {
     rustfs.h | rustfs-console.h)
       service_is_skipped podman-rustfs
       ;;
+    s.h)
+      service_is_skipped podman-shlink
+      ;;
+    shlink.h)
+      service_is_skipped podman-shlink-web
+      ;;
     *)
       return 1
       ;;
@@ -148,6 +160,12 @@ if ! service_is_skipped podman-rustfs; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9000/health >/dev/null"
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9001/rustfs/console/health >/dev/null"
 fi
+if ! service_is_skipped podman-shlink; then
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8088/rest/health >/dev/null"
+fi
+if ! service_is_skipped podman-shlink-web; then
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8089/ >/dev/null"
+fi
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:2586/v1/health >/dev/null"
 
 printf 'Checking Garage layout and endpoints...\n'
@@ -186,8 +204,14 @@ for route in "${HOST_ROUTES[@]}"; do
     rustfs-console.h)
       colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9001/rustfs/console/health >/dev/null"
       ;;
+    s.h)
+      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8088/rest/health >/dev/null"
+      ;;
     searxng.h)
       colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8087/ >/dev/null"
+      ;;
+    shlink.h)
+      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8089/ >/dev/null"
       ;;
     stirling-pdf.h)
       colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:8086/); case \"\$status\" in 2*|3*|401) exit 0 ;; *) echo \"unexpected Stirling PDF status for $route: \$status\" >&2; exit 1 ;; esac'"

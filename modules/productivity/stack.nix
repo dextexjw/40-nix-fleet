@@ -83,6 +83,8 @@ let
     "firefly-iii-cron.timer"
     "phpfpm-nextcloud.service"
     "garage.service"
+    "podman-shlink.service"
+    "podman-shlink-web.service"
     "podman-rustfs.service"
     "ntfy-sh.service"
   ];
@@ -130,6 +132,8 @@ in
         rustfs = "rustfs.h";
         rustfsConsole = "rustfs-console.h";
         searxng = "searxng.h";
+        shlink = "s.h";
+        shlinkWeb = "shlink.h";
         stirlingPdf = "stirling-pdf.h";
         syncthing = "syncthing.h";
         vaultwarden = "vaultwarden.h";
@@ -150,6 +154,8 @@ in
         rustfsApi = 9000;
         rustfsConsole = 9001;
         searxng = 8087;
+        shlink = 8088;
+        shlinkWeb = 8089;
         stirlingPdf = 8086;
         syncthing = 8384;
         vaultwarden = 8222;
@@ -286,6 +292,8 @@ in
         "z '${appdata}/rustfs/data' 0750 ${toString rustfsUid} ${toString rustfsGid} - -"
         "d '${appdata}/searxng' 0750 searx searx - -"
         "z '${appdata}/searxng' 0750 searx searx - -"
+        "d '${appdata}/shlink' 0750 root productivity - -"
+        "z '${appdata}/shlink' 0750 root productivity - -"
         "d '${appdata}/stirling-pdf' 0750 stirling-pdf stirling-pdf - -"
         "z '${appdata}/stirling-pdf' 0750 stirling-pdf stirling-pdf - -"
         "d '${appdata}/syncthing' 0750 syncthing syncthing - -"
@@ -334,6 +342,13 @@ in
     services.postgresql = {
       enable = true;
       dataDir = "${appdata}/postgresql/${config.services.postgresql.package.psqlSchema}";
+      ensureDatabases = [ "shlink" ];
+      ensureUsers = [
+        {
+          name = "shlink";
+          ensureDBOwnership = true;
+        }
+      ];
     };
 
     # --------------------------------------------------------------------------
@@ -589,6 +604,48 @@ in
     };
 
     virtualisation.oci-containers.backend = "podman";
+    virtualisation.oci-containers.containers.shlink = {
+      image = "docker.io/shlinkio/shlink@sha256:1af04c6e180c09428e9fa7d2a52b39accecb0bc3ff4fc5264122add7b6f0a922";
+      pull = "missing";
+
+      environment = {
+        CORS_ALLOW_ORIGIN = "http://${serviceHosts.shlinkWeb}";
+        DB_DRIVER = "postgres";
+        DB_HOST = "127.0.0.1";
+        DB_NAME = "shlink";
+        DB_PORT = "5432";
+        DB_USER = "shlink";
+        DEFAULT_DOMAIN = serviceHosts.shlink;
+        IS_HTTPS_ENABLED = "false";
+        LOGS_FORMAT = "json";
+        PORT = toString cfg.ports.shlink;
+        TIMEZONE = config.time.timeZone;
+      };
+      environmentFiles = [ (secretPath "shlink-environment") ];
+
+      extraOptions = [
+        "--cap-drop=ALL"
+        "--network=host"
+        "--security-opt=no-new-privileges"
+      ];
+    };
+
+    virtualisation.oci-containers.containers.shlink-web = {
+      image = "docker.io/shlinkio/shlink-web-client@sha256:bb5013171288cba8686588f142f3d6729e586828f7a2a93a9ac1ac66724a47ff";
+      pull = "missing";
+
+      dependsOn = [ "shlink" ];
+
+      extraOptions = [
+        "--cap-drop=ALL"
+        "--security-opt=no-new-privileges"
+      ];
+
+      ports = [
+        "0.0.0.0:${toString cfg.ports.shlinkWeb}:8080/tcp"
+      ];
+    };
+
     virtualisation.oci-containers.containers.rustfs = {
       image = "docker.io/rustfs/rustfs@sha256:029bab58b7cfca8b3b3483d49ac073075f555d7cc50abdd706d7df74bf6ec432";
       pull = "missing";
@@ -709,10 +766,61 @@ in
     # SERVICE OVERRIDES FOR /srv/appdata AND LAN ROUTING
     # --------------------------------------------------------------------------
 
+    systemd.services.shlink-postgresql-password = {
+      description = "Set Shlink PostgreSQL password from runtime secret";
+      after = [
+        "postgresql.service"
+        "postgresql-setup.service"
+      ];
+      requires = [
+        "postgresql.service"
+        "postgresql-setup.service"
+      ];
+      path = [
+        config.services.postgresql.package
+      ];
+      serviceConfig = {
+        EnvironmentFile = secretPath "shlink-environment";
+        Type = "oneshot";
+        User = "postgres";
+        Group = "postgres";
+      };
+      script = ''
+        set -euo pipefail
+
+        : "''${DB_PASSWORD:?missing DB_PASSWORD in shlink-environment}"
+
+        psql -v ON_ERROR_STOP=1 -v shlink_password="$DB_PASSWORD" -d postgres <<'SQL'
+        ALTER ROLE shlink WITH LOGIN PASSWORD :'shlink_password';
+        SQL
+      '';
+    };
+
     systemd.services.garage.serviceConfig = {
       DynamicUser = mkForce false;
       User = "garage";
       Group = "garage";
+    };
+
+    systemd.services.podman-shlink = {
+      after = [
+        "network-online.target"
+        "postgresql.service"
+        "postgresql-setup.service"
+        "shlink-postgresql-password.service"
+      ];
+      wants = [ "network-online.target" ];
+      requires = [ "shlink-postgresql-password.service" ];
+      serviceConfig.RestartSec = "30s";
+    };
+
+    systemd.services.podman-shlink-web = {
+      after = [
+        "network-online.target"
+        "podman-shlink.service"
+      ];
+      wants = [ "network-online.target" ];
+      serviceConfig.RestartSec = "30s";
     };
 
     systemd.services.podman-rustfs = {
@@ -961,6 +1069,8 @@ in
       cfg.ports.rustfsApi
       cfg.ports.rustfsConsole
       cfg.ports.searxng
+      cfg.ports.shlink
+      cfg.ports.shlinkWeb
       cfg.ports.stirlingPdf
       cfg.ports.syncthing
       cfg.ports.vaultwarden
@@ -976,7 +1086,7 @@ in
 
       productivity-vm runs Gitea, Forgejo, Material for MkDocs, Paperless-ngx,
       FreshRSS, SearXNG, Vaultwarden, PrivateBin, Syncthing, Stirling PDF,
-      Firefly III, Nextcloud, Garage, RustFS, ntfy, nginx, PostgreSQL, and
+      Firefly III, Nextcloud, Shlink, Garage, RustFS, ntfy, nginx, PostgreSQL, and
       Restic appdata backups.
 
       Persistent state root:
@@ -1005,6 +1115,8 @@ in
         http://${serviceHosts.garageWeb}
         http://${serviceHosts.rustfs}
         http://${serviceHosts.rustfsConsole}
+        http://${serviceHosts.shlink}
+        http://${serviceHosts.shlinkWeb}
         http://${serviceHosts.ntfy}
 
       Direct LAN ports:
@@ -1018,6 +1130,8 @@ in
         Garage static web: ${toString cfg.ports.garageWeb}
         RustFS S3 API: ${toString cfg.ports.rustfsApi}
         RustFS console: ${toString cfg.ports.rustfsConsole}
+        Shlink API and redirect service: ${toString cfg.ports.shlink}
+        Shlink Web Client: ${toString cfg.ports.shlinkWeb}
         ntfy: ${toString cfg.ports.ntfy}
         nginx-backed services: 80
 
@@ -1048,6 +1162,12 @@ in
       RustFS is a separate S3-compatible object store in this pass. It does not
       share Garage buckets or credentials. rustfs.h is the S3 API and
       rustfs-console.h is the RustFS console.
+
+      Shlink uses the PostgreSQL database named shlink and the short-link route
+      s.h. The local Shlink Web Client is served at shlink.h. Retrieve the API
+      key from the encrypted shlink-environment secret and add http://s.h as a
+      server in the web client; do not publish the API key in web client static
+      configuration.
     '';
   };
 }

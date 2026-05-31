@@ -7,7 +7,7 @@ REPOSITORY="/mnt/backups/restic/appdata/productivity-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
 SNAPSHOT="${1:-}"
-SERVICES="gitea forgejo nginx paperless-scheduler paperless-task-queue paperless-consumer paperless-web freshrss-updater phpfpm-freshrss searx vaultwarden phpfpm-privatebin syncthing stirling-pdf phpfpm-firefly-iii phpfpm-nextcloud garage podman-rustfs ntfy-sh"
+SERVICES="gitea forgejo nginx paperless-scheduler paperless-task-queue paperless-consumer paperless-web freshrss-updater phpfpm-freshrss searx vaultwarden phpfpm-privatebin syncthing stirling-pdf phpfpm-firefly-iii phpfpm-nextcloud garage podman-shlink podman-shlink-web podman-rustfs ntfy-sh"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -121,6 +121,7 @@ chmod 0755 "\$source_path"
 [ -d "\$source_path/stirling-pdf" ] && chown -R stirling-pdf:stirling-pdf "\$source_path/stirling-pdf"
 [ -d "\$source_path/garage" ] && chown -R garage:garage "\$source_path/garage"
 [ -d "\$source_path/rustfs" ] && chown -R 10001:10001 "\$source_path/rustfs"
+[ -d "\$source_path/shlink" ] && chown -R root:productivity "\$source_path/shlink"
 [ -d "\$source_path/ntfy" ] && chown -R ntfy-sh:ntfy-sh "\$source_path/ntfy"
 [ -d "\$source_path/postgresql" ] && chown -R postgres:postgres "\$source_path/postgresql"
 [ -d "\$source_path/postgresql-dumps" ] && chown -R postgres:postgres "\$source_path/postgresql-dumps"
