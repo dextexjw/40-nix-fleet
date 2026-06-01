@@ -76,7 +76,7 @@ in
             url = "http://127.0.0.1:3000";
           };
           homepage = {
-            description = "HTTP proxy: gateway.vm.home.arpa:8888\mSOCKS v5 Host: gateway.vm.home.arpa:8388";
+            description = "HTTP: 8888 - SOCKS v5: 8388";
             href = "http://${hostname "gluetun"}/";
             icon = "gluetun.png";
             siteMonitor = "http://127.0.0.1:3000/api/health";
@@ -92,7 +92,7 @@ in
             url = "http://127.0.0.1:3001";
           };
           homepage = {
-            description = "PXE boot menu and local asset manager\nTFTP ${host.ip}:69/udp";
+            description = "TFTP ${host.ip}:69/udp";
             href = "http://${hostname "netbootxyz"}/";
             icon = "netboot.png";
             siteMonitor = "http://127.0.0.1:3001/";
