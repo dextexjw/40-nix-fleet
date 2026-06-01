@@ -57,16 +57,16 @@ Service access:
 Technitium admin HTTP is available directly at `http://10.2.20.112:5380` and
 through Traefik at `http://technitium.h/`.
 
-Homepage is declared in Nix and generated into `/etc/homepage-dashboard`. Its
-dashboard lists Gateway-owned `.h` routes, including MediaVM-backed routes that
-Traefik already proxies, plus direct Gateway IP URLs. Gateway, Media, and
-Productivity sections use row layouts with four cards per row. Homepage site
-monitors use direct backend URLs for the internal HTTP cards so status checks do
-not depend on browser routing through Traefik. A bottom `Links` bookmark section
-uses a compact three-column layout with icons and service names for external
-references such as TorrentPeek, GitHub, NixOS Search, Homepage docs, Traefik
-docs, and Technitium GitHub. It does not use service API widgets or mutable UI
-configuration in this pass.
+Homepage is declared in Nix and generated into `/etc/homepage-dashboard`.
+Gateway renders Homepage service groups and Traefik routes from the pure
+owner-side exposure catalog in `hosts/*/exposure.nix` and
+`modules/*/catalog.nix`. Gateway, Media, and Productivity sections use row
+layouts with four cards per row. Homepage site monitors use direct backend URLs
+for the internal HTTP cards so status checks do not depend on browser routing
+through Traefik. A bottom `Links` bookmark section uses a compact three-column
+layout with icons and service names for external references such as TorrentPeek,
+GitHub, NixOS Search, Homepage docs, Traefik docs, and Technitium GitHub. It
+does not use service API widgets or mutable UI configuration in this pass.
 
 Traefik writes JSON access logs to the `traefik.service` journal. Prometheus
 metrics are exposed on the existing dashboard entrypoint at
@@ -127,43 +127,35 @@ conditional forward/delegation for `.h` to `10.2.20.112` on DNS port 53. A
 temporary single-client workaround is adding `10.2.20.112 gluetun.h` to that
 client's hosts file.
 
-Traefik ingress routes are declared explicitly for:
+Traefik ingress routes are still declared explicitly, but the declarations now
+live with their owning host or service catalog:
 
-- `homepage.h`
-- `netbootxyz.h`
-- `technitium.h`
-- `traefik.h`
-- `gluetun.h`
-- `jellyfin.h`
-- `audiobookshelf.h`
-- `kavita.h`
-- `sonarr.h`
-- `radarr.h`
-- `prowlarr.h`
-- `bazarr.h`
-- `qbittorrent.h`
-- `media-gluetun.h`
-- `sabnzbd.h`
-- `seerr.h`
-- `gitea.h`
-- `forgejo.h`
-- `docs.h`
-- `paperless.h`
-- `freshrss.h`
-- `searxng.h`
-- `privatebin.h`
-- `vaultwarden.h`
-- `syncthing.h`
-- `stirling-pdf.h`
-- `firefly.h`
-- `nextcloud.h`
-- `s.h`
-- `shlink.h`
-- `garage.h`
-- `garage-web.h`
-- `rustfs.h`
-- `rustfs-console.h`
-- `ntfy.h`
+- Gateway-local routes: `hosts/gateway-vm/exposure.nix`
+- Media routes/cards: `hosts/media-vm/exposure.nix` and `modules/media/catalog.nix`
+- Productivity routes/cards: `hosts/productivity-vm/exposure.nix` and `modules/productivity/catalog.nix`
+
+`gateway-vm` imports those pure data files and renders
+`fleet.gateway.traefik.routes`, `fleet.gateway.homepage.serviceGroups`,
+`/etc/fleet/gateway-vm.md`, and `/etc/fleet/gateway-exposure-smoke.tsv` from the
+same source. Do not add broad wildcard Traefik routers or runtime service
+registration.
+
+Adding a Gateway-exposed service:
+
+1. Add or update the owning service module.
+2. Add the route/card/smoke metadata in the owning catalog or
+   `hosts/<name>/exposure.nix`.
+3. Run `nix flake check` and `colmena build --on gateway-vm`.
+4. Use `scripts/gateway-vm/test-gateway-services.sh` after a future Gateway
+   deploy to validate the generated DNS, Traefik route, and Homepage card checks.
+
+Adding a Gateway-exposed VM:
+
+1. Add the host inventory in `hosts.nix`.
+2. Create `hosts/<name>/configuration.nix`; `flake.nix` includes only inventory
+   hosts with a real configuration file in the Colmena hive.
+3. Add `hosts/<name>/exposure.nix` and, for larger stacks, a module catalog
+   under `modules/<domain>/catalog.nix`.
 
 For netboot.xyz, configure the LAN DHCP server to point option 66 at
 `10.2.20.112` and option 67 at `netboot.xyz.efi`. `gateway-vm` serves the

@@ -4,6 +4,7 @@ set -euo pipefail
 HOST="gateway-vm"
 HOST_IP="10.2.20.112"
 REMOTE_USER="smoke"
+EXPOSURE_SMOKE_FILE="/etc/fleet/gateway-exposure-smoke.tsv"
 EXTERNAL_TCP_PORTS=(22 53 80 853 5380 8080 8082 8888 53443)
 LOCAL_TCP_PORTS=(3000)
 UDP_PORTS=(53 69 41641)
@@ -55,6 +56,24 @@ ssh_gateway_vm() {
     -o UserKnownHostsFile=/dev/null \
     "$REMOTE_USER@$HOST_IP" \
     "$@"
+}
+
+unit_file_exists() {
+  local unit="$1"
+
+  ssh_gateway_vm "systemctl list-unit-files '$unit' --no-legend 2>/dev/null | awk '{ print \$1 }' | grep -Fxq '$unit'"
+}
+
+skip_for_missing_unit() {
+  local required_unit="$1"
+  local label="$2"
+
+  if [[ -n "$required_unit" ]] && ! unit_file_exists "$required_unit"; then
+    printf '  skipping %s; %s is not installed\n' "$label" "$required_unit"
+    return 0
+  fi
+
+  return 1
 }
 
 need ssh
@@ -117,7 +136,6 @@ else
   printf 'Skipping NetBird checks; netbird.service is not installed on %s\n' "$HOST"
 fi
 
-printf 'Checking .h wildcard service DNS records...\n'
 check_dns_record() {
   local name="$1"
   local expected_ip="$2"
@@ -136,48 +154,49 @@ check_dns_record() {
   done
 }
 
-check_dns_record audiobookshelf.h "$HOST_IP"
-check_dns_record forgejo.h "$HOST_IP"
-check_dns_record gluetun.h "$HOST_IP"
-check_dns_record rustfs.h "$HOST_IP"
-check_dns_record rustfs-console.h "$HOST_IP"
-check_dns_record s.h "$HOST_IP"
-check_dns_record shlink.h "$HOST_IP"
-check_dns_record homepage.h "$HOST_IP"
-check_dns_record jellyfin.h "$HOST_IP"
-check_dns_record kavita.h "$HOST_IP"
-check_dns_record media-gluetun.h "$HOST_IP"
-check_dns_record seerr.h "$HOST_IP"
-if [[ "$CHECK_NETBOOTXYZ" == 1 ]]; then
-  check_dns_record netbootxyz.h "$HOST_IP"
-fi
-check_dns_record technitium.h "$HOST_IP"
-check_dns_record traefik.h "$HOST_IP"
-check_dns_record wildcard-gateway-validation.h "$HOST_IP"
+run_exposure_smoke_checks() {
+  wait_for_remote "Gateway exposure smoke catalog is missing" "test -s '$EXPOSURE_SMOKE_FILE'"
 
-printf 'Checking Traefik, Technitium, and Gluetun WebUI local HTTP endpoints...\n'
-wait_for_remote "Traefik dashboard web route failed" "curl -fsS -H 'Host: traefik.h' http://127.0.0.1/dashboard/ >/dev/null"
+  while IFS=$'\t' read -r kind label arg1 arg2 arg3 _rest; do
+    [[ -z "$kind" || "$kind" == \#* ]] && continue
+
+    case "$kind" in
+      dns)
+        if skip_for_missing_unit "$arg2" "$label"; then
+          continue
+        fi
+        check_dns_record "$label" "$arg1"
+        ;;
+      http)
+        if skip_for_missing_unit "$arg2" "$label"; then
+          continue
+        fi
+        wait_for_remote "$label failed" "$arg1"
+        printf '  %s ok\n' "$label"
+        ;;
+      homepage)
+        if skip_for_missing_unit "$arg3" "$label"; then
+          continue
+        fi
+        wait_for_remote "$label missing from Homepage generated config" "grep -Fq '$arg2' '$arg1'"
+        printf '  %s found\n' "$label"
+        ;;
+      *)
+        die "unknown exposure smoke row kind '$kind' for '$label'"
+        ;;
+    esac
+  done < <(ssh_gateway_vm "cat '$EXPOSURE_SMOKE_FILE'")
+}
+
+printf 'Checking generated Gateway exposure DNS, routes, and Homepage cards...\n'
+run_exposure_smoke_checks
+
+printf 'Checking Gateway-local direct HTTP endpoints...\n'
 wait_for_remote "Traefik dashboard route failed" "curl -fsS http://127.0.0.1:8080/dashboard/ >/dev/null"
 wait_for_remote "Traefik metrics endpoint failed" "tmp=\$(mktemp); trap 'rm -f \"\$tmp\"' EXIT; curl -fsS -o \"\$tmp\" http://127.0.0.1:8080/metrics && grep -q '^traefik_' \"\$tmp\""
 wait_for_remote "Homepage direct endpoint failed" "curl -fsS http://${HOST_IP}:8082/ >/dev/null"
-wait_for_remote "Homepage Traefik route failed" "curl -fsS -H 'Host: homepage.h' http://127.0.0.1/ >/dev/null"
-wait_for_remote "Gluetun WebUI route failed" "curl -fsS -H 'Host: gluetun.h' http://127.0.0.1/api/health >/dev/null"
-wait_for_remote "SABnzbd route failed" "curl -fsS -o /dev/null -H 'Host: sabnzbd.h' http://127.0.0.1/"
-wait_for_remote "MediaVM Gluetun WebUI route failed" "curl -fsS -H 'Host: media-gluetun.h' http://127.0.0.1/api/health >/dev/null"
-wait_for_remote "Jellyfin route failed" "curl -fsS -o /dev/null -H 'Host: jellyfin.h' http://127.0.0.1/"
-wait_for_remote "Kavita route failed" "curl -fsS -o /dev/null -H 'Host: kavita.h' http://127.0.0.1/"
-wait_for_remote "Seerr route failed" "curl -fsS -o /dev/null -H 'Host: seerr.h' http://127.0.0.1/"
-wait_for_remote "Gitea route failed" "curl -fsS -o /dev/null -H 'Host: gitea.h' http://127.0.0.1/"
-wait_for_remote "Forgejo route failed" "curl -fsS -o /dev/null -H 'Host: forgejo.h' http://127.0.0.1/"
-wait_for_remote "RustFS route failed" "curl -fsS -H 'Host: rustfs.h' http://127.0.0.1/health >/dev/null"
-wait_for_remote "RustFS console route failed" "curl -fsS -H 'Host: rustfs-console.h' http://127.0.0.1/rustfs/console/health >/dev/null"
-wait_for_remote "Shlink route failed" "curl -fsS -H 'Host: s.h' http://127.0.0.1/rest/health >/dev/null"
-wait_for_remote "Shlink Web Client route failed" "curl -fsS -o /dev/null -H 'Host: shlink.h' http://127.0.0.1/"
-wait_for_remote "Technitium route failed" "curl -fsS -H 'Host: technitium.h' http://127.0.0.1/ >/dev/null"
 
 if [[ "$CHECK_NETBOOTXYZ" == 1 ]]; then
-  wait_for_remote "netboot.xyz Traefik route failed" "curl -fsS -H 'Host: netbootxyz.h' http://127.0.0.1/ >/dev/null"
-
   printf 'Checking netboot.xyz TFTP boot file fetch...\n'
   wait_for_remote "netboot.xyz TFTP boot file fetch failed" \
     "tmp=\$(mktemp); trap 'rm -f \"\$tmp\"' EXIT; atftp --get --remote-file netboot.xyz.efi --local-file \"\$tmp\" --tftp-timeout 5 ${HOST_IP} >/dev/null && test -s \"\$tmp\""
@@ -185,38 +204,13 @@ else
   printf 'Skipping netboot.xyz container checks; podman-netbootxyz.service is not installed on %s\n' "$HOST"
 fi
 
-printf 'Checking Homepage generated config...\n'
-homepage_checks="grep -Fq 'target: _blank' /etc/homepage-dashboard/settings.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'layout:' /etc/homepage-dashboard/settings.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'Gateway:' /etc/homepage-dashboard/settings.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'Productivity:' /etc/homepage-dashboard/settings.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'Links:' /etc/homepage-dashboard/settings.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'columns: 4' /etc/homepage-dashboard/settings.yaml"
+printf 'Checking static Homepage bookmark config...\n'
+homepage_checks="grep -Fq 'Links:' /etc/homepage-dashboard/settings.yaml"
 homepage_checks="$homepage_checks && grep -Fq 'columns: 3' /etc/homepage-dashboard/settings.yaml"
 homepage_checks="$homepage_checks && ! grep -Fq 'iconsOnly: true' /etc/homepage-dashboard/settings.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'homepage.h' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq '10.2.20.112:8082' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq '127.0.0.1:8080/dashboard' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'jellyfin.h' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq '10.2.20.113:8096' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'media-gluetun.h' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq '10.2.20.113:3001/api/health' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'seerr.h' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq '10.2.20.113:5055' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'forgejo.h' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq '10.2.20.114:3002' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'rustfs.h' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq '10.2.20.114:9000/health' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'rustfs-console.h' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq '10.2.20.114:9001/rustfs/console/health' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq 'shlink.h' /etc/homepage-dashboard/services.yaml"
-homepage_checks="$homepage_checks && grep -Fq '10.2.20.114:8089' /etc/homepage-dashboard/services.yaml"
 homepage_checks="$homepage_checks && grep -Fq 'TorrentPeek' /etc/homepage-dashboard/bookmarks.yaml"
 homepage_checks="$homepage_checks && grep -Fq 'https://github.com/' /etc/homepage-dashboard/bookmarks.yaml"
-if [[ "$CHECK_NETBOOTXYZ" == 1 ]]; then
-  homepage_checks="$homepage_checks && grep -Fq 'netbootxyz.h' /etc/homepage-dashboard/services.yaml"
-fi
-wait_for_remote "Homepage generated config is missing expected links" "$homepage_checks"
+wait_for_remote "Homepage generated bookmark config is missing expected links" "$homepage_checks"
 
 printf 'Checking Gluetun LAN HTTP proxy...\n'
 wait_for_remote "Gluetun HTTP proxy failed" "curl -fsS --proxy http://${HOST_IP}:8888 https://ipinfo.io/ip >/dev/null"

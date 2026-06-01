@@ -25,6 +25,7 @@
 
       # Import host definitions from single source of truth
       hosts = import ./hosts.nix;
+      lib = nixpkgs.lib;
       pkgs = nixpkgs.legacyPackages.${system};
 
       ephemeralSshOptions = [
@@ -42,75 +43,41 @@
         "UserKnownHostsFile=/dev/null"
       ];
 
-      # For scaling up your homelab, you'd likely want automated host generation:
-      # mkHost = name: hostConfig: {
-      #   deployment = {
-      #     targetHost = hostConfig.ip;
-      #     targetUser = hostConfig.user;
-      #     tags = hostConfig.tags;
-      #   };
-      #   imports = [ ./hosts/${name}/configuration.nix ];
-      # };
-      # hostConfigs = builtins.mapAttrs mkHost hosts;
+      hostConfigurationPath = name: ./hosts + "/${name}/configuration.nix";
 
-      colmenaHive = colmena.lib.makeHive {
-        # ========================================================================
-        # GLOBAL CONFIGURATION - Settings applied to all hosts
-        # ========================================================================
+      deployedHosts = lib.filterAttrs (name: _: builtins.pathExists (hostConfigurationPath name)) hosts;
 
-        meta = {
-          nixpkgs = import nixpkgs {
-            system = "x86_64-linux";
-            overlays = [ ];
-          };
+      mkHost = name: hostConfig: {
+        deployment = {
+          sshOptions = ephemeralSshOptions;
+          targetHost = hostConfig.ip;
+          targetUser = hostConfig.user;
+          tags = hostConfig.tags;
         };
 
-        # ========================================================================
-        # HOST DEFINITIONS - Individual server configurations
-        # ========================================================================
-
-        gateway-vm = {
-          deployment = {
-            sshOptions = ephemeralSshOptions;
-            targetHost = hosts.gateway-vm.ip;
-            targetUser = hosts.gateway-vm.user;
-            tags = hosts.gateway-vm.tags;
-          };
-
-          imports = [
-            sops-nix.nixosModules.sops
-            ./hosts/gateway-vm/configuration.nix
-          ];
-        };
-
-        media-vm = {
-          deployment = {
-            sshOptions = ephemeralSshOptions;
-            targetHost = hosts.media-vm.ip;
-            targetUser = hosts.media-vm.user;
-            tags = hosts.media-vm.tags;
-          };
-
-          imports = [
-            sops-nix.nixosModules.sops
-            ./hosts/media-vm/configuration.nix
-          ];
-        };
-
-        productivity-vm = {
-          deployment = {
-            sshOptions = ephemeralSshOptions;
-            targetHost = hosts.productivity-vm.ip;
-            targetUser = hosts.productivity-vm.user;
-            tags = hosts.productivity-vm.tags;
-          };
-
-          imports = [
-            sops-nix.nixosModules.sops
-            ./hosts/productivity-vm/configuration.nix
-          ];
-        };
+        imports = [
+          sops-nix.nixosModules.sops
+          (hostConfigurationPath name)
+        ];
       };
+
+      hostConfigs = lib.mapAttrs mkHost deployedHosts;
+
+      colmenaHive = colmena.lib.makeHive (
+        {
+          # ========================================================================
+          # GLOBAL CONFIGURATION - Settings applied to all hosts
+          # ========================================================================
+
+          meta = {
+            nixpkgs = import nixpkgs {
+              system = "x86_64-linux";
+              overlays = [ ];
+            };
+          };
+        }
+        // hostConfigs
+      );
     in
     {
       # ==========================================================================
