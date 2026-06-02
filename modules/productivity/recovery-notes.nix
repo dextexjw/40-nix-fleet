@@ -1,0 +1,97 @@
+{
+  config,
+  lib,
+  pkgs,
+  utils,
+  ...
+}:
+
+with lib;
+
+let
+  productivityLib = import ./lib.nix {
+    inherit config lib pkgs;
+  };
+  inherit (productivityLib) cfg appdata resticPasswordFile serviceHosts serviceRouteLines statefulServices;
+ in
+{
+  config = mkIf cfg.enable {
+environment.etc."fleet/productivity-vm.md".text = ''
+  productivity-vm service model
+  =============================
+
+  productivity-vm runs Gitea, Forgejo, Material for MkDocs, Paperless-ngx,
+  FreshRSS, SearXNG, Vaultwarden, PrivateBin, Syncthing, Stirling PDF,
+  Firefly III, Nextcloud, Shlink, Garage, RustFS, ntfy, nginx, PostgreSQL, and
+  Restic appdata backups.
+
+  Persistent state root:
+    ${appdata}
+
+  Backup repository:
+    ${cfg.backup.repository}
+
+  Password file:
+    ${resticPasswordFile}
+
+  Internal routes through gateway-vm:
+${serviceRouteLines}
+
+  Direct LAN ports:
+    Gitea: ${toString cfg.ports.gitea}
+    Forgejo: ${toString cfg.ports.forgejo}
+    SearXNG: ${toString cfg.ports.searxng}
+    Vaultwarden: ${toString cfg.ports.vaultwarden}
+    Syncthing GUI: ${toString cfg.ports.syncthing}
+    Stirling PDF: ${toString cfg.ports.stirlingPdf}
+    Garage S3 API: ${toString cfg.ports.garageS3}
+    Garage static web: ${toString cfg.ports.garageWeb}
+    RustFS S3 API: ${toString cfg.ports.rustfsApi}
+    RustFS console: ${toString cfg.ports.rustfsConsole}
+    Shlink API and redirect service: ${toString cfg.ports.shlink}
+    Shlink Web Client: ${toString cfg.ports.shlinkWeb}
+    ntfy: ${toString cfg.ports.ntfy}
+    nginx-backed services: 80
+
+  Backup validation:
+    mount ${cfg.smb.backupMount}
+    systemctl start productivity-appdata-backup.service
+    systemctl start productivity-appdata-restore-check.service
+    systemctl status productivity-appdata-backup.service productivity-appdata-restore-check.service
+
+  Restore outline:
+    1. Deploy productivity-vm once to create users, secrets, mounts, and units.
+    2. Stop productivity-appdata-backup.timer and stateful services.
+    3. Mount ${cfg.smb.backupMount}.
+    4. Choose a productivity-vm/appsdata snapshot ID.
+    5. Restore the snapshot to / with restic --verify.
+    6. Run systemd-tmpfiles --create.
+    7. Restart PostgreSQL and the stateful services.
+
+  Services stopped during consistency-first manual backup:
+    ${concatStringsSep " " statefulServices}
+
+  Garage is standalone S3 in this pass. It does not back Nextcloud primary
+  storage. ${serviceHosts.garage} is the authenticated S3 API, so anonymous
+  browser requests to / should return AccessDenied. ${serviceHosts.garageWeb}
+  is the static
+  website endpoint; buckets must still be created and enabled for website
+  hosting with the upstream Garage CLI before serving content. Garage
+  bucket virtual-host style remains canonical on ${serviceHosts.garage} and
+  ${serviceHosts.garageWeb}; the .h names are only routed named endpoints.
+
+  RustFS is a separate S3-compatible object store in this pass. It does not
+  share Garage buckets or credentials. ${serviceHosts.rustfs} is the S3 API
+  and ${serviceHosts.rustfsConsole} is the RustFS console. RustFS
+  virtual-host style remains canonical on ${serviceHosts.rustfs}; the .h
+  name is only a routed named endpoint.
+
+  Shlink uses the PostgreSQL database named shlink and the short-link route
+  ${serviceHosts.shlink}. The local Shlink Web Client is served at
+  ${serviceHosts.shlinkWeb}. Retrieve the API key from the encrypted
+  shlink-environment secret and add http://${serviceHosts.shlink} as a server
+  in the web client; do not publish the API key in web client static
+  configuration.
+'';
+  };
+}

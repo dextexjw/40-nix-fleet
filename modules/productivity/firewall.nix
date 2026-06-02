@@ -1,0 +1,36 @@
+{
+  config,
+  lib,
+  pkgs,
+  utils,
+  ...
+}:
+
+with lib;
+
+let
+  productivityLib = import ./lib.nix {
+    inherit config lib pkgs;
+  };
+  inherit (productivityLib) cfg;
+ in
+{
+  config = mkIf cfg.enable {
+networking.firewall.allowedTCPPorts = [
+  80
+  cfg.ports.forgejo
+  cfg.ports.garageS3
+  cfg.ports.garageWeb
+  cfg.ports.gitea
+  cfg.ports.ntfy
+  cfg.ports.rustfsApi
+  cfg.ports.rustfsConsole
+  cfg.ports.searxng
+  cfg.ports.shlink
+  cfg.ports.shlinkWeb
+  cfg.ports.stirlingPdf
+  cfg.ports.syncthing
+  cfg.ports.vaultwarden
+];
+  };
+}

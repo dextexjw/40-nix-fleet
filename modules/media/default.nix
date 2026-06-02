@@ -1,0 +1,22 @@
+{
+  imports = [
+    ./options.nix
+    ./common.nix
+    ./mounts.nix
+    ./services/jellyfin.nix
+    ./services/audiobookshelf.nix
+    ./services/kavita.nix
+    ./services/radarr.nix
+    ./services/sonarr.nix
+    ./services/prowlarr.nix
+    ./services/bazarr.nix
+    ./services/seerr.nix
+    ./services/flaresolverr.nix
+    ./services/gluetun.nix
+    ./services/qbittorrent.nix
+    ./services/sabnzbd.nix
+    ./backup.nix
+    ./firewall.nix
+    ./recovery-notes.nix
+  ];
+}

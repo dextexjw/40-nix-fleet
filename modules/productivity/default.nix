@@ -1,0 +1,28 @@
+{
+  imports = [
+    ./options.nix
+    ./common.nix
+    ./mounts.nix
+    ./services/postgresql.nix
+    ./services/gitea.nix
+    ./services/forgejo.nix
+    ./services/paperless.nix
+    ./services/freshrss.nix
+    ./services/searxng.nix
+    ./services/privatebin.nix
+    ./services/syncthing.nix
+    ./services/stirling-pdf.nix
+    ./services/firefly.nix
+    ./services/nextcloud.nix
+    ./services/vaultwarden.nix
+    ./services/garage.nix
+    ./services/ntfy.nix
+    ./services/shlink.nix
+    ./services/rustfs.nix
+    ./services/mkdocs.nix
+    ./services/nginx.nix
+    ./backup.nix
+    ./firewall.nix
+    ./recovery-notes.nix
+  ];
+}
