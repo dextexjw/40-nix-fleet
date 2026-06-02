@@ -288,18 +288,27 @@ let
           }
 
 
-      def bulk_pause(token, ids, pause):
+      def set_monitor_active(token, active_by_id, ids, active):
           if not ids:
               return 0
-          request("POST", "/monitors/bulk/pause", {
-              "monitorIds": ids,
-              "pause": pause,
-          }, token=token)
-          return len(ids)
+          changed = 0
+          for mid in ids:
+              if active_by_id.get(mid, True) == active:
+                  continue
+              request("POST", f"/monitors/pause/{urllib.parse.quote(mid)}", token=token)
+              active_by_id[mid] = active
+              changed += 1
+          return changed
 
 
       token = login()
       existing_monitors = list_monitors(token)
+      active_by_id = {
+          mid: monitor.get("isActive", True)
+          for monitor in existing_monitors
+          for mid in [monitor_id(monitor)]
+          if mid
+      }
       desired = dict(build_service_body(target) for target in service_monitors)
       desired.update(dict(build_hardware_body(target) for target in hardware_monitors))
 
@@ -386,8 +395,8 @@ let
           if mid not in pause_ids:
               pause_ids.append(mid)
 
-      paused_stale = bulk_pause(token, pause_ids, True)
-      resumed = bulk_pause(token, desired_inactive_ids, False)
+      paused_stale = set_monitor_active(token, active_by_id, pause_ids, False)
+      resumed = set_monitor_active(token, active_by_id, desired_inactive_ids, True)
 
       summary = {
           "created": created,

@@ -53,6 +53,7 @@ done
 printf 'Checking declarative Checkmate provisioning state...\n'
 colmena exec --on "$HOST" -- "getent hosts homepage.jax22.com | grep -q '10[.]2[.]20[.]112'"
 colmena exec --on "$HOST" -- "jq -e '.expectedServiceMonitors == 38 and .expectedHardwareMonitors == 4 and .expectedManagedMonitors == 42 and (.serviceMonitors | length == 38) and (.hardwareMonitors | length == 4)' /etc/fleet/checkmate-targets.json >/dev/null"
+colmena exec --on "$HOST" -- "jq -e 'any(.serviceMonitors[]; .id == \"openspeedtest\") and all(.serviceMonitors[]; (.id | test(\"^libr(e)?speed$\") | not))' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'all(.hardwareMonitors[]; .url | endswith(\"/api/v1/metrics\"))' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "systemctl show checkmate-provisioning.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show checkmate-provisioning.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
 colmena exec --on "$HOST" -- "sudo jq -e '.expectedServiceMonitors == 38 and .expectedHardwareMonitors == 4 and .expectedManagedMonitors == 42' /var/lib/checkmate-provisioning/last-summary.json >/dev/null"
