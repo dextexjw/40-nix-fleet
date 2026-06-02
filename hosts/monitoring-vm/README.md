@@ -4,8 +4,8 @@
 backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
-`configuration.nix` and imports the monitoring stack from
-`../../modules/monitoring/stack.nix`.
+`configuration.nix` and imports the monitoring stack plus Checkmate
+provisioning modules from `../../modules/monitoring/`.
 
 ## Host Model
 
@@ -61,8 +61,13 @@ Required monitoring secrets:
 
 - `checkmate-environment`, containing `JWT_SECRET=...`
 - `checkmate-capture-environment`, containing `API_SECRET=...`
+- `checkmate-provisioning-credentials`, containing `CHECKMATE_EMAIL=...` and `CHECKMATE_PASSWORD=...`
 - `beszel-agent-key`, containing the Beszel Hub public key
 - `beszel-agent-token`, reserved for Beszel universal-token registration
+
+`checkmate-provisioning-credentials` must reference an existing Checkmate admin
+or superadmin account. The bootstrap, deploy, and upgrade wrappers reject
+`CHANGE_ME` placeholders before switching the host.
 
 Beszel agents run in listener mode by default with the hub public key from
 `beszel-agent-key`. Set `fleet.monitoring.agents.beszel.hubUrl` and
@@ -143,6 +148,32 @@ a matching SOPS recipient before switching:
 ```sh
 scripts/monitoring-vm/deploy-monitoring.sh
 ```
+
+## Checkmate Provisioning
+
+Checkmate monitors are declared from the fleet exposure catalog and generated
+into `/etc/fleet/checkmate-targets.json`.
+
+- Service: `checkmate-provisioning.service`
+- Target file: `/etc/fleet/checkmate-targets.json`
+- Last run summary: `/var/lib/checkmate-provisioning/last-summary.json`
+- Managed identity: `fleet-declared` plus `fleet-service:<id>` or `fleet-host:<host>`
+- Expected managed monitors: `42`
+- Service route monitors: `38`
+- Host hardware monitors: `4`
+
+Service HTTP monitors use the real routed `https://*.jax22.com` hostnames.
+`monitoring-vm` declares those names in `/etc/hosts` to point at `gateway-vm`
+so Checkmate can reach Traefik with the expected SNI and route hostnames.
+Hardware monitors target each Capture agent's `/api/v1/metrics` endpoint.
+
+The provisioning service creates missing managed monitors, patches changed
+managed monitors, resumes managed monitors that became active again, and pauses
+stale managed monitors. It never deletes stale monitors, preserving Checkmate
+history.
+
+Beszel provisioning is intentionally out of scope. Beszel Hub and agents still
+run normally, but Beszel systems are not managed by this provisioning service.
 
 ## Backups and Restore
 

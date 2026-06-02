@@ -502,6 +502,14 @@ in
               Checkmate Capture: ${toString cfg.ports.capture}
               Beszel Agent: 45876
 
+            Checkmate provisioning:
+              Unit: checkmate-provisioning.service
+              Targets: /etc/fleet/checkmate-targets.json
+              Last summary: /var/lib/checkmate-provisioning/last-summary.json
+              Managed identity: fleet-declared plus fleet-service:<id> or fleet-host:<host>
+              Expected managed monitors: 42
+              Stale managed monitors are paused, not deleted.
+
             Backup validation:
               mount ${cfg.smb.backupMount}
               systemctl start monitoring-appdata-backup.service

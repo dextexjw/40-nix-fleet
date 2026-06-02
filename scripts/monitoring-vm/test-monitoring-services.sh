@@ -50,6 +50,13 @@ for domain in "${SERVICE_DOMAINS[@]}"; do
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: beszel.${domain}' http://127.0.0.1:8090/ >/dev/null"
 done
 
+printf 'Checking declarative Checkmate provisioning state...\n'
+colmena exec --on "$HOST" -- "getent hosts homepage.jax22.com | grep -q '10[.]2[.]20[.]112'"
+colmena exec --on "$HOST" -- "jq -e '.expectedServiceMonitors == 38 and .expectedHardwareMonitors == 4 and .expectedManagedMonitors == 42 and (.serviceMonitors | length == 38) and (.hardwareMonitors | length == 4)' /etc/fleet/checkmate-targets.json >/dev/null"
+colmena exec --on "$HOST" -- "jq -e 'all(.hardwareMonitors[]; .url | endswith(\"/api/v1/metrics\"))' /etc/fleet/checkmate-targets.json >/dev/null"
+colmena exec --on "$HOST" -- "systemctl show checkmate-provisioning.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show checkmate-provisioning.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+colmena exec --on "$HOST" -- "sudo jq -e '.expectedServiceMonitors == 38 and .expectedHardwareMonitors == 4 and .expectedManagedMonitors == 42' /var/lib/checkmate-provisioning/last-summary.json >/dev/null"
+
 printf 'Checking backup and restore validation...\n'
 colmena exec --on "$HOST" -- "sh -lc 'findmnt -rn --target /mnt/backups >/dev/null || mount /mnt/backups'"
 colmena exec --on "$HOST" -- systemctl start monitoring-appdata-backup.service
