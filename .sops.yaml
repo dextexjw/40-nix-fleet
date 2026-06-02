@@ -3,7 +3,7 @@ creation_rules:
   - # Rule: encrypt specific keys inside `secrets/secrets.yaml`
     path_regex: "secrets/secrets\\.yaml$"
     # Match specific top-level keys in the YAML to encrypt
-    encrypted_regex: "^(admin-password-hash|restic-password|smb-credentials|technitium-admin-username|technitium-admin-password|qbittorrent-webui-username|qbittorrent-webui-password|gluetun-control-api-key|gluetun-openvpn-username|gluetun-openvpn-password|media-gluetun-control-api-key|media-gluetun-openvpn-username|media-gluetun-openvpn-password|freshrss-admin-password|paperless-admin-password|searxng-environment|syncthing-gui-password|firefly-app-key|invoiceplane-db-password|nextcloud-admin-password|vaultwarden-environment|garage-rpc-secret|garage-admin-token|garage-metrics-token|rustfs-environment)$"
+    encrypted_regex: "^(admin-password-hash|restic-password|smb-credentials|technitium-admin-username|technitium-admin-password|qbittorrent-webui-username|qbittorrent-webui-password|gluetun-control-api-key|gluetun-openvpn-username|gluetun-openvpn-password|media-gluetun-control-api-key|media-gluetun-openvpn-username|media-gluetun-openvpn-password|freshrss-admin-password|paperless-admin-password|searxng-environment|shlink-environment|syncthing-gui-password|firefly-app-key|invoiceplane-db-password|nextcloud-admin-password|vaultwarden-environment|garage-rpc-secret|garage-admin-token|garage-metrics-token|rustfs-environment|beszel-agent-key|beszel-agent-token|checkmate-capture-environment|checkmate-environment)$"
     # Age and SSH recipients for encryption. Folded for readability but preserved as a single value.
     age: >
       ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIATd/kn93HeAqaT5e8uW68n/JoWBesQkyruVNLsG3NDc khalid,
@@ -13,4 +13,5 @@ creation_rules:
       age1q3upcxvty6y8ly0m2yjjfaw00y64jcsulngt9a7v5fehap4u53xqug08w9,
       age15y5aa9dyf32rkf2trx506qtfvy4rca44f8jaw4tzypnutgme3g2qdystt0,
       age14qf5mpr9c9tl8gqt5yex8vh9lcycags2hp4vexsrr7wgj5trvvuq5rhvuz,
-      age10hk03820cn9stfp4dkt59e747x9zm5zqa0xclnu4ar7xj6pjgfusty0ttv
+      age10hk03820cn9stfp4dkt59e747x9zm5zqa0xclnu4ar7xj6pjgfusty0ttv,
+      age1jj94td5kua9m6lwd5209n9gm3x3w7tezkqumyrzyhlpml4ajd9fqe58s2h

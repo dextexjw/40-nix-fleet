@@ -118,6 +118,21 @@ in
       admin-password-hash = {
         neededForUsers = true;
       };
+      beszel-agent-key = {
+        owner = "beszel-agent";
+        group = "beszel-agent";
+        mode = "0400";
+        restartUnits = [ "beszel-agent.service" ];
+      };
+      beszel-agent-token = {
+        owner = "beszel-agent";
+        group = "beszel-agent";
+        mode = "0400";
+        restartUnits = [ "beszel-agent.service" ];
+      };
+      checkmate-capture-environment = {
+        restartUnits = [ "checkmate-capture.service" ];
+      };
       gluetun-control-api-key = {
         restartUnits = [
           "gluetun-control-auth-config.service"
@@ -307,8 +322,8 @@ in
     udpRoutes = exposureCatalog.traefikUdpRoutes;
   };
 
-  # common.nix enables node-exporter by default; gateway-vm intentionally does
-  # not run monitoring services.
+  # gateway-vm skips Prometheus node-exporter but still runs the fleet
+  # Checkmate/Beszel agents declared in common.nix.
   fleet.monitoring.nodeExporter.enable = lib.mkForce false;
 
   # ============================================================================

@@ -42,6 +42,21 @@ in
       admin-password-hash = {
         neededForUsers = true;
       };
+      beszel-agent-key = {
+        owner = "beszel-agent";
+        group = "beszel-agent";
+        mode = "0400";
+        restartUnits = [ "beszel-agent.service" ];
+      };
+      beszel-agent-token = {
+        owner = "beszel-agent";
+        group = "beszel-agent";
+        mode = "0400";
+        restartUnits = [ "beszel-agent.service" ];
+      };
+      checkmate-capture-environment = {
+        restartUnits = [ "checkmate-capture.service" ];
+      };
       firefly-app-key = {
         owner = "firefly-iii";
         group = "nginx";

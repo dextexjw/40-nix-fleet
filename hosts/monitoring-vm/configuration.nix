@@ -1,13 +1,12 @@
 {
   config,
   lib,
-  pkgs,
   ...
 }:
 
 let
   hosts = import ../../hosts.nix;
-  host = hosts.media-vm;
+  host = hosts.monitoring-vm;
   serviceDomains = (import ../../lib/service-domains.nix).all;
   secretsFile = ../../secrets/secrets.yaml;
   secretsEnabled = builtins.pathExists secretsFile;
@@ -21,16 +20,16 @@ in
   imports = [
     ../common.nix
     ./hardware-configuration.nix
-    ../../modules/media
+    ../../modules/monitoring/stack.nix
   ];
 
   # ============================================================================
   # HOST IDENTIFICATION
   # ============================================================================
 
-  networking.hostName = "media-vm";
+  networking.hostName = "monitoring-vm";
   networking.domain = host.domain;
-  users.motd = "media-vm: Jellyfin, Audiobookshelf, Kavita, ARR stack, downloads, and appdata backups";
+  users.motd = "monitoring-vm: Checkmate, Beszel, host agents, and appdata backups";
 
   # ============================================================================
   # SECRETS
@@ -58,16 +57,12 @@ in
       checkmate-capture-environment = {
         restartUnits = [ "checkmate-capture.service" ];
       };
-      media-gluetun-control-api-key.restartUnits = [
-        "media-gluetun-control-auth-config.service"
-        "podman-media-gluetun.service"
-        "podman-media-gluetun-webui.service"
-      ];
-      media-gluetun-openvpn-password.restartUnits = [ "podman-media-gluetun.service" ];
-      media-gluetun-openvpn-username.restartUnits = [ "podman-media-gluetun.service" ];
-      qbittorrent-webui-password.restartUnits = [ "podman-media-qbittorrent.service" ];
-      qbittorrent-webui-username.restartUnits = [ "podman-media-qbittorrent.service" ];
-      restic-password = { };
+      checkmate-environment = {
+        restartUnits = [ "podman-checkmate.service" ];
+      };
+      restic-password = {
+        restartUnits = [ "monitoring-appdata-backup.service" ];
+      };
       smb-credentials = { };
     };
   };
@@ -78,7 +73,7 @@ in
 
   users.users.${host.user} = {
     extraGroups = [
-      "media"
+      "monitoring"
       "systemd-journal"
     ];
     hashedPasswordFile = lib.mkIf secretsEnabled config.sops.secrets.admin-password-hash.path;
@@ -88,32 +83,11 @@ in
   # SERVICES
   # ============================================================================
 
-  fleet.media.stack = {
+  fleet.monitoring.stack = {
     enable = true;
-    gluetun = {
-      controlServer.apiKeyFile =
-        if secretsEnabled then
-          config.sops.secrets.media-gluetun-control-api-key.path
-        else
-          "/run/secrets/media-gluetun-control-api-key";
-      openvpnPasswordFile =
-        if secretsEnabled then
-          config.sops.secrets.media-gluetun-openvpn-password.path
-        else
-          "/run/secrets/media-gluetun-openvpn-password";
-      openvpnUsernameFile =
-        if secretsEnabled then
-          config.sops.secrets.media-gluetun-openvpn-username.path
-        else
-          "/run/secrets/media-gluetun-openvpn-username";
-    };
-    jellyfin.publishedServerUrl = "http://${host.ip}:8096";
     secrets.enable = secretsEnabled;
-    smb = {
-      backupDevice = "//nas.home.arpa/backups";
-      mediaDevice = "//nas.home.arpa/media";
-    };
     inherit serviceDomains;
+    smb.backupDevice = "//nas.home.arpa/backups";
   };
 
   # ============================================================================

@@ -8,6 +8,7 @@
   # ============================================================================
 
   imports = [
+    ../modules/monitoring/agents.nix
     ../modules/monitoring/node-exporter.nix
   ];
   # ============================================================================
@@ -64,7 +65,7 @@
 
   networking.networkmanager.enable = true;
   networking.firewall.enable = true;
-  networking.firewall.allowedTCPPorts = [ 22 ];  # SSH
+  networking.firewall.allowedTCPPorts = [ 22 ]; # SSH
 
   # ============================================================================
   # SERVICES
@@ -82,6 +83,13 @@
   # --------------------------------------------------------------------------
 
   fleet.monitoring.nodeExporter.enable = true;
+  fleet.monitoring.agents = {
+    enable = true;
+    beszel = {
+      keyFile = "/run/secrets/beszel-agent-key";
+    };
+    checkmate.capture.environmentFile = "/run/secrets/checkmate-capture-environment";
+  };
 
   # ============================================================================
   # PACKAGES

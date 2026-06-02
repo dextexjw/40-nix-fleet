@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-HOST="productivity-vm"
-HOST_IP="10.2.20.114"
+HOST="monitoring-vm"
+HOST_IP="10.2.20.115"
 REMOTE_USER="smoke"
 SECRETS="$ROOT/secrets/secrets.yaml"
 
@@ -13,7 +13,7 @@ die() {
 }
 
 need() {
-  command -v "$1" >/dev/null 2>&1 || die "$1 is missing"
+  command -v "$1" >/dev/null 2>&1 || die "$1 is missing; run nix develop first"
 }
 
 need colmena
@@ -23,13 +23,28 @@ need ssh-to-age
 
 cd "$ROOT"
 
+ssh_monitoring_vm() {
+  ssh \
+    -o BatchMode=yes \
+    -o CheckHostIP=no \
+    -o ConnectTimeout=5 \
+    -o GlobalKnownHostsFile=/dev/null \
+    -o LogLevel=ERROR \
+    -o StrictHostKeyChecking=no \
+    -o UpdateHostKeys=no \
+    -o UserKnownHostsFile=/dev/null \
+    "$REMOTE_USER@$HOST_IP" \
+    "$@"
+}
+
 [[ -f "$SECRETS" ]] || die "missing $SECRETS"
+grep -q '^sops:' "$SECRETS" || die "$SECRETS does not look encrypted by sops"
 
 if ! decrypted_secrets="$(sops --decrypt "$SECRETS")"; then
   die "unable to decrypt $SECRETS locally; rekey it for your local/admin key"
 fi
 
-for required_key in admin-password-hash beszel-agent-key beszel-agent-token checkmate-capture-environment restic-password smb-credentials; do
+for required_key in admin-password-hash beszel-agent-key beszel-agent-token checkmate-capture-environment checkmate-environment restic-password smb-credentials; do
   grep -q "^${required_key}:" <<<"$decrypted_secrets" || die "$SECRETS is missing $required_key"
 done
 
@@ -38,12 +53,7 @@ if grep -q 'CHANGE_ME' <<<"$decrypted_secrets"; then
 fi
 
 if ! target_recipient="$(
-  ssh \
-    -o BatchMode=yes \
-    -o ConnectTimeout=5 \
-    -o StrictHostKeyChecking=no \
-    -o UserKnownHostsFile=/dev/null \
-    "$REMOTE_USER@$HOST_IP" \
+  ssh_monitoring_vm \
     'sudo -n ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' \
     2>/dev/null \
     | ssh-to-age
@@ -51,13 +61,10 @@ if ! target_recipient="$(
   die "unable to read $HOST SOPS SSH host public key from $HOST_IP"
 fi
 
-target_recipient="${target_recipient//$'\r'/}"
-target_recipient="${target_recipient//$'\n'/}"
-
 [[ -n "$target_recipient" ]] || die "unable to read $HOST SOPS SSH host public key from $HOST_IP"
 
 if ! grep -Fq "$target_recipient" "$SECRETS"; then
-  die "$HOST cannot decrypt $SECRETS; add '$target_recipient' to .sops.yaml, then run: sops updatekeys secrets/secrets.yaml"
+  die "$HOST cannot decrypt $SECRETS; run: scripts/monitoring-vm/update-monitoring-sops-recipient.sh"
 fi
 
 colmena apply --on "$HOST" switch
