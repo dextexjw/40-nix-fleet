@@ -222,7 +222,7 @@ in
           homepage = {
             description = "Network throughput test\niperf3 -c iperf3.${builtins.head serviceDomains} -p 5201";
             href = "http://${builtins.head (hostnames "iperf3")}/";
-            icon = "iperf3.png";
+            icon = "mdi-speedometer";
           };
           smoke = {
             dnsHosts = hostnames "iperf3";

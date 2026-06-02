@@ -35,7 +35,7 @@ in
           homepage = {
             description = "Status monitoring and alerts\n${backend 52345}";
             href = "${routeUrl "checkmate"}/";
-            icon = "mdi-monitor-dashboard";
+            icon = "checkmate.png";
             siteMonitor = "${backend 52345}/";
           };
           smoke.http = {
@@ -54,7 +54,7 @@ in
           homepage = {
             description = "Lightweight host monitoring\n${backend 8090}";
             href = "http://${hostname "beszel"}/";
-            icon = "mdi-server-network";
+            icon = "beszel.png";
             siteMonitor = "${backend 8090}/";
           };
           smoke.http = {
