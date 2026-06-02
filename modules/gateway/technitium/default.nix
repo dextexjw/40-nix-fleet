@@ -9,24 +9,40 @@ with lib;
 
 let
   cfg = config.fleet.gateway.technitium;
-  localARecords = mapAttrsToList (
-    name: address: {
-      address = address;
-      domain =
-        if name == "@" then
-          cfg.localZone.domain
-        else
-          "${name}.${cfg.localZone.domain}";
-    }
-  ) cfg.localZone.aRecords;
-  localZoneRecordCommands = concatMapStringsSep "\n" (record: ''
-    api_expect_ok "add ${record.domain} A record" "$base/api/zones/records/add" \
-      --data-urlencode "domain=${record.domain}" \
-      --data-urlencode "zone=${cfg.localZone.domain}" \
-      --data-urlencode "type=A" \
-      --data-urlencode "ipAddress=${record.address}" \
-      --data-urlencode "overwrite=true"
-  '') localARecords;
+  localZones =
+    cfg.localZones
+    ++ optional cfg.localZone.enable {
+      inherit (cfg.localZone) aRecords domain;
+    };
+  mkLocalZoneRecordCommands =
+    zone:
+    let
+      records = mapAttrsToList (
+        name: address: {
+          address = address;
+          domain =
+            if name == "@" then
+              zone.domain
+            else
+              "${name}.${zone.domain}";
+        }
+      ) zone.aRecords;
+    in
+    concatMapStringsSep "\n" (record: ''
+      api_expect_ok "add ${record.domain} A record" "$base/api/zones/records/add" \
+        --data-urlencode "domain=${record.domain}" \
+        --data-urlencode "zone=${zone.domain}" \
+        --data-urlencode "type=A" \
+        --data-urlencode "ipAddress=${record.address}" \
+        --data-urlencode "overwrite=true"
+    '') records;
+  localZoneCommands = concatMapStringsSep "\n" (zone: ''
+    api_expect_ok_or_exists "create ${zone.domain} zone" "$base/api/zones/create" \
+      --data-urlencode "zone=${zone.domain}" \
+      --data-urlencode "type=Primary"
+
+    ${mkLocalZoneRecordCommands zone}
+  '') localZones;
   adminPasswordFileArg =
     if cfg.adminPasswordFile == null then
       "''"
@@ -107,6 +123,31 @@ in
         default = true;
         description = "Create and maintain a local authoritative DNS zone.";
       };
+    };
+
+    localZones = mkOption {
+      type = types.listOf (
+        types.submodule {
+          options = {
+            aRecords = mkOption {
+              type = types.attrsOf types.str;
+              default = { };
+              description = "A records to publish in this local gateway DNS zone.";
+              example = {
+                "*" = "10.2.20.112";
+              };
+            };
+
+            domain = mkOption {
+              type = types.str;
+              description = "Authoritative local DNS zone served by Technitium.";
+              example = "jax22.com";
+            };
+          };
+        }
+      );
+      default = [ ];
+      description = "Additional authoritative local DNS zones served by Technitium.";
     };
 
     package = mkOption {
@@ -383,13 +424,7 @@ in
           --data-urlencode "dnsOverHttpRealIpHeader=X-Real-IP")"
         echo "$settings_response" | grep -q '"status":"ok"'
 
-        ${optionalString cfg.localZone.enable ''
-          api_expect_ok_or_exists "create ${cfg.localZone.domain} zone" "$base/api/zones/create" \
-            --data-urlencode "zone=${cfg.localZone.domain}" \
-            --data-urlencode "type=Primary"
-
-          ${localZoneRecordCommands}
-        ''}
+        ${optionalString (localZones != [ ]) localZoneCommands}
 
         systemctl restart technitium-dns-server.service
 

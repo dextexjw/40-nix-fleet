@@ -9,13 +9,14 @@ let
   hosts = import ../../hosts.nix;
   host = hosts.gateway-vm;
   domain = host.domain;
-  serviceDomain = "h";
+  serviceDomains = (import ../../lib/service-domains.nix).all;
+  serviceDomain = builtins.head serviceDomains;
   exposure = import ../../lib/exposure.nix {
     inherit lib;
     root = ../..;
   };
   exposureCatalog = exposure.load {
-    inherit hosts serviceDomain;
+    inherit hosts serviceDomain serviceDomains;
   };
   secretsFile = ../../secrets/secrets.yaml;
   secretsEnabled = builtins.pathExists secretsFile;
@@ -272,16 +273,18 @@ in
     adminPasswordFile = config.sops.secrets.technitium-admin-password.path;
     adminUsernameFile = config.sops.secrets.technitium-admin-username.path;
     enable = true;
-    localZone.domain = serviceDomain;
-    localZone.aRecords = {
-      # Gateway-routed service names resolve to Traefik through wildcard DNS.
-      "*" = host.ip;
-    };
+    localZone.enable = false;
+    localZones = map (zoneDomain: {
+      domain = zoneDomain;
+      aRecords = {
+        # Gateway-routed service names resolve to Traefik through wildcard DNS.
+        "*" = host.ip;
+      };
+    }) serviceDomains;
     package = technitium-dns-server_15_2_0;
     serverDomain = host.fqdn;
     tlsCertificateDomain = "technitium.${serviceDomain}";
-    tlsSubjectAltNames = [
-      "DNS:technitium.${serviceDomain}"
+    tlsSubjectAltNames = (map (zoneDomain: "DNS:technitium.${zoneDomain}") serviceDomains) ++ [
       "DNS:gateway-vm.${domain}"
       "IP:${host.ip}"
     ];
@@ -291,6 +294,7 @@ in
   fleet.gateway.traefik = {
     accessLog.enable = true;
     dashboard.domain = "traefik.${serviceDomain}";
+    dashboard.domains = map (zoneDomain: "traefik.${zoneDomain}") serviceDomains;
     dashboard.webRoute.enable = true;
     domain = serviceDomain;
     enable = true;
@@ -355,8 +359,8 @@ in
     Homelab host domain:
       *.${domain}
 
-    Homelab service domain:
-      *.${serviceDomain}
+    Homelab service domains:
+${lib.concatStringsSep "\n" (map (zoneDomain: "      *.${zoneDomain}") serviceDomains)}
 
     Declared services:
       Traefik: traefik.service, version 3.7.1, ingress ports 80 and optional 443, dashboard and metrics port 8080, JSON access logs in the service journal
@@ -407,6 +411,7 @@ ${exposureCatalog.routeUrlsText}
       systemctl is-active gateway-state-backup.timer
       curl -H 'Host: gluetun.${serviceDomain}' http://127.0.0.1/api/health
       curl -H 'Host: homepage.${serviceDomain}' http://127.0.0.1/
+      curl -H 'Host: homepage.h' http://127.0.0.1/
       curl -H 'Host: netbootxyz.${serviceDomain}' http://127.0.0.1/
       curl http://${host.ip}:8082/
       ss -lntu

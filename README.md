@@ -196,8 +196,11 @@ backup, restore, or recovery behavior changes.
 - Keep secret values encrypted before committing.
 - Do not paste decrypted secrets into commits, issues, chat, logs, or shell history.
 - The base firewall opens SSH and service modules open their own required ports.
-- `gateway-vm` serves the declarative `.h` service zone in Technitium; clients
-  must use `10.2.20.112` for DNS, or the LAN DNS/DHCP server must forward or
-  delegate `.h` to `10.2.20.112` on DNS port 53, before browser URLs like
-  `traefik.h` will resolve. Technitium's `5380` port is only the admin HTTP UI.
-  VM hostnames stay under `home.arpa` and are managed separately.
+- `gateway-vm` serves declarative `jax22.com` and `.h` service zones in
+  Technitium; clients must use `10.2.20.112` for DNS, or the LAN DNS/DHCP
+  server must forward or delegate those zones to `10.2.20.112` on DNS port 53,
+  before browser URLs like `traefik.jax22.com` or `traefik.h` will resolve.
+  `jax22.com` is split-horizon for homelab clients, so unrelated public records
+  must be handled separately if they are needed on the LAN. Technitium's `5380`
+  port is only the admin HTTP UI. VM hostnames stay under `home.arpa` and are
+  managed separately.

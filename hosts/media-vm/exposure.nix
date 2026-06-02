@@ -1,6 +1,6 @@
-{ hosts, serviceDomain, ... }:
+{ hosts, serviceDomain, serviceDomains ? [ serviceDomain ], ... }:
 
 import ../../modules/media/catalog.nix {
   host = hosts.media-vm;
-  inherit serviceDomain;
+  inherit serviceDomain serviceDomains;
 }

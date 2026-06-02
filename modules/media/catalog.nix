@@ -1,8 +1,8 @@
-{ host, serviceDomain }:
+{ host, serviceDomain ? "h", serviceDomains ? [ serviceDomain ] }:
 
 let
   backend = port: "http://${host.ip}:${toString port}";
-  hostname = name: "${name}.${serviceDomain}";
+  hostnames = name: map (domain: "${name}.${domain}") serviceDomains;
 
   mkService =
     {
@@ -12,8 +12,8 @@ let
       routeDescription,
       icon,
       homepageDescription ? backend port,
-      hostName ? hostname id,
-      hostNames ? [ hostName ],
+      hostPrefix ? id,
+      hostNames ? hostnames hostPrefix,
       monitorPath ? "/",
       smokeHttp ? null,
     }:

@@ -8,6 +8,7 @@
 let
   hosts = import ../../hosts.nix;
   host = hosts.media-vm;
+  serviceDomains = (import ../../lib/service-domains.nix).all;
   secretsFile = ../../secrets/secrets.yaml;
   secretsEnabled = builtins.pathExists secretsFile;
 in
@@ -97,6 +98,7 @@ in
       backupDevice = "//nas.home.arpa/backups";
       mediaDevice = "//nas.home.arpa/media";
     };
+    inherit serviceDomains;
   };
 
   # ============================================================================

@@ -40,22 +40,22 @@ Service access:
 - Traefik HTTPS ingress: `https://10.2.20.112`
 - Traefik dashboard: `http://10.2.20.112:8080/dashboard/`
 - Traefik Prometheus metrics: `http://10.2.20.112:8080/metrics`
-- Homepage: `http://homepage.h/` through Traefik and `http://10.2.20.112:8082/` directly
+- Homepage: `http://homepage.jax22.com/` through Traefik, `http://homepage.h/` as an alias, and `http://10.2.20.112:8082/` directly
 - DNS: `10.2.20.112:53` over TCP and UDP
 - DNS-over-TLS: `10.2.20.112:853`
 - Technitium admin HTTP: `http://10.2.20.112:5380`
 - Technitium HTTPS and DNS-over-HTTPS: `https://10.2.20.112:53443`
 - Gluetun HTTP proxy: `http://10.2.20.112:8888`
-- Gluetun WebUI: `http://gluetun.h/` through Traefik; backend only on `127.0.0.1:3000`
-- MediaVM Gluetun WebUI: `http://media-gluetun.h/` through Traefik; backend on `10.2.20.113:3001`
-- netboot.xyz WebUI: `http://netbootxyz.h/` through Traefik; backend only on `127.0.0.1:3001`
+- Gluetun WebUI: `http://gluetun.jax22.com/` through Traefik, `http://gluetun.h/` as an alias; backend only on `127.0.0.1:3000`
+- MediaVM Gluetun WebUI: `http://media-gluetun.jax22.com/` through Traefik, `http://media-gluetun.h/` as an alias; backend on `10.2.20.113:3001`
+- netboot.xyz WebUI: `http://netbootxyz.jax22.com/` through Traefik, `http://netbootxyz.h/` as an alias; backend only on `127.0.0.1:3001`
 - netboot.xyz local assets: backend only on `127.0.0.1:8083`
 - netboot.xyz TFTP: `10.2.20.112:69/udp`, boot file `netboot.xyz.efi`
 - NetBird: disabled for now; state preserved at `/srv/appsdata/netbird`
 - Tailscale: `10.2.20.112:41641/udp`
 
 Technitium admin HTTP is available directly at `http://10.2.20.112:5380` and
-through Traefik at `http://technitium.h/`.
+through Traefik at `http://technitium.jax22.com/` and `http://technitium.h/`.
 
 Homepage is declared in Nix and generated into `/etc/homepage-dashboard`.
 Gateway renders Homepage service groups and Traefik routes from the pure
@@ -88,44 +88,49 @@ SOPS-managed API key and is only consumed by the WebUI sidecar inside Gluetun's
 container network namespace.
 
 The Gluetun WebUI runs as `podman-gluetun-webui.service` and is available on
-the LAN through Traefik at `http://gluetun.h/`. It has no native UI login, so
+the LAN through Traefik at `http://gluetun.jax22.com/` and `http://gluetun.h/`.
+It has no native UI login, so
 the direct backend listener stays bound to `127.0.0.1:3000` and is not opened
 on the LAN as a separate port.
 
 The MediaVM Gluetun WebUI runs on `media-vm` as
 `podman-media-gluetun-webui.service`, shares the `media-gluetun` network
 namespace used by qBittorrent and SABnzbd, and is available through Gateway Traefik at
-`http://media-gluetun.h/`. Gateway only routes to its MediaVM LAN backend on
-`10.2.20.113:3001`; the VPN container and downloader kill switch still live on
-`media-vm`.
+`http://media-gluetun.jax22.com/` and `http://media-gluetun.h/`. Gateway only
+routes to its MediaVM LAN backend on `10.2.20.113:3001`; the VPN container and
+downloader kill switch still live on `media-vm`.
 
 The netboot.xyz container runs as `podman-netbootxyz.service`. Its web
-configuration UI is available through Traefik at `http://netbootxyz.h/`, while
-the web UI backend on `127.0.0.1:3001` and local asset server on
+configuration UI is available through Traefik at `http://netbootxyz.jax22.com/`
+and `http://netbootxyz.h/`, while the web UI backend on `127.0.0.1:3001` and local asset server on
 `127.0.0.1:8083` stay host-local. TFTP is exposed on `10.2.20.112:69/udp` with
 single-port transfers enabled. Persistent config and downloaded assets live
 under `/srv/appsdata/netbootxyz`.
 
-Technitium serves the `.h` service zone. Wildcard DNS resolves `*.h` to
-`gateway-vm` at `10.2.20.112`, where Traefik routes known hostnames to their
-backends.
+Technitium serves the `jax22.com` and `.h` service zones. Wildcard DNS resolves
+`*.jax22.com` and `*.h` to `gateway-vm` at `10.2.20.112`, where Traefik routes
+known hostnames to their backends.
 VM hostnames stay under `home.arpa` and are managed outside this Gateway
 service zone. Clients must use `10.2.20.112` as DNS, or the LAN DNS/DHCP server
-must forward/delegate `.h` to `10.2.20.112` on DNS port 53, for these names to
-resolve. Technitium's `5380` port is only the admin HTTP UI.
+must forward/delegate `jax22.com` and `.h` to `10.2.20.112` on DNS port 53, for
+these names to resolve. `jax22.com` is split-horizon for homelab clients, so
+unrelated public records must be added or delegated deliberately if needed on
+the LAN. Technitium's `5380` port is only the admin HTTP UI.
 
-If a browser shows `DNS_PROBE_FINISHED_NXDOMAIN` for a `.h` name, confirm
+If a browser shows `DNS_PROBE_FINISHED_NXDOMAIN` for a service name, confirm
 whether the client is asking Gateway DNS:
 
 ```sh
+dig gluetun.jax22.com
+dig @10.2.20.112 gluetun.jax22.com
 dig gluetun.h
 dig @10.2.20.112 gluetun.h
 ```
 
 The first command must query `10.2.20.112`, or the LAN DNS server must have a
-conditional forward/delegation for `.h` to `10.2.20.112` on DNS port 53. A
-temporary single-client workaround is adding `10.2.20.112 gluetun.h` to that
-client's hosts file.
+conditional forward/delegation for the service zone to `10.2.20.112` on DNS
+port 53. A temporary single-client workaround is adding the specific service
+hostname to that client's hosts file.
 
 Traefik ingress routes are still declared explicitly, but the declarations now
 live with their owning host or service catalog:

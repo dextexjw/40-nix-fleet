@@ -46,21 +46,24 @@ Incomplete downloader files live on local VM storage at
 FlareSolverr listens on `8191` for app integration and is not opened in the
 firewall.
 
-Traefik routes are declared on `gateway-vm` for:
+Traefik routes are declared on `gateway-vm` for the canonical `jax22.com`
+service names and `.h` aliases:
 
-- `jellyfin.h`
-- `audiobookshelf.h`
-- `kavita.h`
-- `sonarr.h`
-- `radarr.h`
-- `prowlarr.h`
-- `bazarr.h`
-- `qbittorrent.h`
-- `sabnzbd.h`
-- `seerr.h`
+- `jellyfin.jax22.com`, `jellyfin.h`
+- `audiobookshelf.jax22.com`, `audiobookshelf.h`
+- `kavita.jax22.com`, `kavita.h`
+- `sonarr.jax22.com`, `sonarr.h`
+- `radarr.jax22.com`, `radarr.h`
+- `prowlarr.jax22.com`, `prowlarr.h`
+- `bazarr.jax22.com`, `bazarr.h`
+- `qbittorrent.jax22.com`, `qbittorrent.h`
+- `media-gluetun.jax22.com`, `media-gluetun.h`
+- `sabnzbd.jax22.com`, `sabnzbd.h`
+- `seerr.jax22.com`, `seerr.h`
 
 MediaVM Gluetun WebUI is available directly at `10.2.20.113:3001` and through
-Gateway Traefik at `http://media-gluetun.h/`. The Gateway Homepage card monitors
+Gateway Traefik at `http://media-gluetun.jax22.com/` and
+`http://media-gluetun.h/`. The Gateway Homepage card monitors
 `http://10.2.20.113:3001/api/health`.
 
 qBittorrent and SABnzbd have no host-published ports of their own.

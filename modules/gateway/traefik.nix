@@ -10,11 +10,13 @@ with lib;
 let
   cfg = config.fleet.gateway.traefik;
 
-  dashboardHost =
-    if cfg.dashboard.domain == null then
-      "traefik.${cfg.domain}"
+  dashboardHosts =
+    if cfg.dashboard.domains != [ ] then
+      cfg.dashboard.domains
+    else if cfg.dashboard.domain == null then
+      [ "traefik.${cfg.domain}" ]
     else
-      cfg.dashboard.domain;
+      [ cfg.dashboard.domain ];
 
   routerEntryPoints =
     if cfg.enableTLS then
@@ -72,7 +74,7 @@ let
   } // optionalAttrs (cfg.dashboard.enable && cfg.dashboard.webRoute.enable) {
     dashboard-web = {
       entryPoints = [ "web" ];
-      rule = "Host(`${dashboardHost}`) && (${dashboardRule})";
+      rule = "(${concatStringsSep " || " (map mkHostRule dashboardHosts)}) && (${dashboardRule})";
       service = "api@internal";
     };
   };
@@ -127,6 +129,16 @@ in
         default = null;
         description = "Dashboard hostname. Defaults to traefik.<domain>.";
         example = "traefik.h";
+      };
+
+      domains = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "Dashboard hostnames. When non-empty, this replaces dashboard.domain for the web route.";
+        example = [
+          "traefik.jax22.com"
+          "traefik.h"
+        ];
       };
 
       port = mkOption {

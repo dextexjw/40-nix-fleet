@@ -1,8 +1,9 @@
-{ hosts, serviceDomain, ... }:
+{ hosts, serviceDomain, serviceDomains ? [ serviceDomain ], ... }:
 
 let
   host = hosts.gateway-vm;
-  hostname = name: "${name}.${serviceDomain}";
+  hostname = name: "${name}.${builtins.head serviceDomains}";
+  hostnames = name: map (domain: "${name}.${domain}") serviceDomains;
 in
 {
   groups = [
@@ -17,7 +18,7 @@ in
           name = "Homepage";
           route = {
             description = "Homepage service directory";
-            hosts = [ (hostname "homepage") ];
+            hosts = hostnames "homepage";
             url = "http://127.0.0.1:8082";
           };
           homepage = {
@@ -43,10 +44,10 @@ in
             siteMonitor = "http://127.0.0.1:8080/dashboard/";
           };
           smoke = {
-            dnsHosts = [ (hostname "traefik") ];
+            dnsHosts = hostnames "traefik";
             http = {
               description = "Traefik dashboard web route";
-              host = hostname "traefik";
+              hosts = hostnames "traefik";
               path = "/dashboard/";
             };
           };
@@ -56,7 +57,7 @@ in
           name = "Technitium";
           route = {
             description = "Technitium DNS administration and DoH endpoint";
-            hosts = [ (hostname "technitium") ];
+            hosts = hostnames "technitium";
             url = "http://127.0.0.1:5380";
           };
           homepage = {
@@ -72,7 +73,7 @@ in
           name = "Gluetun";
           route = {
             description = "Gluetun WebUI";
-            hosts = [ (hostname "gluetun") ];
+            hosts = hostnames "gluetun";
             url = "http://127.0.0.1:3000";
           };
           homepage = {
@@ -88,7 +89,7 @@ in
           name = "Netboot.xyz";
           route = {
             description = "netboot.xyz web configuration UI";
-            hosts = [ (hostname "netbootxyz") ];
+            hosts = hostnames "netbootxyz";
             url = "http://127.0.0.1:3001";
           };
           homepage = {
@@ -125,7 +126,7 @@ in
         {
           id = "wildcard-gateway-validation";
           name = "Wildcard Gateway Validation";
-          smoke.dnsHosts = [ (hostname "wildcard-gateway-validation") ];
+          smoke.dnsHosts = hostnames "wildcard-gateway-validation";
         }
       ];
     }

@@ -6,6 +6,10 @@ HOST="productivity-vm"
 REPOSITORY="/mnt/backups/restic/appdata/productivity-vm"
 SOURCE="/srv/appsdata"
 ALLOW_MISSING_NEW_SERVICES=0
+SERVICE_DOMAINS=(
+  jax22.com
+  h
+)
 KEY_SERVICES=(
   postgresql
   gitea
@@ -32,25 +36,25 @@ KEY_SERVICES=(
 )
 
 HOST_ROUTES=(
-  gitea.h
-  forgejo.h
-  docs.h
-  paperless.h
-  freshrss.h
-  searxng.h
-  privatebin.h
-  vaultwarden.h
-  syncthing.h
-  stirling-pdf.h
-  firefly.h
-  nextcloud.h
-  garage.h
-  garage-web.h
-  rustfs.h
-  rustfs-console.h
-  s.h
-  shlink.h
-  ntfy.h
+  gitea
+  forgejo
+  docs
+  paperless
+  freshrss
+  searxng
+  privatebin
+  vaultwarden
+  syncthing
+  stirling-pdf
+  firefly
+  nextcloud
+  garage
+  garage-web
+  rustfs
+  rustfs-console
+  s
+  shlink
+  ntfy
 )
 
 declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
@@ -101,16 +105,16 @@ route_is_skipped() {
   local route="$1"
 
   case "$route" in
-    forgejo.h)
+    forgejo.*)
       service_is_skipped forgejo
       ;;
-    rustfs.h | rustfs-console.h)
+    rustfs.* | rustfs-console.*)
       service_is_skipped podman-rustfs
       ;;
-    s.h)
+    s.*)
       service_is_skipped podman-shlink
       ;;
-    shlink.h)
+    shlink.*)
       service_is_skipped podman-shlink-web
       ;;
     *)
@@ -176,56 +180,60 @@ if grep -q 'NO ROLE ASSIGNED' <<<"$garage_status"; then
 fi
 colmena exec --on "$HOST" -- garage bucket list >/dev/null
 
-for route in "${HOST_ROUTES[@]}"; do
-  if route_is_skipped "$route"; then
-    printf 'Skipping %s route because its service is not deployed yet.\n' "$route"
-    continue
-  fi
+for route_prefix in "${HOST_ROUTES[@]}"; do
+  for domain in "${SERVICE_DOMAINS[@]}"; do
+    route="${route_prefix}.${domain}"
 
-  case "$route" in
-    garage.h)
-      colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; status=\$(curl -sS -o \"\$tmp\" -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:3900/); case \"\$status\" in 403) ;; *) echo \"unexpected Garage S3 anonymous status for $route: \$status\" >&2; cat \"\$tmp\" >&2; exit 1 ;; esac; grep -q AccessDenied \"\$tmp\" || { echo \"Garage S3 anonymous response did not contain AccessDenied\" >&2; cat \"\$tmp\" >&2; exit 1; }'"
-      ;;
-    garage-web.h)
-      colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; if ! status=\$(curl -sS -o \"\$tmp\" -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:3902/); then echo \"Garage static web endpoint request failed for $route\" >&2; exit 1; fi; case \"\$status\" in 2*|3*|4*) exit 0 ;; *) echo \"unexpected Garage static web status for $route: \$status\" >&2; cat \"\$tmp\" >&2; exit 1 ;; esac'"
-      ;;
-    gitea.h)
-      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:3000/ >/dev/null"
-      ;;
-    forgejo.h)
-      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:3002/ >/dev/null"
-      ;;
-    ntfy.h)
-      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:2586/v1/health >/dev/null"
-      ;;
-    rustfs.h)
-      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9000/health >/dev/null"
-      ;;
-    rustfs-console.h)
-      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9001/rustfs/console/health >/dev/null"
-      ;;
-    s.h)
-      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8088/rest/health >/dev/null"
-      ;;
-    searxng.h)
-      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8087/ >/dev/null"
-      ;;
-    shlink.h)
-      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8089/ >/dev/null"
-      ;;
-    stirling-pdf.h)
-      colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:8086/); case \"\$status\" in 2*|3*|401) exit 0 ;; *) echo \"unexpected Stirling PDF status for $route: \$status\" >&2; exit 1 ;; esac'"
-      ;;
-    syncthing.h)
-      colmena exec --on "$HOST" -- "curl -fsSk --max-time 10 -H 'Host: $route' http://127.0.0.1:8384/ >/dev/null"
-      ;;
-    vaultwarden.h)
-      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8222/ >/dev/null"
-      ;;
-    *)
-      colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1/ >/dev/null"
-      ;;
-  esac
+    if route_is_skipped "$route"; then
+      printf 'Skipping %s route because its service is not deployed yet.\n' "$route"
+      continue
+    fi
+
+    case "$route" in
+      garage.*)
+        colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; status=\$(curl -sS -o \"\$tmp\" -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:3900/); case \"\$status\" in 403) ;; *) echo \"unexpected Garage S3 anonymous status for $route: \$status\" >&2; cat \"\$tmp\" >&2; exit 1 ;; esac; grep -q AccessDenied \"\$tmp\" || { echo \"Garage S3 anonymous response did not contain AccessDenied\" >&2; cat \"\$tmp\" >&2; exit 1; }'"
+        ;;
+      garage-web.*)
+        colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; if ! status=\$(curl -sS -o \"\$tmp\" -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:3902/); then echo \"Garage static web endpoint request failed for $route\" >&2; exit 1; fi; case \"\$status\" in 2*|3*|4*) exit 0 ;; *) echo \"unexpected Garage static web status for $route: \$status\" >&2; cat \"\$tmp\" >&2; exit 1 ;; esac'"
+        ;;
+      gitea.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:3000/ >/dev/null"
+        ;;
+      forgejo.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:3002/ >/dev/null"
+        ;;
+      ntfy.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:2586/v1/health >/dev/null"
+        ;;
+      rustfs.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9000/health >/dev/null"
+        ;;
+      rustfs-console.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9001/rustfs/console/health >/dev/null"
+        ;;
+      s.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8088/rest/health >/dev/null"
+        ;;
+      searxng.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8087/ >/dev/null"
+        ;;
+      shlink.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8089/ >/dev/null"
+        ;;
+      stirling-pdf.*)
+        colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:8086/); case \"\$status\" in 2*|3*|401) exit 0 ;; *) echo \"unexpected Stirling PDF status for $route: \$status\" >&2; exit 1 ;; esac'"
+        ;;
+      syncthing.*)
+        colmena exec --on "$HOST" -- "curl -fsSk --max-time 10 -H 'Host: $route' http://127.0.0.1:8384/ >/dev/null"
+        ;;
+      vaultwarden.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8222/ >/dev/null"
+        ;;
+      *)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1/ >/dev/null"
+        ;;
+    esac
+  done
 done
 
 printf 'productivity-vm validation completed.\n'

@@ -11,7 +11,64 @@ with lib;
 let
   cfg = config.fleet.productivity.stack;
   appdata = cfg.appdataRoot;
+  serviceHostPrefixes = {
+    docs = "docs";
+    firefly = "firefly";
+    forgejo = "forgejo";
+    freshrss = "freshrss";
+    garage = "garage";
+    garageWeb = "garage-web";
+    gitea = "gitea";
+    nextcloud = "nextcloud";
+    ntfy = "ntfy";
+    paperless = "paperless";
+    privatebin = "privatebin";
+    rustfs = "rustfs";
+    rustfsConsole = "rustfs-console";
+    searxng = "searxng";
+    shlink = "s";
+    shlinkWeb = "shlink";
+    stirlingPdf = "stirling-pdf";
+    syncthing = "syncthing";
+    vaultwarden = "vaultwarden";
+  };
+  serviceHostKeys = [
+    "gitea"
+    "forgejo"
+    "docs"
+    "paperless"
+    "freshrss"
+    "searxng"
+    "privatebin"
+    "vaultwarden"
+    "syncthing"
+    "stirlingPdf"
+    "firefly"
+    "nextcloud"
+    "garage"
+    "garageWeb"
+    "rustfs"
+    "rustfsConsole"
+    "shlink"
+    "shlinkWeb"
+    "ntfy"
+  ];
+  mkServiceHostNames =
+    domains:
+    mapAttrs (
+      _name: prefix:
+      map (serviceDomain: "${prefix}.${serviceDomain}") domains
+    ) serviceHostPrefixes;
+  mkServiceHosts = domains: mapAttrs (_name: names: head names) (mkServiceHostNames domains);
+  mkServiceHostAliases = domains: mapAttrs (_name: names: tail names) (mkServiceHostNames domains);
   serviceHosts = cfg.serviceHosts;
+  serviceHostAliases = mkServiceHostAliases cfg.serviceDomains;
+  serviceRouteLines = concatStringsSep "\n" (
+    concatMap (
+      serviceKey:
+      map (hostName: "        http://${hostName}") ([ serviceHosts.${serviceKey} ] ++ serviceHostAliases.${serviceKey})
+    ) serviceHostKeys
+  );
   rustfsGid = 10001;
   rustfsUid = 10001;
 
@@ -112,33 +169,19 @@ in
     serviceDomain = mkOption {
       type = types.str;
       default = "h";
-      description = "Internal service domain used for route hostnames.";
+      description = "Legacy single internal service domain used for route hostnames.";
+    };
+
+    serviceDomains = mkOption {
+      type = types.nonEmptyListOf types.str;
+      default = [ cfg.serviceDomain ];
+      description = "Internal service domains used for route hostnames, in canonical-first order.";
     };
 
     serviceHosts = mkOption {
       type = types.attrsOf types.str;
-      default = {
-        docs = "docs.h";
-        firefly = "firefly.h";
-        forgejo = "forgejo.h";
-        freshrss = "freshrss.h";
-        garage = "garage.h";
-        garageWeb = "garage-web.h";
-        gitea = "gitea.h";
-        nextcloud = "nextcloud.h";
-        ntfy = "ntfy.h";
-        paperless = "paperless.h";
-        privatebin = "privatebin.h";
-        rustfs = "rustfs.h";
-        rustfsConsole = "rustfs-console.h";
-        searxng = "searxng.h";
-        shlink = "s.h";
-        shlinkWeb = "shlink.h";
-        stirlingPdf = "stirling-pdf.h";
-        syncthing = "syncthing.h";
-        vaultwarden = "vaultwarden.h";
-      };
-      description = "Internal hostnames for productivity services.";
+      default = mkServiceHosts cfg.serviceDomains;
+      description = "Canonical internal hostnames for productivity services.";
     };
 
     ports = mkOption {
@@ -428,6 +471,7 @@ in
       passwordFile = secretPath "paperless-admin-password";
       settings = {
         PAPERLESS_ADMIN_USER = "smoke";
+        PAPERLESS_ALLOWED_HOSTS = concatStringsSep "," ([ serviceHosts.paperless ] ++ serviceHostAliases.paperless);
         PAPERLESS_OCR_LANGUAGE = "eng";
         PAPERLESS_URL = mkForce "http://${serviceHosts.paperless}";
       };
@@ -539,9 +583,7 @@ in
       settings = {
         overwrite.cli.url = "http://${serviceHosts.nextcloud}";
         overwriteprotocol = "http";
-        trusted_domains = [
-          serviceHosts.nextcloud
-        ];
+        trusted_domains = serviceHostAliases.nextcloud;
       };
     };
 
@@ -756,11 +798,19 @@ in
       recommendedProxySettings = true;
       virtualHosts.${serviceHosts.docs} = {
         root = "${mkdocsRoot}/site";
+        serverAliases = serviceHostAliases.docs;
         locations."/".tryFiles = "$uri $uri/ /index.html";
       };
     };
 
-    services.nginx.virtualHosts.${serviceHosts.paperless}.forceSSL = mkForce false;
+    services.nginx.virtualHosts.${serviceHosts.paperless} = {
+      forceSSL = mkForce false;
+      serverAliases = serviceHostAliases.paperless;
+    };
+    services.nginx.virtualHosts.${serviceHosts.freshrss}.serverAliases = serviceHostAliases.freshrss;
+    services.nginx.virtualHosts.${serviceHosts.privatebin}.serverAliases = serviceHostAliases.privatebin;
+    services.nginx.virtualHosts.${serviceHosts.firefly}.serverAliases = serviceHostAliases.firefly;
+    services.nginx.virtualHosts.${serviceHosts.nextcloud}.serverAliases = serviceHostAliases.nextcloud;
 
     # --------------------------------------------------------------------------
     # SERVICE OVERRIDES FOR /srv/appdata AND LAN ROUTING
@@ -1099,25 +1149,7 @@ in
         ${resticPasswordFile}
 
       Internal routes through gateway-vm:
-        http://${serviceHosts.gitea}
-        http://${serviceHosts.forgejo}
-        http://${serviceHosts.docs}
-        http://${serviceHosts.paperless}
-        http://${serviceHosts.freshrss}
-        http://${serviceHosts.searxng}
-        http://${serviceHosts.privatebin}
-        http://${serviceHosts.vaultwarden}
-        http://${serviceHosts.syncthing}
-        http://${serviceHosts.stirlingPdf}
-        http://${serviceHosts.firefly}
-        http://${serviceHosts.nextcloud}
-        http://${serviceHosts.garage}
-        http://${serviceHosts.garageWeb}
-        http://${serviceHosts.rustfs}
-        http://${serviceHosts.rustfsConsole}
-        http://${serviceHosts.shlink}
-        http://${serviceHosts.shlinkWeb}
-        http://${serviceHosts.ntfy}
+${serviceRouteLines}
 
       Direct LAN ports:
         Gitea: ${toString cfg.ports.gitea}
@@ -1154,19 +1186,25 @@ in
         ${concatStringsSep " " statefulServices}
 
       Garage is standalone S3 in this pass. It does not back Nextcloud primary
-      storage. garage.h is the authenticated S3 API, so anonymous browser
-      requests to / should return AccessDenied. garage-web.h is the static
+      storage. ${serviceHosts.garage} is the authenticated S3 API, so anonymous
+      browser requests to / should return AccessDenied. ${serviceHosts.garageWeb}
+      is the static
       website endpoint; buckets must still be created and enabled for website
-      hosting with the upstream Garage CLI before serving content.
+      hosting with the upstream Garage CLI before serving content. Garage
+      bucket virtual-host style remains canonical on ${serviceHosts.garage} and
+      ${serviceHosts.garageWeb}; the .h names are only routed named endpoints.
 
       RustFS is a separate S3-compatible object store in this pass. It does not
-      share Garage buckets or credentials. rustfs.h is the S3 API and
-      rustfs-console.h is the RustFS console.
+      share Garage buckets or credentials. ${serviceHosts.rustfs} is the S3 API
+      and ${serviceHosts.rustfsConsole} is the RustFS console. RustFS
+      virtual-host style remains canonical on ${serviceHosts.rustfs}; the .h
+      name is only a routed named endpoint.
 
       Shlink uses the PostgreSQL database named shlink and the short-link route
-      s.h. The local Shlink Web Client is served at shlink.h. Retrieve the API
-      key from the encrypted shlink-environment secret and add http://s.h as a
-      server in the web client; do not publish the API key in web client static
+      ${serviceHosts.shlink}. The local Shlink Web Client is served at
+      ${serviceHosts.shlinkWeb}. Retrieve the API key from the encrypted
+      shlink-environment secret and add http://${serviceHosts.shlink} as a server
+      in the web client; do not publish the API key in web client static
       configuration.
     '';
   };

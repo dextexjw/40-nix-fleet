@@ -13,6 +13,7 @@ let
   appdata = cfg.appdataRoot;
   gluetunCfg = cfg.gluetun;
   mediaRoot = cfg.mediaRoot;
+  mediaGluetunRouteUrls = map (serviceDomain: "http://media-gluetun.${serviceDomain}") cfg.serviceDomains;
   smbCredentialsFile =
     if cfg.secrets.enable then
       config.sops.secrets.smb-credentials.path
@@ -69,6 +70,7 @@ let
     optional gluetunCfg.qbittorrentWebUi.enable cfg.ports.qbittorrent
     ++ [ cfg.ports.sabnzbd ]
     ++ optional gluetunCfg.webUi.enable gluetunCfg.webUi.port;
+  sabnzbdHostWhitelist = map (serviceDomain: "sabnzbd.${serviceDomain}") cfg.serviceDomains;
 
   appsdataDirs = [
     "${appdata}"
@@ -105,7 +107,7 @@ let
         "download_dir": ${builtins.toJSON (toString cfg.downloads.incomplete)},
         "complete_dir": ${builtins.toJSON (toString cfg.downloads.usenet)},
     }
-    required_host = "sabnzbd.h"
+    required_hosts = ${builtins.toJSON sabnzbdHostWhitelist}
 
     config_file.parent.mkdir(parents=True, exist_ok=True)
     config = ConfigObj(str(config_file), encoding="UTF8") if config_file.exists() else ConfigObj(encoding="UTF8")
@@ -122,8 +124,9 @@ let
     else:
         hosts = [host.strip() for host in str(host_whitelist).split(",")]
     hosts = [host for host in hosts if host]
-    if required_host not in hosts:
-        hosts.append(required_host)
+    for required_host in required_hosts:
+        if required_host not in hosts:
+            hosts.append(required_host)
     misc["host_whitelist"] = ",".join(hosts)
 
     uid = pwd.getpwnam("sabnzbd").pw_uid
@@ -241,6 +244,18 @@ in
       type = types.bool;
       default = false;
       description = "Use sops-nix secrets from secrets/secrets.yaml.";
+    };
+
+    serviceDomain = mkOption {
+      type = types.str;
+      default = "h";
+      description = "Legacy single internal service domain used for generated route hostnames.";
+    };
+
+    serviceDomains = mkOption {
+      type = types.nonEmptyListOf types.str;
+      default = [ cfg.serviceDomain ];
+      description = "Internal service domains used for generated route hostnames, in canonical-first order.";
     };
 
     libraries = mkOption {
@@ -1292,7 +1307,7 @@ EOF
       MediaVM Gluetun at http://10.2.20.113:8080, SABnzbd is available through
       MediaVM Gluetun at http://10.2.20.113:8085, and the MediaVM Gluetun WebUI
       is available at http://10.2.20.113:3001 and, through Gateway Traefik,
-      http://media-gluetun.h.
+      ${concatStringsSep " and " mediaGluetunRouteUrls}.
     '';
   };
 }

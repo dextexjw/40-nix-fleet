@@ -9,10 +9,11 @@ let
     {
       hosts,
       serviceDomain,
+      serviceDomains,
       name,
     }:
     import (hostExposurePath name) {
-      inherit hosts lib serviceDomain;
+      inherit hosts lib serviceDomain serviceDomains;
     };
 
   sortGroups = sort (
@@ -121,6 +122,8 @@ let
       hostNames =
         if http == null then
           [ ]
+        else if http ? hosts then
+          http.hosts
         else if http ? host then
           [ http.host ]
         else if route != null then
@@ -195,7 +198,8 @@ in
   load =
     {
       hosts,
-      serviceDomain,
+      serviceDomain ? head serviceDomains,
+      serviceDomains ? [ serviceDomain ],
     }:
     let
       gatewayHost = hosts.gateway-vm;
@@ -204,7 +208,7 @@ in
       hostExposures = map (
         name:
         loadHostExposure {
-          inherit hosts name serviceDomain;
+          inherit hosts name serviceDomain serviceDomains;
         }
       ) exposureHostNames;
       allGroups = sortGroups (concatMap (exposure: exposure.groups or [ ]) hostExposures);

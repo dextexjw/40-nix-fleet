@@ -28,27 +28,27 @@ path backed up by Restic.
 
 ## Service Access
 
-| Service | Route | Backend |
-| --- | --- | --- |
-| Gitea | `http://gitea.h` | `10.2.20.114:3000` |
-| Forgejo | `http://forgejo.h` | `10.2.20.114:3002` |
-| Material for MkDocs | `http://docs.h` | `10.2.20.114:80` |
-| Paperless-ngx | `http://paperless.h` | `10.2.20.114:80` |
-| FreshRSS | `http://freshrss.h` | `10.2.20.114:80` |
-| SearXNG | `http://searxng.h` | `10.2.20.114:8087` |
-| PrivateBin | `http://privatebin.h` | `10.2.20.114:80` |
-| Vaultwarden | `http://vaultwarden.h` | `10.2.20.114:8222` |
-| Syncthing | `http://syncthing.h` | `10.2.20.114:8384` |
-| Stirling PDF | `http://stirling-pdf.h` | `10.2.20.114:8086` |
-| Firefly III | `http://firefly.h` | `10.2.20.114:80` |
-| Nextcloud | `http://nextcloud.h` | `10.2.20.114:80` |
-| Shlink short links/API | `http://s.h` | `10.2.20.114:8088` |
-| Shlink Web Client | `http://shlink.h` | `10.2.20.114:8089` |
-| Garage S3 API | `http://garage.h` | `10.2.20.114:3900` |
-| Garage static web | `http://garage-web.h` | `10.2.20.114:3902` |
-| RustFS S3 API | `http://rustfs.h` | `10.2.20.114:9000` |
-| RustFS console | `http://rustfs-console.h` | `10.2.20.114:9001` |
-| ntfy | `http://ntfy.h` | `10.2.20.114:2586` |
+| Service | Canonical route | Alias | Backend |
+| --- | --- | --- | --- |
+| Gitea | `http://gitea.jax22.com` | `http://gitea.h` | `10.2.20.114:3000` |
+| Forgejo | `http://forgejo.jax22.com` | `http://forgejo.h` | `10.2.20.114:3002` |
+| Material for MkDocs | `http://docs.jax22.com` | `http://docs.h` | `10.2.20.114:80` |
+| Paperless-ngx | `http://paperless.jax22.com` | `http://paperless.h` | `10.2.20.114:80` |
+| FreshRSS | `http://freshrss.jax22.com` | `http://freshrss.h` | `10.2.20.114:80` |
+| SearXNG | `http://searxng.jax22.com` | `http://searxng.h` | `10.2.20.114:8087` |
+| PrivateBin | `http://privatebin.jax22.com` | `http://privatebin.h` | `10.2.20.114:80` |
+| Vaultwarden | `http://vaultwarden.jax22.com` | `http://vaultwarden.h` | `10.2.20.114:8222` |
+| Syncthing | `http://syncthing.jax22.com` | `http://syncthing.h` | `10.2.20.114:8384` |
+| Stirling PDF | `http://stirling-pdf.jax22.com` | `http://stirling-pdf.h` | `10.2.20.114:8086` |
+| Firefly III | `http://firefly.jax22.com` | `http://firefly.h` | `10.2.20.114:80` |
+| Nextcloud | `http://nextcloud.jax22.com` | `http://nextcloud.h` | `10.2.20.114:80` |
+| Shlink short links/API | `http://s.jax22.com` | `http://s.h` | `10.2.20.114:8088` |
+| Shlink Web Client | `http://shlink.jax22.com` | `http://shlink.h` | `10.2.20.114:8089` |
+| Garage S3 API | `http://garage.jax22.com` | `http://garage.h` | `10.2.20.114:3900` |
+| Garage static web | `http://garage-web.jax22.com` | `http://garage-web.h` | `10.2.20.114:3902` |
+| RustFS S3 API | `http://rustfs.jax22.com` | `http://rustfs.h` | `10.2.20.114:9000` |
+| RustFS console | `http://rustfs-console.jax22.com` | `http://rustfs-console.h` | `10.2.20.114:9001` |
+| ntfy | `http://ntfy.jax22.com` | `http://ntfy.h` | `10.2.20.114:2586` |
 
 Traefik routes and Homepage cards are declared on `gateway-vm`.
 
@@ -212,16 +212,20 @@ Destructive restore outline:
 7. Restart PostgreSQL and productivity services.
 
 Garage is standalone S3 in this pass. It does not back Nextcloud primary
-storage. `garage.h` is the authenticated S3 API, so anonymous browser requests
-to `/` should return AccessDenied. `garage-web.h` is the static website
-endpoint; buckets must still be created and enabled for website hosting with
-the upstream Garage CLI before serving content.
+storage. `garage.jax22.com` is the authenticated S3 API, so anonymous browser
+requests to `/` should return AccessDenied. `garage-web.jax22.com` is the
+static website endpoint; buckets must still be created and enabled for website
+hosting with the upstream Garage CLI before serving content. Bucket
+virtual-host style is canonical on `jax22.com`; `.h` is only retained as a
+named endpoint alias.
 
 RustFS is separate S3-compatible storage. It does not share Garage buckets or
-credentials. `rustfs.h` is the S3 API and `rustfs-console.h` is the console.
+credentials. `rustfs.jax22.com` is the S3 API and `rustfs-console.jax22.com` is
+the console. RustFS virtual-host style is canonical on `jax22.com`; `.h` is only
+retained as a named endpoint alias.
 
-Shlink uses `s.h` for short links and its API. The local Shlink Web Client is
-served at `shlink.h`. Get the API key from the encrypted
-`shlink-environment` secret, then add `http://s.h` in the web client. Do not
-preconfigure the web client with the API key because that static configuration
-is browser-readable.
+Shlink uses `s.jax22.com` for short links and its API. The local Shlink Web
+Client is served at `shlink.jax22.com`. Get the API key from the encrypted
+`shlink-environment` secret, then add `http://s.jax22.com` in the web client.
+Do not preconfigure the web client with the API key because that static
+configuration is browser-readable.

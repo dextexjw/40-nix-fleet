@@ -1,8 +1,8 @@
-{ host, serviceDomain }:
+{ host, serviceDomain ? "h", serviceDomains ? [ serviceDomain ] }:
 
 let
   backend = port: "http://${host.ip}:${toString port}";
-  hostname = name: "${name}.${serviceDomain}";
+  hostnames = name: map (domain: "${name}.${domain}") serviceDomains;
   monitorBase = port: if port == 80 then "http://${host.ip}" else backend port;
 
   mkService =
@@ -13,8 +13,8 @@ let
       routeDescription,
       icon,
       homepageDescription,
-      hostName ? hostname id,
-      hostNames ? [ hostName ],
+      hostPrefix ? id,
+      hostNames ? hostnames hostPrefix,
       monitorPath ? "/",
       smokeHttp ? null,
     }:
@@ -50,8 +50,8 @@ let
       name,
       port,
       routeDescription,
-      hostName ? hostname id,
-      hostNames ? [ hostName ],
+      hostPrefix ? id,
+      hostNames ? hostnames hostPrefix,
       smokeHttp ? null,
     }:
     {
@@ -188,7 +188,7 @@ in
           name = "Shlink API";
           port = 8088;
           routeDescription = "Shlink short-link API and redirect service";
-          hostName = hostname "s";
+          hostPrefix = "s";
           smokeHttp.path = "/rest/health";
         })
         (mkService {
@@ -198,7 +198,7 @@ in
           routeDescription = "Shlink Web Client";
           icon = "shlink.png";
           homepageDescription = "Short-link web client\n${backend 8089}";
-          hostName = hostname "shlink";
+          hostPrefix = "shlink";
           smokeHttp = {
             discard = true;
             path = "/";
