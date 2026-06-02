@@ -48,6 +48,8 @@ Service access:
 - Gluetun HTTP proxy: `http://10.2.20.112:8888`
 - Gluetun WebUI: `http://gluetun.jax22.com/` through Traefik, `http://gluetun.h/` as an alias; backend only on `127.0.0.1:3000`
 - MediaVM Gluetun WebUI: `http://media-gluetun.jax22.com/` through Traefik, `http://media-gluetun.h/` as an alias; backend on `10.2.20.113:3001`
+- Checkmate: `http://checkmate.jax22.com/` through Traefik, `http://checkmate.h/` as an alias; backend on `10.2.20.115:52345`
+- Beszel: `http://beszel.jax22.com/` through Traefik, `http://beszel.h/` as an alias; backend on `10.2.20.115:8090`
 - netboot.xyz WebUI: `http://netbootxyz.jax22.com/` through Traefik, `http://netbootxyz.h/` as an alias; backend only on `127.0.0.1:3001`
 - netboot.xyz local assets: backend only on `127.0.0.1:8083`
 - netboot.xyz TFTP: `10.2.20.112:69/udp`, boot file `netboot.xyz.efi`
@@ -138,6 +140,7 @@ live with their owning host or service catalog:
 - Gateway-local routes: `hosts/gateway-vm/exposure.nix`
 - Media routes/cards: `hosts/media-vm/exposure.nix` and `modules/media/catalog.nix`
 - Productivity routes/cards: `hosts/productivity-vm/exposure.nix` and `modules/productivity/catalog.nix`
+- Monitoring routes/cards: `hosts/monitoring-vm/exposure.nix` and `modules/monitoring/catalog.nix`
 
 `gateway-vm` imports those pure data files and renders
 `fleet.gateway.traefik.routes`, `fleet.gateway.homepage.serviceGroups`,
@@ -179,6 +182,9 @@ Required secrets:
 - `restic-password`
 - `technitium-admin-username`
 - `technitium-admin-password`
+- `beszel-agent-key`
+- `beszel-agent-token` (reserved for Beszel universal-token registration)
+- `checkmate-capture-environment`
 
 Normal edit flow:
 

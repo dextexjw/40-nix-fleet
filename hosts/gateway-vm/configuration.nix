@@ -20,7 +20,9 @@ let
   };
   secretsFile = ../../secrets/secrets.yaml;
   secretsEnabled = builtins.pathExists secretsFile;
-  technitium-dns-server-library_15_2_0 = pkgs.callPackage ../../modules/gateway/technitium/library-package.nix { };
+  technitium-dns-server-library_15_2_0 =
+    pkgs.callPackage ../../modules/gateway/technitium/library-package.nix
+      { };
   technitium-dns-server_15_2_0 = pkgs.callPackage ../../modules/gateway/technitium/package.nix {
     technitium-dns-server-library = technitium-dns-server-library_15_2_0;
   };
@@ -115,6 +117,21 @@ in
     secrets = {
       admin-password-hash = {
         neededForUsers = true;
+      };
+      beszel-agent-key = {
+        owner = "beszel-agent";
+        group = "beszel-agent";
+        mode = "0400";
+        restartUnits = [ "beszel-agent.service" ];
+      };
+      beszel-agent-token = {
+        owner = "beszel-agent";
+        group = "beszel-agent";
+        mode = "0400";
+        restartUnits = [ "beszel-agent.service" ];
+      };
+      checkmate-capture-environment = {
+        restartUnits = [ "checkmate-capture.service" ];
       };
       gluetun-control-api-key = {
         restartUnits = [
@@ -303,8 +320,8 @@ in
     routes = exposureCatalog.traefikRoutes;
   };
 
-  # common.nix enables node-exporter by default; gateway-vm intentionally does
-  # not run monitoring services.
+  # gateway-vm skips Prometheus node-exporter but still runs the fleet
+  # Checkmate/Beszel agents declared in common.nix.
   fleet.monitoring.nodeExporter.enable = lib.mkForce false;
 
   # ============================================================================
@@ -349,112 +366,112 @@ in
   environment.etc."fleet/gateway-exposure-smoke.tsv".text = exposureCatalog.smokeTsv;
 
   environment.etc."fleet/gateway-vm.md".text = ''
-    gateway-vm service model
-    ========================
+        gateway-vm service model
+        ========================
 
-    gateway-vm is scoped to Traefik, Homepage, Technitium, Gluetun, netboot.xyz,
-    NetBird, and Tailscale. Prometheus, Grafana, Jenkins, nginx reverse proxy,
-    and node exporter are intentionally not enabled on this host.
+        gateway-vm is scoped to Traefik, Homepage, Technitium, Gluetun, netboot.xyz,
+        NetBird, and Tailscale. Prometheus, Grafana, Jenkins, nginx reverse proxy,
+        and node exporter are intentionally not enabled on this host.
 
-    Homelab host domain:
-      *.${domain}
+        Homelab host domain:
+          *.${domain}
 
-    Homelab service domains:
-${lib.concatStringsSep "\n" (map (zoneDomain: "      *.${zoneDomain}") serviceDomains)}
+        Homelab service domains:
+    ${lib.concatStringsSep "\n" (map (zoneDomain: "      *.${zoneDomain}") serviceDomains)}
 
-    Declared services:
-      Traefik: traefik.service, version 3.7.1, ingress ports 80 and optional 443, dashboard and metrics port 8080, JSON access logs in the service journal
-      Homepage: homepage-dashboard.service, declarative service directory, LAN access on ${host.ip}:8082 and http://homepage.${serviceDomain}
-      Technitium: technitium-dns-server.service, version 15.2.0, state /srv/appsdata/technitium-dns-server, admin HTTP on ${host.ip}:5380 and http://technitium.${serviceDomain}
-      Gluetun: podman-gluetun.service, PIA OpenVPN container, state /srv/appsdata/gluetun, unauthenticated LAN HTTP proxy on ${host.ip}:8888, authenticated control API internal to the container namespace
-      Gluetun WebUI: podman-gluetun-webui.service, LAN access through Traefik at http://gluetun.${serviceDomain}, backend only on 127.0.0.1:3000
-      netboot.xyz: podman-netbootxyz.service, state /srv/appsdata/netbootxyz, web UI http://netbootxyz.${serviceDomain}, TFTP ${host.ip}:69/udp, boot file netboot.xyz.efi
-      NetBird: disabled for now, state preserved at /srv/appsdata/netbird
-      Tailscale: tailscaled.service, state /srv/appsdata/tailscale
-      State backups: gateway-state-backup.timer, repository /mnt/backup/restic/appdata/gateway-vm
+        Declared services:
+          Traefik: traefik.service, version 3.7.1, ingress ports 80 and optional 443, dashboard and metrics port 8080, JSON access logs in the service journal
+          Homepage: homepage-dashboard.service, declarative service directory, LAN access on ${host.ip}:8082 and http://homepage.${serviceDomain}
+          Technitium: technitium-dns-server.service, version 15.2.0, state /srv/appsdata/technitium-dns-server, admin HTTP on ${host.ip}:5380 and http://technitium.${serviceDomain}
+          Gluetun: podman-gluetun.service, PIA OpenVPN container, state /srv/appsdata/gluetun, unauthenticated LAN HTTP proxy on ${host.ip}:8888, authenticated control API internal to the container namespace
+          Gluetun WebUI: podman-gluetun-webui.service, LAN access through Traefik at http://gluetun.${serviceDomain}, backend only on 127.0.0.1:3000
+          netboot.xyz: podman-netbootxyz.service, state /srv/appsdata/netbootxyz, web UI http://netbootxyz.${serviceDomain}, TFTP ${host.ip}:69/udp, boot file netboot.xyz.efi
+          NetBird: disabled for now, state preserved at /srv/appsdata/netbird
+          Tailscale: tailscaled.service, state /srv/appsdata/tailscale
+          State backups: gateway-state-backup.timer, repository /mnt/backup/restic/appdata/gateway-vm
 
-    Internal routes:
-${exposureCatalog.routeUrlsText}
+        Internal routes:
+    ${exposureCatalog.routeUrlsText}
 
-    Network boot:
-      Configure the LAN DHCP server to point option 66 at ${hosts.gateway-vm.ip}
-      and option 67 at netboot.xyz.efi. gateway-vm serves the netboot.xyz web
-      UI, local asset server, and TFTP, but does not take over DHCP for the
-      subnet.
+        Network boot:
+          Configure the LAN DHCP server to point option 66 at ${hosts.gateway-vm.ip}
+          and option 67 at netboot.xyz.efi. gateway-vm serves the netboot.xyz web
+          UI, local asset server, and TFTP, but does not take over DHCP for the
+          subnet.
 
-    Guarded deploy workflow:
-      nix develop
-      nix flake check
-      colmena build --on gateway-vm
-      colmena apply --on gateway-vm dry-activate
-      colmena apply --on gateway-vm switch
+        Guarded deploy workflow:
+          nix develop
+          nix flake check
+          colmena build --on gateway-vm
+          colmena apply --on gateway-vm dry-activate
+          colmena apply --on gateway-vm switch
 
-    Upgrade workflow for an already-running host:
-      nix develop
-      scripts/gateway-vm/upgrade-gateway-vm.sh run
+        Upgrade workflow for an already-running host:
+          nix develop
+          scripts/gateway-vm/upgrade-gateway-vm.sh run
 
-      The upgrade wrapper verifies local tools, encrypted secrets,
-      non-interactive SSH, nix flake check, and colmena build; creates a fresh
-      gateway appdata backup; dry-activates the host; runs the guarded switch;
-      and verifies services, listener ports, routes, DNS records, backup,
-      restore validation, and tmpfiles declarations. It never restores appdata
-      automatically.
+          The upgrade wrapper verifies local tools, encrypted secrets,
+          non-interactive SSH, nix flake check, and colmena build; creates a fresh
+          gateway appdata backup; dry-activates the host; runs the guarded switch;
+          and verifies services, listener ports, routes, DNS records, backup,
+          restore validation, and tmpfiles declarations. It never restores appdata
+          automatically.
 
-    Post-deploy validation:
-      systemctl is-active traefik.service
-      systemctl is-active homepage-dashboard.service
-      systemctl is-active technitium-dns-server.service
-      systemctl is-active podman-gluetun.service
-      systemctl is-active podman-gluetun-webui.service
-      systemctl is-active podman-netbootxyz.service
-      systemctl is-active tailscaled.service
-      systemctl is-active gateway-state-backup.timer
-      curl -H 'Host: gluetun.${serviceDomain}' http://127.0.0.1/api/health
-      curl -H 'Host: homepage.${serviceDomain}' http://127.0.0.1/
-      curl -H 'Host: homepage.h' http://127.0.0.1/
-      curl -H 'Host: netbootxyz.${serviceDomain}' http://127.0.0.1/
-      curl http://${host.ip}:8082/
-      ss -lntu
+        Post-deploy validation:
+          systemctl is-active traefik.service
+          systemctl is-active homepage-dashboard.service
+          systemctl is-active technitium-dns-server.service
+          systemctl is-active podman-gluetun.service
+          systemctl is-active podman-gluetun-webui.service
+          systemctl is-active podman-netbootxyz.service
+          systemctl is-active tailscaled.service
+          systemctl is-active gateway-state-backup.timer
+          curl -H 'Host: gluetun.${serviceDomain}' http://127.0.0.1/api/health
+          curl -H 'Host: homepage.${serviceDomain}' http://127.0.0.1/
+          curl -H 'Host: homepage.h' http://127.0.0.1/
+          curl -H 'Host: netbootxyz.${serviceDomain}' http://127.0.0.1/
+          curl http://${host.ip}:8082/
+          ss -lntu
 
-    Recovery notes:
-      Restic backs up /srv/appsdata to /mnt/backup/restic/appdata/gateway-vm
-      using /run/secrets/restic-password. Gluetun and netboot.xyz store state
-      directly under /srv/appsdata/gluetun and /srv/appsdata/netbootxyz;
-      Technitium, NetBird, and Tailscale keep
-      upstream-compatible bind mounts from /srv/appsdata/<service_name>.
-      Homepage service cards and Gateway Traefik routes are generated from the
-      pure Nix exposure catalog under hosts/*/exposure.nix and modules/*/catalog.nix.
-      Gateway, Media, and Productivity render as four-card rows, internal HTTP
-      cards use direct backend site monitors, and the bottom Links bookmark group
-      renders as a three-column external reference row with icons and service names.
-      Homepage has no authoritative mutable app state in this fleet pass and is
-      restored by redeploying gateway-vm.
+        Recovery notes:
+          Restic backs up /srv/appsdata to /mnt/backup/restic/appdata/gateway-vm
+          using /run/secrets/restic-password. Gluetun and netboot.xyz store state
+          directly under /srv/appsdata/gluetun and /srv/appsdata/netbootxyz;
+          Technitium, NetBird, and Tailscale keep
+          upstream-compatible bind mounts from /srv/appsdata/<service_name>.
+          Homepage service cards and Gateway Traefik routes are generated from the
+          pure Nix exposure catalog under hosts/*/exposure.nix and modules/*/catalog.nix.
+          Gateway, Media, and Productivity render as four-card rows, internal HTTP
+          cards use direct backend site monitors, and the bottom Links bookmark group
+          renders as a three-column external reference row with icons and service names.
+          Homepage has no authoritative mutable app state in this fleet pass and is
+          restored by redeploying gateway-vm.
 
-      Non-destructive validation:
-        mount /mnt/backup
-        systemctl start gateway-state-backup.service
-        systemctl start gateway-state-restore-check.service
-        systemctl status gateway-state-backup.service gateway-state-restore-check.service
+          Non-destructive validation:
+            mount /mnt/backup
+            systemctl start gateway-state-backup.service
+            systemctl start gateway-state-restore-check.service
+            systemctl status gateway-state-backup.service gateway-state-restore-check.service
 
-      Consistency-first manual backup from the repo development shell:
-        scripts/gateway-vm/create-gateway-backup.sh
+          Consistency-first manual backup from the repo development shell:
+            scripts/gateway-vm/create-gateway-backup.sh
 
-        The script stops gateway-state-backup.timer, stops active stateful
-        Gateway services, runs the Restic backup and restore validation, lists
-        recent snapshots, restarts services and the timer, then runs Gateway
-        service validation.
+            The script stops gateway-state-backup.timer, stops active stateful
+            Gateway services, runs the Restic backup and restore validation, lists
+            recent snapshots, restarts services and the timer, then runs Gateway
+            service validation.
 
-      Restore outline:
-        1. Deploy gateway-vm once to create users, secrets, mounts, and units.
-        2. Stop Technitium, Gluetun, netboot.xyz, NetBird, and Tailscale before replacing state.
-        3. Mount /mnt/backup.
-        4. Choose a gateway-vm/appsdata snapshot ID.
-        5. Restore the snapshot to / with restic --verify.
-        6. Run systemd-tmpfiles --create.
-        7. Restart homepage-dashboard.service, technitium-dns-server.service, podman-gluetun.service, podman-gluetun-webui.service, podman-netbootxyz.service, netbird.service, and tailscaled.service.
+          Restore outline:
+            1. Deploy gateway-vm once to create users, secrets, mounts, and units.
+            2. Stop Technitium, Gluetun, netboot.xyz, NetBird, and Tailscale before replacing state.
+            3. Mount /mnt/backup.
+            4. Choose a gateway-vm/appsdata snapshot ID.
+            5. Restore the snapshot to / with restic --verify.
+            6. Run systemd-tmpfiles --create.
+            7. Restart homepage-dashboard.service, technitium-dns-server.service, podman-gluetun.service, podman-gluetun-webui.service, podman-netbootxyz.service, netbird.service, and tailscaled.service.
 
-      Keep auth keys in encrypted secrets only; do not write them into Nix
-      files, generated configs, recovery notes, logs, or chat.
+          Keep auth keys in encrypted secrets only; do not write them into Nix
+          files, generated configs, recovery notes, logs, or chat.
   '';
 
   time.timeZone = host.timezone;

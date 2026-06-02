@@ -73,27 +73,26 @@
     };
   };
 
-  security-vm = {
+  monitoring-vm = {
     arch = "x86_64-linux";
     domain = "home.arpa";
-    fqdn = "security.home.arpa";
+    fqdn = "monitoring.home.arpa";
     ip = "10.2.20.115";
     gateway = "10.2.20.1";
     nameservers = [
       "10.2.20.1"
-      "9.9.9.9"
     ];
     user = "smoke";
     tags = [
-      "security"
+      "monitoring"
     ];
     timezone = "America/New_York";
     vm = {
       cores = 2;
       disk = "/dev/sda";
       id = "115";
-      name = "security-vm";
-      ramGB = 4;
+      name = "monitoring-vm";
+      ramGB = 8;
     };
   };
 }

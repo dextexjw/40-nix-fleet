@@ -6,7 +6,7 @@
 
 let
   hosts = import ../../hosts.nix;
-  host = hosts.productivity-vm;
+  host = hosts.monitoring-vm;
   serviceDomains = (import ../../lib/service-domains.nix).all;
   secretsFile = ../../secrets/secrets.yaml;
   secretsEnabled = builtins.pathExists secretsFile;
@@ -20,16 +20,16 @@ in
   imports = [
     ../common.nix
     ./hardware-configuration.nix
-    ../../modules/productivity
+    ../../modules/monitoring/stack.nix
   ];
 
   # ============================================================================
   # HOST IDENTIFICATION
   # ============================================================================
 
-  networking.hostName = "productivity-vm";
+  networking.hostName = "monitoring-vm";
   networking.domain = host.domain;
-  users.motd = "productivity-vm: Git, docs, paperless, RSS, search, vault, files, S3, notifications, and appdata backups";
+  users.motd = "monitoring-vm: Checkmate, Beszel, host agents, and appdata backups";
 
   # ============================================================================
   # SECRETS
@@ -57,70 +57,13 @@ in
       checkmate-capture-environment = {
         restartUnits = [ "checkmate-capture.service" ];
       };
-      firefly-app-key = {
-        owner = "firefly-iii";
-        group = "nginx";
-        mode = "0400";
-        restartUnits = [ "phpfpm-firefly-iii.service" ];
-      };
-      freshrss-admin-password = {
-        owner = "freshrss";
-        group = "freshrss";
-        mode = "0400";
-        restartUnits = [ "freshrss-config.service" ];
-      };
-      garage-admin-token = {
-        owner = "garage";
-        group = "garage";
-        mode = "0400";
-        restartUnits = [ "garage.service" ];
-      };
-      garage-metrics-token = {
-        owner = "garage";
-        group = "garage";
-        mode = "0400";
-        restartUnits = [ "garage.service" ];
-      };
-      garage-rpc-secret = {
-        owner = "garage";
-        group = "garage";
-        mode = "0400";
-        restartUnits = [ "garage.service" ];
-      };
-      nextcloud-admin-password = {
-        restartUnits = [ "nextcloud-setup.service" ];
-      };
-      paperless-admin-password = {
-        restartUnits = [ "paperless-scheduler.service" ];
+      checkmate-environment = {
+        restartUnits = [ "podman-checkmate.service" ];
       };
       restic-password = {
-        restartUnits = [ "productivity-appdata-backup.service" ];
-      };
-      rustfs-environment = {
-        restartUnits = [ "podman-rustfs.service" ];
-      };
-      searxng-environment = {
-        restartUnits = [
-          "searx-init.service"
-          "searx.service"
-        ];
-      };
-      shlink-environment = {
-        restartUnits = [
-          "shlink-postgresql-password.service"
-          "podman-shlink.service"
-        ];
+        restartUnits = [ "monitoring-appdata-backup.service" ];
       };
       smb-credentials = { };
-      syncthing-gui-password = {
-        owner = "syncthing";
-        group = "syncthing";
-        mode = "0400";
-        restartUnits = [ "syncthing.service" ];
-      };
-      vaultwarden-environment = {
-        restartUnits = [ "vaultwarden.service" ];
-      };
     };
   };
 
@@ -130,7 +73,7 @@ in
 
   users.users.${host.user} = {
     extraGroups = [
-      "productivity"
+      "monitoring"
       "systemd-journal"
     ];
     hashedPasswordFile = lib.mkIf secretsEnabled config.sops.secrets.admin-password-hash.path;
@@ -140,7 +83,7 @@ in
   # SERVICES
   # ============================================================================
 
-  fleet.productivity.stack = {
+  fleet.monitoring.stack = {
     enable = true;
     secrets.enable = secretsEnabled;
     inherit serviceDomains;
@@ -163,7 +106,10 @@ in
       networkConfig = {
         Address = "${host.ip}/24";
         DNS = host.nameservers;
-        Domains = host.domain;
+        Domains = [
+          host.domain
+          "~${host.domain}"
+        ];
         Gateway = host.gateway;
       };
     };

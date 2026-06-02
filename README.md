@@ -8,6 +8,7 @@ The current fleet is intentionally small:
 - `gateway-vm` runs Traefik ingress, Technitium DNS, netboot.xyz, NetBird, and Tailscale.
 - `media-vm` runs Jellyfin, Audiobookshelf, Kavita, ARR apps, Gluetun-gated downloads, SMB media mounts, and appdata backups.
 - `productivity-vm` runs Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, short links, S3-compatible object storage, notifications, and appdata backups.
+- `monitoring-vm` runs Checkmate, Beszel, fleet monitoring agents, and appdata backups.
 
 Treat this repo as the source of truth for hosts, services, secrets workflow,
 and recovery notes. The fleet-wide service standard is captured in
@@ -21,6 +22,7 @@ should follow that blueprint before being treated as production-ready.
 | `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway` | Ingress, DNS, netboot, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
 | `media-vm` | `10.2.20.113` | `media` | Media services, Gluetun-gated downloads, SMB media, Restic appdata backups | [`hosts/media-vm/README.md`](hosts/media-vm/README.md) |
 | `productivity-vm` | `10.2.20.114` | `productivity` | Productivity services, documents, Git forges, short links, object storage, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
+| `monitoring-vm` | `10.2.20.115` | `monitoring` | Checkmate, Beszel, fleet monitoring agents, Restic appdata backups | [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md) |
 
 Inventory lives in `hosts.nix`. Per-host configuration and host-specific
 runbooks live under `hosts/<name>/`.
@@ -33,10 +35,11 @@ runbooks live under `hosts/<name>/`.
 - `hosts/gateway-vm/`: gateway host configuration, hardware profile, and runbook.
 - `hosts/media-vm/`: media host configuration, hardware profile, and runbook.
 - `hosts/productivity-vm/`: productivity host configuration, hardware profile, and runbook.
+- `hosts/monitoring-vm/`: monitoring host configuration, hardware profile, exposure catalog, and runbook.
 - `modules/gateway/`: Traefik, Technitium, netboot.xyz, NetBird, Tailscale, and gateway backup modules.
 - `modules/media/`: the `media-vm` service modules, SMB mounts, backups, and recovery notes.
 - `modules/productivity/`: the `productivity-vm` service modules, PostgreSQL, backups, and recovery notes.
-- `modules/monitoring/`: available Prometheus, Grafana, and node exporter modules.
+- `modules/monitoring/`: Checkmate, Beszel, fleet monitoring agents, and available Prometheus/Grafana/node exporter modules.
 - `modules/networking/reverse-proxy.nix`: available nginx virtual hosts module.
 - `modules/security/self-signed-ca.nix`: internal self-signed CA and per-domain cert generation.
 - `modules/dev/`: available Jenkins and Gitea modules.
@@ -55,6 +58,7 @@ Use the host READMEs as operational runbooks:
 - [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md): direct ports, Traefik routes, netboot notes, state backup, bootstrap, and validation.
 - [`hosts/media-vm/README.md`](hosts/media-vm/README.md): service URLs, media/appdata paths, SMB mounts, secrets, bootstrap, upgrade, backup, restore, and validation.
 - [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md): service URLs, appdata paths, secrets, bootstrap, upgrade, backup, restore, and validation.
+- [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md): service URLs, appdata paths, secrets, bootstrap, upgrade, backup, restore, and validation.
 
 Generated on-host notes under `/etc/fleet/<host>.md` are emergency recovery
 references. Keep them aligned with the host README when changing backup,
@@ -79,6 +83,8 @@ colmena build --on media-vm
 colmena apply --on media-vm dry-activate
 colmena build --on productivity-vm
 colmena apply --on productivity-vm dry-activate
+colmena build --on monitoring-vm
+colmena apply --on monitoring-vm dry-activate
 ```
 
 The repo also has a focused check helper:
@@ -97,6 +103,7 @@ Deploy one host:
 colmena apply --on media-vm switch
 colmena apply --on gateway-vm switch
 colmena apply --on productivity-vm switch
+colmena apply --on monitoring-vm switch
 ```
 
 Deploy by tag only when intentionally targeting a group:
@@ -105,6 +112,7 @@ Deploy by tag only when intentionally targeting a group:
 colmena apply --on @media switch
 colmena apply --on @gateway switch
 colmena apply --on @productivity switch
+colmena apply --on @monitoring switch
 ```
 
 Deploy the whole fleet only when that is really the goal:
@@ -120,6 +128,7 @@ a matching SOPS recipient before switching:
 scripts/deploy-media.sh
 scripts/gateway-vm/deploy-gateway.sh
 scripts/productivity-vm/deploy-productivity.sh
+scripts/monitoring-vm/deploy-monitoring.sh
 ```
 
 See the host runbooks for bootstrap, upgrade, backup, restore, and validation
@@ -161,6 +170,7 @@ install or host key change, capture the host recipient, add the printed
 ssh smoke@10.2.20.113 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
 ssh smoke@10.2.20.112 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
 ssh smoke@10.2.20.114 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
+ssh smoke@10.2.20.115 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
 sops updatekeys secrets/secrets.yaml
 sops --decrypt secrets/secrets.yaml >/dev/null && echo ok
 ```

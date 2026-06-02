@@ -43,6 +43,21 @@ in
       admin-password-hash = {
         neededForUsers = true;
       };
+      beszel-agent-key = {
+        owner = "beszel-agent";
+        group = "beszel-agent";
+        mode = "0400";
+        restartUnits = [ "beszel-agent.service" ];
+      };
+      beszel-agent-token = {
+        owner = "beszel-agent";
+        group = "beszel-agent";
+        mode = "0400";
+        restartUnits = [ "beszel-agent.service" ];
+      };
+      checkmate-capture-environment = {
+        restartUnits = [ "checkmate-capture.service" ];
+      };
       media-gluetun-control-api-key.restartUnits = [
         "media-gluetun-control-auth-config.service"
         "podman-media-gluetun.service"
