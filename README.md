@@ -34,8 +34,8 @@ runbooks live under `hosts/<name>/`.
 - `hosts/media-vm/`: media host configuration, hardware profile, and runbook.
 - `hosts/productivity-vm/`: productivity host configuration, hardware profile, and runbook.
 - `modules/gateway/`: Traefik, Technitium, netboot.xyz, NetBird, Tailscale, and gateway backup modules.
-- `modules/media/stack.nix`: the main `media-vm` service stack, SMB mounts, backups, and recovery notes.
-- `modules/productivity/stack.nix`: the main `productivity-vm` service stack, PostgreSQL, backups, and recovery notes.
+- `modules/media/`: the `media-vm` service modules, SMB mounts, backups, and recovery notes.
+- `modules/productivity/`: the `productivity-vm` service modules, PostgreSQL, backups, and recovery notes.
 - `modules/monitoring/`: available Prometheus, Grafana, and node exporter modules.
 - `modules/networking/reverse-proxy.nix`: available nginx virtual hosts module.
 - `modules/security/self-signed-ca.nix`: internal self-signed CA and per-domain cert generation.

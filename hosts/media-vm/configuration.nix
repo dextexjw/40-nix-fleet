@@ -21,7 +21,7 @@ in
   imports = [
     ../common.nix
     ./hardware-configuration.nix
-    ../../modules/media/stack.nix
+    ../../modules/media
   ];
 
   # ============================================================================

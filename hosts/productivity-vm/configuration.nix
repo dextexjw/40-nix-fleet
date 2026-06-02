@@ -20,7 +20,7 @@ in
   imports = [
     ../common.nix
     ./hardware-configuration.nix
-    ../../modules/productivity/stack.nix
+    ../../modules/productivity
   ];
 
   # ============================================================================

@@ -88,11 +88,14 @@
         buildInputs = [
           colmena.packages.${system}.colmena
           pkgs.age
+          pkgs.nixfmt
           pkgs.restic
           pkgs.sops
           pkgs.ssh-to-age
         ];
       };
+
+      formatter.${system} = pkgs.nixfmt;
 
       # ==========================================================================
       # COLMENA HIVE - Fleet deployment configuration

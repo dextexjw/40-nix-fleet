@@ -4,7 +4,7 @@
 mounts, appdata backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
-`configuration.nix` and imports the media stack from `../../modules/media/stack.nix`.
+`configuration.nix` and imports the media stack from `../../modules/media/`.
 
 ## Host Model
 

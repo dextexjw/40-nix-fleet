@@ -6,7 +6,7 @@ storage, PostgreSQL, appdata backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
 `configuration.nix` and imports the stack from
-`../../modules/productivity/stack.nix`.
+`../../modules/productivity/`.
 
 ## Host Model
 
