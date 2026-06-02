@@ -72,6 +72,12 @@ in
         mode = "0400";
         restartUnits = [ "garage.service" ];
       };
+      invoiceplane-db-password = {
+        restartUnits = [
+          "invoiceplane-mysql-password.service"
+          "phpfpm-invoiceplane.service"
+        ];
+      };
       nextcloud-admin-password = {
         restartUnits = [ "nextcloud-setup.service" ];
       };

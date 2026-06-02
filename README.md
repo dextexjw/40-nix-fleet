@@ -7,7 +7,7 @@ The current fleet is intentionally small:
 
 - `gateway-vm` runs Traefik ingress, Technitium DNS, netboot.xyz, NetBird, and Tailscale.
 - `media-vm` runs Jellyfin, Audiobookshelf, Kavita, ARR apps, Gluetun-gated downloads, SMB media mounts, and appdata backups.
-- `productivity-vm` runs Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, short links, S3-compatible object storage, notifications, and appdata backups.
+- `productivity-vm` runs Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, speed tests, remote desktop relay, invoicing, short links, S3-compatible object storage, notifications, and appdata backups.
 
 Treat this repo as the source of truth for hosts, services, secrets workflow,
 and recovery notes. The fleet-wide service standard is captured in
@@ -20,7 +20,7 @@ should follow that blueprint before being treated as production-ready.
 | --- | --- | --- | --- | --- |
 | `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway` | Ingress, DNS, netboot, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
 | `media-vm` | `10.2.20.113` | `media` | Media services, Gluetun-gated downloads, SMB media, Restic appdata backups | [`hosts/media-vm/README.md`](hosts/media-vm/README.md) |
-| `productivity-vm` | `10.2.20.114` | `productivity` | Productivity services, documents, Git forges, short links, object storage, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
+| `productivity-vm` | `10.2.20.114` | `productivity` | Productivity services, documents, Git forges, speed tests, remote desktop relay, invoicing, short links, object storage, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
 
 Inventory lives in `hosts.nix`. Per-host configuration and host-specific
 runbooks live under `hosts/<name>/`.

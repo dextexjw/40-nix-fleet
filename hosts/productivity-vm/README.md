@@ -1,8 +1,9 @@
 # productivity-vm
 
 `productivity-vm` runs the personal productivity stack, nginx-backed internal
-apps, Git forges, Shlink short links, standalone Garage and RustFS object
-storage, PostgreSQL, appdata backups, and restore checks.
+apps, Git forges, LibreSpeed, iperf3, RustDesk, InvoicePlane, Shlink short
+links, standalone Garage and RustFS object storage, PostgreSQL, MariaDB,
+appdata backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
 `configuration.nix` and imports the stack from
@@ -42,6 +43,10 @@ path backed up by Restic.
 | Stirling PDF | `http://stirling-pdf.jax22.com` | `http://stirling-pdf.h` | `10.2.20.114:8086` |
 | Firefly III | `http://firefly.jax22.com` | `http://firefly.h` | `10.2.20.114:80` |
 | Nextcloud | `http://nextcloud.jax22.com` | `http://nextcloud.h` | `10.2.20.114:80` |
+| LibreSpeed | `http://librespeed.jax22.com` | `http://librespeed.h` | `10.2.20.114:8989` |
+| InvoicePlane | `http://invoiceplane.jax22.com` | `http://invoiceplane.h` | `10.2.20.114:80` |
+| iperf3 | `iperf3.jax22.com:5201` | `iperf3.h:5201` | `10.2.20.114:5201/tcp+udp` |
+| RustDesk | `rustdesk.jax22.com` | `rustdesk.h` | `10.2.20.114:21115-21119/tcp, 21116/udp` |
 | Shlink short links/API | `http://s.jax22.com` | `http://s.h` | `10.2.20.114:8088` |
 | Shlink Web Client | `http://shlink.jax22.com` | `http://shlink.h` | `10.2.20.114:8089` |
 | Garage S3 API | `http://garage.jax22.com` | `http://garage.h` | `10.2.20.114:3900` |
@@ -65,17 +70,23 @@ Important appdata paths:
 - `/srv/appsdata/shlink`
 - `/srv/appsdata/firefly-iii`
 - `/srv/appsdata/nextcloud`
+- `/srv/appsdata/invoiceplane`
 - `/srv/appsdata/vaultwarden`
 - `/srv/appsdata/syncthing`
 - `/srv/appsdata/stirling-pdf`
+- `/srv/appsdata/rustdesk`
 - `/srv/appsdata/garage`
 - `/srv/appsdata/rustfs`
 - `/srv/appsdata/ntfy`
+- `/srv/appsdata/mariadb`
+- `/srv/appsdata/mariadb-dumps`
 - `/srv/appsdata/postgresql`
 - `/srv/appsdata/postgresql-dumps`
 
 `productivity-postgresql-dump.service` writes
 `/srv/appsdata/postgresql-dumps/latest.sql.gz` before Restic backups.
+`productivity-mariadb-dump.service` writes
+`/srv/appsdata/mariadb-dumps/latest.sql.gz` before Restic backups.
 
 ## Secrets
 
@@ -92,6 +103,7 @@ Required productivity secrets:
 - `garage-admin-token`
 - `garage-metrics-token`
 - `garage-rpc-secret`
+- `invoiceplane-db-password`
 - `nextcloud-admin-password`
 - `paperless-admin-password`
 - `rustfs-environment`
@@ -209,7 +221,7 @@ Destructive restore outline:
 4. Choose a `productivity-vm` appdata snapshot ID.
 5. Restore the snapshot to `/` with `restic --verify`.
 6. Run `systemd-tmpfiles --create`.
-7. Restart PostgreSQL and productivity services.
+7. Restart PostgreSQL, MariaDB, and productivity services.
 
 Garage is standalone S3 in this pass. It does not back Nextcloud primary
 storage. `garage.jax22.com` is the authenticated S3 API, so anonymous browser
@@ -223,6 +235,21 @@ RustFS is separate S3-compatible storage. It does not share Garage buckets or
 credentials. `rustfs.jax22.com` is the S3 API and `rustfs-console.jax22.com` is
 the console. RustFS virtual-host style is canonical on `jax22.com`; `.h` is only
 retained as a named endpoint alias.
+
+InvoicePlane uses MariaDB database `invoiceplane` and persistent runtime state
+under `/srv/appsdata/invoiceplane`. Complete initial setup at
+`http://invoiceplane.jax22.com/index.php/setup`, then lock setup by setting
+`DISABLE_SETUP=true` in `/srv/appsdata/invoiceplane/www/ipconfig.php`.
+
+RustDesk clients should use `rustdesk.jax22.com` as the ID server. The server
+public key is stored at `/srv/appsdata/rustdesk/id_ed25519.pub`.
+
+iperf3 is available through Gateway and direct productivity-vm access:
+
+```sh
+iperf3 -c iperf3.jax22.com -p 5201
+iperf3 -u -c iperf3.jax22.com -p 5201
+```
 
 Shlink uses `s.jax22.com` for short links and its API. The local Shlink Web
 Client is served at `shlink.jax22.com`. Get the API key from the encrypted

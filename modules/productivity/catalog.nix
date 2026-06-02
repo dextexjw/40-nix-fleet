@@ -1,4 +1,8 @@
-{ host, serviceDomain ? "h", serviceDomains ? [ serviceDomain ] }:
+{
+  host,
+  serviceDomain ? "h",
+  serviceDomains ? [ serviceDomain ],
+}:
 
 let
   backend = port: "http://${host.ip}:${toString port}";
@@ -183,6 +187,137 @@ in
           icon = "nextcloud.png";
           homepageDescription = "Private cloud files\n${backend 80}";
         })
+        (mkService {
+          id = "librespeed";
+          name = "LibreSpeed";
+          port = 8989;
+          routeDescription = "LibreSpeed browser speed test";
+          icon = "librespeed.png";
+          homepageDescription = "Browser speed test\n${backend 8989}";
+          smokeHttp = {
+            discard = true;
+            path = "/";
+          };
+        })
+        (mkService {
+          id = "invoiceplane";
+          name = "InvoicePlane";
+          port = 80;
+          routeDescription = "InvoicePlane invoice management";
+          icon = "invoiceplane.png";
+          homepageDescription = "Invoice management\n${backend 80}";
+          smokeHttp = {
+            discard = true;
+            path = "/";
+          };
+        })
+        {
+          id = "iperf3";
+          name = "iperf3";
+          docs.urls = builtins.concatMap (hostName: [
+            "iperf3 -c ${hostName} -p 5201"
+            "iperf3 -u -c ${hostName} -p 5201"
+          ]) (hostnames "iperf3");
+          homepage = {
+            description = "Network throughput test\niperf3 -c iperf3.${builtins.head serviceDomains} -p 5201";
+            href = "http://${builtins.head (hostnames "iperf3")}/";
+            icon = "iperf3.png";
+          };
+          smoke = {
+            dnsHosts = hostnames "iperf3";
+            requiredUnit = "traefik.service";
+          };
+          tcpRoute = {
+            description = "iperf3 TCP throughput test";
+            entryPoint = "iperf3-tcp";
+            port = 5201;
+            url = "${host.ip}:5201";
+          };
+          udpRoute = {
+            description = "iperf3 UDP throughput test";
+            entryPoint = "iperf3-udp";
+            port = 5201;
+            url = "${host.ip}:5201";
+          };
+        }
+        {
+          id = "rustdesk";
+          name = "RustDesk";
+          docs.urls = builtins.concatMap (hostName: [
+            "rustdesk server: ${hostName}"
+            "rustdesk key: /srv/appsdata/rustdesk/id_ed25519.pub"
+          ]) (hostnames "rustdesk");
+          homepage = {
+            description = "Remote desktop relay\nID server rustdesk.${builtins.head serviceDomains}";
+            href = "http://${builtins.head (hostnames "rustdesk")}/";
+            icon = "rustdesk.png";
+          };
+          smoke = {
+            dnsHosts = hostnames "rustdesk";
+            requiredUnit = "traefik.service";
+          };
+        }
+        {
+          id = "rustdesk-signal";
+          name = "RustDesk Signal";
+          smoke.requiredUnit = "traefik.service";
+          tcpRoute = {
+            description = "RustDesk hbbs signal TCP";
+            entryPoint = "rustdesk-signal-tcp";
+            port = 21116;
+            url = "${host.ip}:21116";
+          };
+          udpRoute = {
+            description = "RustDesk hbbs signal UDP";
+            entryPoint = "rustdesk-signal-udp";
+            port = 21116;
+            url = "${host.ip}:21116";
+          };
+        }
+        {
+          id = "rustdesk-nat-test";
+          name = "RustDesk NAT Test";
+          smoke.requiredUnit = "traefik.service";
+          tcpRoute = {
+            description = "RustDesk TCP NAT test";
+            entryPoint = "rustdesk-nat-test-tcp";
+            port = 21115;
+            url = "${host.ip}:21115";
+          };
+        }
+        {
+          id = "rustdesk-relay";
+          name = "RustDesk Relay";
+          smoke.requiredUnit = "traefik.service";
+          tcpRoute = {
+            description = "RustDesk hbbr relay TCP";
+            entryPoint = "rustdesk-relay-tcp";
+            port = 21117;
+            url = "${host.ip}:21117";
+          };
+        }
+        {
+          id = "rustdesk-web-client-1";
+          name = "RustDesk Web Client 1";
+          smoke.requiredUnit = "traefik.service";
+          tcpRoute = {
+            description = "RustDesk web client TCP";
+            entryPoint = "rustdesk-web-client-1-tcp";
+            port = 21118;
+            url = "${host.ip}:21118";
+          };
+        }
+        {
+          id = "rustdesk-web-client-2";
+          name = "RustDesk Web Client 2";
+          smoke.requiredUnit = "traefik.service";
+          tcpRoute = {
+            description = "RustDesk web client TCP";
+            entryPoint = "rustdesk-web-client-2-tcp";
+            port = 21119;
+            url = "${host.ip}:21119";
+          };
+        }
         (mkRouteOnly {
           id = "shlink";
           name = "Shlink API";

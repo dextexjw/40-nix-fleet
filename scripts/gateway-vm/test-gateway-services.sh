@@ -5,9 +5,9 @@ HOST="gateway-vm"
 HOST_IP="10.2.20.112"
 REMOTE_USER="smoke"
 EXPOSURE_SMOKE_FILE="/etc/fleet/gateway-exposure-smoke.tsv"
-EXTERNAL_TCP_PORTS=(22 53 80 853 5380 8080 8082 8888 53443)
+EXTERNAL_TCP_PORTS=(22 53 80 853 5201 5380 8080 8082 8888 21115 21116 21117 21118 21119 53443)
 LOCAL_TCP_PORTS=(3000)
-UDP_PORTS=(53 69 41641)
+UDP_PORTS=(53 69 5201 21116 41641)
 KEY_UNITS=(
   traefik.service
   homepage-dashboard.service
@@ -180,6 +180,20 @@ run_exposure_smoke_checks() {
         fi
         wait_for_remote "$label missing from Homepage generated config" "grep -Fq '$arg2' '$arg1'"
         printf '  %s found\n' "$label"
+        ;;
+      tcp)
+        if skip_for_missing_unit "$arg2" "$label"; then
+          continue
+        fi
+        wait_for_remote "$label TCP port $arg1 is not listening" "sudo ss -ltn '( sport = :$arg1 )' | grep -q ':$arg1'"
+        printf '  %s tcp/%s listening\n' "$label" "$arg1"
+        ;;
+      udp)
+        if skip_for_missing_unit "$arg2" "$label"; then
+          continue
+        fi
+        wait_for_remote "$label UDP port $arg1 is not listening" "sudo ss -lun '( sport = :$arg1 )' | grep -q ':$arg1'"
+        printf '  %s udp/%s listening\n' "$label" "$arg1"
         ;;
       *)
         die "unknown exposure smoke row kind '$kind' for '$label'"

@@ -14,6 +14,10 @@
     ./services/stirling-pdf.nix
     ./services/firefly.nix
     ./services/nextcloud.nix
+    ./services/librespeed.nix
+    ./services/invoiceplane.nix
+    ./services/iperf3.nix
+    ./services/rustdesk.nix
     ./services/vaultwarden.nix
     ./services/garage.nix
     ./services/ntfy.nix

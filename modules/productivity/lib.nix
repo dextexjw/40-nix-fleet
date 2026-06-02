@@ -17,10 +17,14 @@ let
     garage = "garage";
     garageWeb = "garage-web";
     gitea = "gitea";
+    invoiceplane = "invoiceplane";
+    iperf3 = "iperf3";
+    librespeed = "librespeed";
     nextcloud = "nextcloud";
     ntfy = "ntfy";
     paperless = "paperless";
     privatebin = "privatebin";
+    rustdesk = "rustdesk";
     rustfs = "rustfs";
     rustfsConsole = "rustfs-console";
     searxng = "searxng";
@@ -43,6 +47,10 @@ let
     "stirlingPdf"
     "firefly"
     "nextcloud"
+    "librespeed"
+    "invoiceplane"
+    "iperf3"
+    "rustdesk"
     "garage"
     "garageWeb"
     "rustfs"
@@ -54,8 +62,7 @@ let
   mkServiceHostNames =
     domains:
     mapAttrs (
-      _name: prefix:
-      map (serviceDomain: "${prefix}.${serviceDomain}") domains
+      _name: prefix: map (serviceDomain: "${prefix}.${serviceDomain}") domains
     ) serviceHostPrefixes;
   mkServiceHosts = domains: mapAttrs (_name: names: head names) (mkServiceHostNames domains);
   mkServiceHostAliases = domains: mapAttrs (_name: names: tail names) (mkServiceHostNames domains);
@@ -64,18 +71,22 @@ let
   serviceRouteLines = concatStringsSep "\n" (
     concatMap (
       serviceKey:
-      map (hostName: "        http://${hostName}") ([ serviceHosts.${serviceKey} ] ++ serviceHostAliases.${serviceKey})
-    ) serviceHostKeys
+      map (hostName: "        http://${hostName}") (
+        [ serviceHosts.${serviceKey} ] ++ serviceHostAliases.${serviceKey}
+      )
+    ) (filter (serviceKey: serviceKey != "iperf3" && serviceKey != "rustdesk") serviceHostKeys)
+    ++ map (hostName: "        iperf3://${hostName}:${toString cfg.ports.iperf3}") (
+      [ serviceHosts.iperf3 ] ++ serviceHostAliases.iperf3
+    )
+    ++ map (hostName: "        rustdesk://${hostName}") (
+      [ serviceHosts.rustdesk ] ++ serviceHostAliases.rustdesk
+    )
   );
   rustfsGid = 10001;
   rustfsUid = 10001;
 
   secretPath =
-    name:
-    if cfg.secrets.enable then
-      config.sops.secrets.${name}.path
-    else
-      "/run/secrets/${name}";
+    name: if cfg.secrets.enable then config.sops.secrets.${name}.path else "/run/secrets/${name}";
 
   smbCredentialsFile = secretPath "smb-credentials";
   resticPasswordFile = secretPath "restic-password";
@@ -108,10 +119,7 @@ let
 
   systemdMountOptions = filter (
     option:
-    option != "_netdev"
-    && option != "noauto"
-    && option != "nofail"
-    && !(hasPrefix "x-systemd." option)
+    option != "_netdev" && option != "noauto" && option != "nofail" && !(hasPrefix "x-systemd." option)
   ) cfg.smb.mountOptions;
 
   appsdataDirs = [
@@ -137,6 +145,12 @@ let
     "phpfpm-firefly-iii.service"
     "firefly-iii-cron.timer"
     "phpfpm-nextcloud.service"
+    "librespeed.service"
+    "phpfpm-invoiceplane.service"
+    "mysql.service"
+    "iperf3.service"
+    "rustdesk-signal.service"
+    "rustdesk-relay.service"
     "garage.service"
     "podman-shlink.service"
     "podman-shlink-web.service"

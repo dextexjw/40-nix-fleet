@@ -28,6 +28,12 @@ KEY_SERVICES=(
   stirling-pdf
   phpfpm-firefly-iii
   phpfpm-nextcloud
+  librespeed
+  phpfpm-invoiceplane
+  mysql
+  iperf3
+  rustdesk-signal
+  rustdesk-relay
   garage
   podman-shlink
   podman-shlink-web
@@ -48,6 +54,8 @@ HOST_ROUTES=(
   stirling-pdf
   firefly
   nextcloud
+  librespeed
+  invoiceplane
   garage
   garage-web
   rustfs
@@ -59,9 +67,15 @@ HOST_ROUTES=(
 
 declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
   [forgejo]=1
+  [iperf3]=1
+  [librespeed]=1
+  [mysql]=1
+  [phpfpm-invoiceplane]=1
   [podman-shlink]=1
   [podman-shlink-web]=1
   [podman-rustfs]=1
+  [rustdesk-relay]=1
+  [rustdesk-signal]=1
 )
 declare -A SKIPPED_SERVICE=()
 
@@ -108,6 +122,12 @@ route_is_skipped() {
     forgejo.*)
       service_is_skipped forgejo
       ;;
+    invoiceplane.*)
+      service_is_skipped phpfpm-invoiceplane
+      ;;
+    librespeed.*)
+      service_is_skipped librespeed
+      ;;
     rustfs.* | rustfs-console.*)
       service_is_skipped podman-rustfs
       ;;
@@ -146,6 +166,9 @@ colmena exec --on "$HOST" -- systemctl start productivity-appdata-backup.service
 colmena exec --on "$HOST" -- systemctl start productivity-appdata-restore-check.service
 colmena exec --on "$HOST" -- systemctl is-active --quiet productivity-appdata-backup.timer
 colmena exec --on "$HOST" -- test -s /srv/appsdata/postgresql-dumps/latest.sql.gz
+if ! service_is_skipped mysql; then
+  colmena exec --on "$HOST" -- test -s /srv/appsdata/mariadb-dumps/latest.sql.gz
+fi
 colmena exec --on "$HOST" -- env \
   RESTIC_REPOSITORY="$REPOSITORY" \
   RESTIC_PASSWORD_FILE=/run/secrets/restic-password \
@@ -160,6 +183,22 @@ colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8087/ >/d
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8222/ >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8384/ >/dev/null"
 colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 http://127.0.0.1:8086/); case \"\$status\" in 2*|3*|401) exit 0 ;; *) echo \"unexpected Stirling PDF status: \$status\" >&2; exit 1 ;; esac'"
+if ! service_is_skipped librespeed; then
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8989/ >/dev/null"
+fi
+if ! service_is_skipped phpfpm-invoiceplane; then
+  colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 -H \"Host: invoiceplane.jax22.com\" http://127.0.0.1/); case \"\$status\" in 2*|3*) exit 0 ;; *) echo \"unexpected InvoicePlane status: \$status\" >&2; exit 1 ;; esac'"
+fi
+if ! service_is_skipped iperf3; then
+  colmena exec --on "$HOST" -- "iperf3 -c 127.0.0.1 -p 5201 -t 1 >/dev/null"
+fi
+if ! service_is_skipped rustdesk-signal && ! service_is_skipped rustdesk-relay; then
+  colmena exec --on "$HOST" -- "test -s /srv/appsdata/rustdesk/id_ed25519.pub"
+  for port in 21115 21116 21117 21118 21119; do
+    colmena exec --on "$HOST" -- "sudo ss -ltn '( sport = :$port )' | grep -q ':$port'"
+  done
+  colmena exec --on "$HOST" -- "sudo ss -lun '( sport = :21116 )' | grep -q ':21116'"
+fi
 if ! service_is_skipped podman-rustfs; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9000/health >/dev/null"
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9001/rustfs/console/health >/dev/null"
@@ -204,6 +243,12 @@ for route_prefix in "${HOST_ROUTES[@]}"; do
         ;;
       ntfy.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:2586/v1/health >/dev/null"
+        ;;
+      librespeed.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8989/ >/dev/null"
+        ;;
+      invoiceplane.*)
+        colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1/); case \"\$status\" in 2*|3*) exit 0 ;; *) echo \"unexpected InvoicePlane status for $route: \$status\" >&2; exit 1 ;; esac'"
         ;;
       rustfs.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9000/health >/dev/null"

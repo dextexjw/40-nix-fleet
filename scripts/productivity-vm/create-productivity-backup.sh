@@ -24,6 +24,12 @@ SERVICES=(
   stirling-pdf.service
   phpfpm-firefly-iii.service
   phpfpm-nextcloud.service
+  librespeed.service
+  phpfpm-invoiceplane.service
+  mysql.service
+  iperf3.service
+  rustdesk-signal.service
+  rustdesk-relay.service
   garage.service
   podman-shlink.service
   podman-shlink-web.service
@@ -56,6 +62,12 @@ ssh_productivity_vm() {
     "$@"
 }
 
+remote_unit_exists() {
+  local unit="$1"
+
+  ssh_productivity_vm "systemctl cat '$unit' >/dev/null 2>&1"
+}
+
 cd "$ROOT"
 
 printf 'Checking backup mount prerequisites on %s...\n' "$HOST"
@@ -70,6 +82,9 @@ done
 restart_services() {
   printf 'Restarting productivity services and backup timer...\n'
   ssh_productivity_vm "sudo systemctl start postgresql.service"
+  if remote_unit_exists mysql.service; then
+    ssh_productivity_vm "sudo systemctl start mysql.service"
+  fi
   for service in "${SERVICES[@]}"; do
     ssh_productivity_vm "sudo systemctl start '$service' || true"
   done
@@ -80,6 +95,11 @@ trap restart_services EXIT
 
 printf 'Running PostgreSQL dump, Restic backup, and restore validation...\n'
 ssh_productivity_vm "sudo systemctl start productivity-postgresql-dump.service"
+if remote_unit_exists productivity-mariadb-dump.service; then
+  ssh_productivity_vm "sudo systemctl start productivity-mariadb-dump.service"
+else
+  printf 'Skipping productivity-mariadb-dump.service because it is not deployed yet.\n'
+fi
 ssh_productivity_vm "sudo systemctl start productivity-appdata-backup.service"
 ssh_productivity_vm "sudo systemctl start productivity-appdata-restore-check.service"
 

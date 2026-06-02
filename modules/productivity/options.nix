@@ -17,10 +17,14 @@ let
     garage = "garage";
     garageWeb = "garage-web";
     gitea = "gitea";
+    invoiceplane = "invoiceplane";
+    iperf3 = "iperf3";
+    librespeed = "librespeed";
     nextcloud = "nextcloud";
     ntfy = "ntfy";
     paperless = "paperless";
     privatebin = "privatebin";
+    rustdesk = "rustdesk";
     rustfs = "rustfs";
     rustfsConsole = "rustfs-console";
     searxng = "searxng";
@@ -43,6 +47,10 @@ let
     "stirlingPdf"
     "firefly"
     "nextcloud"
+    "librespeed"
+    "invoiceplane"
+    "iperf3"
+    "rustdesk"
     "garage"
     "garageWeb"
     "rustfs"
@@ -54,8 +62,7 @@ let
   mkServiceHostNames =
     domains:
     mapAttrs (
-      _name: prefix:
-      map (serviceDomain: "${prefix}.${serviceDomain}") domains
+      _name: prefix: map (serviceDomain: "${prefix}.${serviceDomain}") domains
     ) serviceHostPrefixes;
   mkServiceHosts = domains: mapAttrs (_name: names: head names) (mkServiceHostNames domains);
   mkServiceHostAliases = domains: mapAttrs (_name: names: tail names) (mkServiceHostNames domains);
@@ -103,7 +110,11 @@ in
         garageS3 = 3900;
         garageWeb = 3902;
         gitea = 3000;
+        iperf3 = 5201;
+        librespeed = 8989;
         ntfy = 2586;
+        rustdeskRelay = 21117;
+        rustdeskSignal = 21116;
         rustfsApi = 9000;
         rustfsConsole = 9001;
         searxng = 8087;

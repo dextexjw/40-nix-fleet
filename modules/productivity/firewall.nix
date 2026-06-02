@@ -13,24 +13,35 @@ let
     inherit config lib pkgs;
   };
   inherit (productivityLib) cfg;
- in
+in
 {
   config = mkIf cfg.enable {
-networking.firewall.allowedTCPPorts = [
-  80
-  cfg.ports.forgejo
-  cfg.ports.garageS3
-  cfg.ports.garageWeb
-  cfg.ports.gitea
-  cfg.ports.ntfy
-  cfg.ports.rustfsApi
-  cfg.ports.rustfsConsole
-  cfg.ports.searxng
-  cfg.ports.shlink
-  cfg.ports.shlinkWeb
-  cfg.ports.stirlingPdf
-  cfg.ports.syncthing
-  cfg.ports.vaultwarden
-];
+    networking.firewall.allowedTCPPorts = [
+      80
+      cfg.ports.forgejo
+      cfg.ports.garageS3
+      cfg.ports.garageWeb
+      cfg.ports.gitea
+      cfg.ports.iperf3
+      cfg.ports.librespeed
+      cfg.ports.ntfy
+      21115
+      21116
+      21117
+      21118
+      21119
+      cfg.ports.rustfsApi
+      cfg.ports.rustfsConsole
+      cfg.ports.searxng
+      cfg.ports.shlink
+      cfg.ports.shlinkWeb
+      cfg.ports.stirlingPdf
+      cfg.ports.syncthing
+      cfg.ports.vaultwarden
+    ];
+    networking.firewall.allowedUDPPorts = [
+      cfg.ports.iperf3
+      21116
+    ];
   };
 }

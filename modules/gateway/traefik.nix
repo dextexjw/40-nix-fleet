@@ -18,11 +18,7 @@ let
     else
       [ cfg.dashboard.domain ];
 
-  routerEntryPoints =
-    if cfg.enableTLS then
-      [ "websecure" ]
-    else
-      [ "web" ];
+  routerEntryPoints = if cfg.enableTLS then [ "websecure" ] else [ "web" ];
 
   dashboardRule = "PathPrefix(`/api`) || PathPrefix(`/dashboard`)";
 
@@ -65,25 +61,70 @@ let
       };
     };
 
-  dashboardRouters = optionalAttrs cfg.dashboard.enable {
-    dashboard = {
-      entryPoints = [ "dashboard" ];
-      rule = dashboardRule;
-      service = "api@internal";
+  mkTcpRouter =
+    name: route:
+    nameValuePair (mkName name) {
+      entryPoints = [ route.entryPoint ];
+      rule = "HostSNI(`*`)";
+      service = mkName name;
     };
-  } // optionalAttrs (cfg.dashboard.enable && cfg.dashboard.webRoute.enable) {
-    dashboard-web = {
-      entryPoints = [ "web" ];
-      rule = "(${concatStringsSep " || " (map mkHostRule dashboardHosts)}) && (${dashboardRule})";
-      service = "api@internal";
-    };
-  };
 
-  metricsEntryPoint =
-    if cfg.metrics.entryPoint == null then
-      "dashboard"
-    else
-      cfg.metrics.entryPoint;
+  mkTcpService =
+    name: route:
+    nameValuePair (mkName name) {
+      loadBalancer.servers = [
+        {
+          address = route.url;
+        }
+      ];
+    };
+
+  mkUdpRouter =
+    name: route:
+    nameValuePair (mkName name) {
+      entryPoints = [ route.entryPoint ];
+      service = mkName name;
+    };
+
+  mkUdpService =
+    name: route:
+    nameValuePair (mkName name) {
+      loadBalancer.servers = [
+        {
+          address = route.url;
+        }
+      ];
+    };
+
+  mkTcpEntryPoint =
+    name: route:
+    nameValuePair route.entryPoint {
+      address = ":${toString route.port}/tcp";
+    };
+
+  mkUdpEntryPoint =
+    name: route:
+    nameValuePair route.entryPoint {
+      address = ":${toString route.port}/udp";
+    };
+
+  dashboardRouters =
+    optionalAttrs cfg.dashboard.enable {
+      dashboard = {
+        entryPoints = [ "dashboard" ];
+        rule = dashboardRule;
+        service = "api@internal";
+      };
+    }
+    // optionalAttrs (cfg.dashboard.enable && cfg.dashboard.webRoute.enable) {
+      dashboard-web = {
+        entryPoints = [ "web" ];
+        rule = "(${concatStringsSep " || " (map mkHostRule dashboardHosts)}) && (${dashboardRule})";
+        service = "api@internal";
+      };
+    };
+
+  metricsEntryPoint = if cfg.metrics.entryPoint == null then "dashboard" else cfg.metrics.entryPoint;
 in
 {
   # ============================================================================
@@ -225,32 +266,67 @@ in
     };
 
     routes = mkOption {
-      type = types.attrsOf (types.submodule {
-        options = {
-          description = mkOption {
-            type = types.str;
-            default = "";
-            description = "Human-readable route purpose.";
-          };
+      type = types.attrsOf (
+        types.submodule {
+          options = {
+            description = mkOption {
+              type = types.str;
+              default = "";
+              description = "Human-readable route purpose.";
+            };
 
-          hosts = mkOption {
-            type = types.nonEmptyListOf types.str;
-            description = "Hostnames matched by Traefik. The first hostname is treated as canonical by exposure catalog consumers.";
-            example = [
-              "homepage.h"
-              "hg.h"
-            ];
-          };
+            hosts = mkOption {
+              type = types.nonEmptyListOf types.str;
+              description = "Hostnames matched by Traefik. The first hostname is treated as canonical by exposure catalog consumers.";
+              example = [
+                "homepage.h"
+                "hg.h"
+              ];
+            };
 
-          url = mkOption {
-            type = types.str;
-            description = "Backend URL Traefik should proxy to.";
-            example = "http://10.2.20.113:8096";
+            url = mkOption {
+              type = types.str;
+              description = "Backend URL Traefik should proxy to.";
+              example = "http://10.2.20.113:8096";
+            };
           };
-        };
-      });
+        }
+      );
       default = { };
       description = "Named Traefik HTTP routes.";
+    };
+
+    tcpRoutes = mkOption {
+      type = types.attrsOf (
+        types.submodule {
+          options = {
+            description = mkOption {
+              type = types.str;
+              default = "";
+              description = "Human-readable TCP route purpose.";
+            };
+
+            entryPoint = mkOption {
+              type = types.str;
+              description = "Dedicated Traefik TCP entrypoint name.";
+              example = "rustdesk-signal-tcp";
+            };
+
+            port = mkOption {
+              type = types.port;
+              description = "Gateway TCP port for this entrypoint.";
+            };
+
+            url = mkOption {
+              type = types.str;
+              description = "Backend host:port address Traefik should proxy.";
+              example = "10.2.20.114:21116";
+            };
+          };
+        }
+      );
+      default = { };
+      description = "Named Traefik TCP passthrough routes on dedicated entrypoints.";
     };
 
     tracing = {
@@ -285,6 +361,39 @@ in
         description = "OpenTelemetry service name for Traefik traces.";
       };
     };
+
+    udpRoutes = mkOption {
+      type = types.attrsOf (
+        types.submodule {
+          options = {
+            description = mkOption {
+              type = types.str;
+              default = "";
+              description = "Human-readable UDP route purpose.";
+            };
+
+            entryPoint = mkOption {
+              type = types.str;
+              description = "Dedicated Traefik UDP entrypoint name.";
+              example = "rustdesk-signal-udp";
+            };
+
+            port = mkOption {
+              type = types.port;
+              description = "Gateway UDP port for this entrypoint.";
+            };
+
+            url = mkOption {
+              type = types.str;
+              description = "Backend host:port address Traefik should proxy.";
+              example = "10.2.20.114:21116";
+            };
+          };
+        }
+      );
+      default = { };
+      description = "Named Traefik UDP passthrough routes on dedicated entrypoints.";
+    };
   };
 
   # ============================================================================
@@ -311,6 +420,14 @@ in
         routers = dashboardRouters // mapAttrs' mkRouter cfg.routes;
         services = mapAttrs' mkService cfg.routes;
       };
+      dynamicConfigOptions.tcp = mkIf (cfg.tcpRoutes != { }) {
+        routers = mapAttrs' mkTcpRouter cfg.tcpRoutes;
+        services = mapAttrs' mkTcpService cfg.tcpRoutes;
+      };
+      dynamicConfigOptions.udp = mkIf (cfg.udpRoutes != { }) {
+        routers = mapAttrs' mkUdpRouter cfg.udpRoutes;
+        services = mapAttrs' mkUdpService cfg.udpRoutes;
+      };
 
       staticConfigOptions = {
         api.dashboard = cfg.dashboard.enable;
@@ -318,7 +435,10 @@ in
         entryPoints = {
           web.address = ":${toString cfg.httpPort}";
           websecure.address = ":${toString cfg.httpsPort}";
-        } // optionalAttrs cfg.dashboard.enable {
+        }
+        // mapAttrs' mkTcpEntryPoint cfg.tcpRoutes
+        // mapAttrs' mkUdpEntryPoint cfg.udpRoutes
+        // optionalAttrs cfg.dashboard.enable {
           dashboard.address = ":${toString cfg.dashboard.port}";
         };
 
@@ -354,9 +474,13 @@ in
       };
     };
 
-    networking.firewall.allowedTCPPorts =
-      [ cfg.httpPort ]
-      ++ optional cfg.enableTLS cfg.httpsPort
-      ++ optional cfg.dashboard.enable cfg.dashboard.port;
+    networking.firewall.allowedTCPPorts = [
+      cfg.httpPort
+    ]
+    ++ optional cfg.enableTLS cfg.httpsPort
+    ++ optional cfg.dashboard.enable cfg.dashboard.port
+    ++ mapAttrsToList (_name: route: route.port) cfg.tcpRoutes;
+
+    networking.firewall.allowedUDPPorts = mapAttrsToList (_name: route: route.port) cfg.udpRoutes;
   };
 }

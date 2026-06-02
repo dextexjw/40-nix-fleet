@@ -1,4 +1,7 @@
-{ lib, root ? ../. }:
+{
+  lib,
+  root ? ../.,
+}:
 
 with lib;
 
@@ -13,7 +16,12 @@ let
       name,
     }:
     import (hostExposurePath name) {
-      inherit hosts lib serviceDomain serviceDomains;
+      inherit
+        hosts
+        lib
+        serviceDomain
+        serviceDomains
+        ;
     };
 
   sortGroups = sort (
@@ -43,15 +51,34 @@ let
 
   serviceDocs =
     service:
-    if service ? docs && service.docs ? urls then
-      service.docs.urls
-    else
-      routeDefaultDocs service;
+    if service ? docs && service.docs ? urls then service.docs.urls else routeDefaultDocs service;
 
   mkRoute =
     service:
     nameValuePair service.id {
       inherit (service.route) description hosts url;
+    };
+
+  mkTcpRoute =
+    service:
+    nameValuePair service.id {
+      inherit (service.tcpRoute)
+        description
+        entryPoint
+        port
+        url
+        ;
+    };
+
+  mkUdpRoute =
+    service:
+    nameValuePair service.id {
+      inherit (service.udpRoute)
+        description
+        entryPoint
+        port
+        url
+        ;
     };
 
   mkHomepageService =
@@ -62,13 +89,7 @@ let
     in
     {
       inherit (service) name;
-      description =
-        homepage.description or (
-          if route == null then
-            ""
-          else
-            route.description
-        );
+      description = homepage.description or (if route == null then "" else route.description);
       inherit (homepage) href;
       icon = homepage.icon or null;
       siteMonitor = homepage.siteMonitor or null;
@@ -76,7 +97,9 @@ let
 
   mkHomepageGroup = group: {
     inherit (group) name;
-    services = map mkHomepageService (filter (service: (service.homepage or null) != null) group.services);
+    services = map mkHomepageService (
+      filter (service: (service.homepage or null) != null) group.services
+    );
   };
 
   mkHomepageLayout = group: {
@@ -114,11 +137,7 @@ let
       route = service.route or null;
       smoke = service.smoke or { };
       http = smoke.http or null;
-      canonicalHost =
-        if route == null then
-          null
-        else
-          primaryRouteHost route;
+      canonicalHost = if route == null then null else primaryRouteHost route;
       hostNames =
         if http == null then
           [ ]
@@ -133,20 +152,16 @@ let
       requiredUnit = (http.requiredUnit or (smoke.requiredUnit or ""));
     in
     optionals (http != null && (http.enable or true)) (
-      map (
-        hostName:
-        [
-          "http"
-          (
-            http.description or (
-              "${service.name} route"
-              + optionalString (canonicalHost != null && hostName != canonicalHost) " (${hostName})"
-            )
-          )
-          (mkCommand http hostName)
-          requiredUnit
-        ]
-      ) hostNames
+      map (hostName: [
+        "http"
+        (http.description or (
+          "${service.name} route"
+          + optionalString (canonicalHost != null && hostName != canonicalHost) " (${hostName})"
+        )
+        )
+        (mkCommand http hostName)
+        requiredUnit
+      ]) hostNames
     );
 
   mkHomepageRows =
@@ -192,6 +207,38 @@ let
     ]
   ];
 
+  mkTcpRows =
+    service:
+    let
+      tcpRoute = service.tcpRoute or null;
+      smoke = service.smoke or { };
+      requiredUnit = smoke.requiredUnit or "";
+    in
+    optionals (tcpRoute != null) [
+      [
+        "tcp"
+        service.name
+        (toString tcpRoute.port)
+        requiredUnit
+      ]
+    ];
+
+  mkUdpRows =
+    service:
+    let
+      udpRoute = service.udpRoute or null;
+      smoke = service.smoke or { };
+      requiredUnit = smoke.requiredUnit or "";
+    in
+    optionals (udpRoute != null) [
+      [
+        "udp"
+        service.name
+        (toString udpRoute.port)
+        requiredUnit
+      ]
+    ];
+
   toTsv = row: concatStringsSep "\t" row;
 in
 {
@@ -208,7 +255,12 @@ in
       hostExposures = map (
         name:
         loadHostExposure {
-          inherit hosts name serviceDomain serviceDomains;
+          inherit
+            hosts
+            name
+            serviceDomain
+            serviceDomains
+            ;
         }
       ) exposureHostNames;
       allGroups = sortGroups (concatMap (exposure: exposure.groups or [ ]) hostExposures);
@@ -227,41 +279,45 @@ in
           services = concatMap (group: group.services or [ ]) matching;
         }
       ) groupNames;
-      homepageGroups = filter (group: any (service: (service.homepage or null) != null) group.services) groups;
+      homepageGroups = filter (
+        group: any (service: (service.homepage or null) != null) group.services
+      ) groups;
       serviceEntries = concatMap (
         group: map (service: service // { group = group.name; }) group.services
       ) groups;
       routeServices = filter (service: (service.route or null) != null) serviceEntries;
+      tcpRouteServices = filter (service: (service.tcpRoute or null) != null) serviceEntries;
+      udpRouteServices = filter (service: (service.udpRoute or null) != null) serviceEntries;
       homepageRouteHosts =
         let
-          matches = filter (service: service.id == "homepage" && (service.route or null) != null) serviceEntries;
+          matches = filter (
+            service: service.id == "homepage" && (service.route or null) != null
+          ) serviceEntries;
         in
-        if matches == [ ] then
-          [ ]
-        else
-          (head matches).route.hosts;
+        if matches == [ ] then [ ] else (head matches).route.hosts;
       docUrls = concatMap serviceDocs serviceEntries;
-      smokeRows =
+      smokeRows = [
         [
-          [
-            "homepage"
-            "Homepage target"
-            "/etc/homepage-dashboard/settings.yaml"
-            "target: _blank"
-            ""
-          ]
-          [
-            "homepage"
-            "Homepage layout"
-            "/etc/homepage-dashboard/settings.yaml"
-            "layout:"
-            ""
-          ]
+          "homepage"
+          "Homepage target"
+          "/etc/homepage-dashboard/settings.yaml"
+          "target: _blank"
+          ""
         ]
-        ++ concatMap mkHomepageGroupRows homepageGroups
-        ++ concatMap (mkDnsRows gatewayHost) serviceEntries
-        ++ concatMap mkHttpRows serviceEntries
-        ++ concatMap mkHomepageRows serviceEntries;
+        [
+          "homepage"
+          "Homepage layout"
+          "/etc/homepage-dashboard/settings.yaml"
+          "layout:"
+          ""
+        ]
+      ]
+      ++ concatMap mkHomepageGroupRows homepageGroups
+      ++ concatMap (mkDnsRows gatewayHost) serviceEntries
+      ++ concatMap mkHttpRows serviceEntries
+      ++ concatMap mkTcpRows serviceEntries
+      ++ concatMap mkUdpRows serviceEntries
+      ++ concatMap mkHomepageRows serviceEntries;
     in
     {
       inherit groups serviceEntries;
@@ -274,6 +330,8 @@ in
 
       routeUrlsText = concatStringsSep "\n" (map (url: "      ${url}") docUrls);
       smokeTsv = concatStringsSep "\n" (map toTsv smokeRows) + "\n";
+      traefikTcpRoutes = listToAttrs (map mkTcpRoute tcpRouteServices);
       traefikRoutes = listToAttrs (map mkRoute routeServices);
+      traefikUdpRoutes = listToAttrs (map mkUdpRoute udpRouteServices);
     };
 }
