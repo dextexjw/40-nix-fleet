@@ -23,17 +23,11 @@ let
       (left.order or 1000) < (right.order or 1000)
   );
 
+  primaryRouteHost = route: head route.hosts;
+
   mkCommand =
-    service: http:
+    http: hostName:
     let
-      route = service.route or null;
-      hostName =
-        http.host or (
-          if route == null then
-            null
-          else
-            route.host
-        );
       path = http.path or "/";
       curl = if http.discard or false then "curl -fsS -o /dev/null" else "curl -fsS";
     in
@@ -44,7 +38,7 @@ let
     let
       route = service.route or null;
     in
-    optional (route != null) "http://${route.host}";
+    optionals (route != null) (map (host: "http://${host}") route.hosts);
 
   serviceDocs =
     service:
@@ -56,7 +50,7 @@ let
   mkRoute =
     service:
     nameValuePair service.id {
-      inherit (service.route) description host url;
+      inherit (service.route) description hosts url;
     };
 
   mkHomepageService =
@@ -101,7 +95,7 @@ let
         if smoke ? dnsHosts then
           smoke.dnsHosts
         else if (smoke.dns or (route != null)) && route != null then
-          [ route.host ]
+          route.hosts
         else
           [ ];
       expected = smoke.dnsExpected or gatewayHost.ip;
@@ -119,24 +113,38 @@ let
       route = service.route or null;
       smoke = service.smoke or { };
       http = smoke.http or null;
-      hostName =
-        if http == null then
+      canonicalHost =
+        if route == null then
           null
         else
-          http.host or (
-            if route == null then
-              null
-            else
-              route.host
-          );
+          primaryRouteHost route;
+      hostNames =
+        if http == null then
+          [ ]
+        else if http ? host then
+          [ http.host ]
+        else if route != null then
+          route.hosts
+        else
+          [ ];
       requiredUnit = (http.requiredUnit or (smoke.requiredUnit or ""));
     in
-    optional (http != null && (http.enable or true) && hostName != null) [
-      "http"
-      (http.description or "${service.name} route")
-      (mkCommand service http)
-      requiredUnit
-    ];
+    optionals (http != null && (http.enable or true)) (
+      map (
+        hostName:
+        [
+          "http"
+          (
+            http.description or (
+              "${service.name} route"
+              + optionalString (canonicalHost != null && hostName != canonicalHost) " (${hostName})"
+            )
+          )
+          (mkCommand http hostName)
+          requiredUnit
+        ]
+      ) hostNames
+    );
 
   mkHomepageRows =
     service:
@@ -220,6 +228,14 @@ in
         group: map (service: service // { group = group.name; }) group.services
       ) groups;
       routeServices = filter (service: (service.route or null) != null) serviceEntries;
+      homepageRouteHosts =
+        let
+          matches = filter (service: service.id == "homepage" && (service.route or null) != null) serviceEntries;
+        in
+        if matches == [ ] then
+          [ ]
+        else
+          (head matches).route.hosts;
       docUrls = concatMap serviceDocs serviceEntries;
       smokeRows =
         [
@@ -247,6 +263,7 @@ in
       inherit groups serviceEntries;
 
       homepage = {
+        hosts = homepageRouteHosts;
         layout = map mkHomepageLayout homepageGroups;
         serviceGroups = map mkHomepageGroup homepageGroups;
       };

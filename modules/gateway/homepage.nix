@@ -13,9 +13,11 @@ let
 
   allowedHosts = concatStringsSep "," (
     unique (
-      [
-        cfg.host
-        "${cfg.host}:80"
+      concatMap (host: [
+        host
+        "${host}:80"
+      ]) cfg.hosts
+      ++ [
         "localhost:${toString cfg.listenPort}"
         "127.0.0.1:${toString cfg.listenPort}"
       ]
@@ -81,11 +83,14 @@ in
       description = "Custom CSS for Homepage.";
     };
 
-    host = mkOption {
-      type = types.str;
-      default = "homepage.h";
-      description = "Hostname used for Homepage through Traefik.";
-      example = "homepage.h";
+    hosts = mkOption {
+      type = types.nonEmptyListOf types.str;
+      default = [ "homepage.h" ];
+      description = "Hostnames allowed for Homepage through Traefik. The first hostname is used as the page title.";
+      example = [
+        "homepage.h"
+        "hg.h"
+      ];
     };
 
     linkTarget = mkOption {
@@ -206,7 +211,7 @@ in
         disableUpdateCheck = true;
         layout = cfg.layout;
         target = cfg.linkTarget;
-        title = "homepage.h";
+        title = head cfg.hosts;
       };
     };
 

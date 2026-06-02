@@ -37,12 +37,14 @@ let
       ]
       name;
 
+  mkHostRule = host: "Host(`${host}`)";
+
   mkRouter =
     name: route:
     nameValuePair (mkName name) (
       {
         entryPoints = routerEntryPoints;
-        rule = "Host(`${route.host}`)";
+        rule = concatStringsSep " || " (map mkHostRule route.hosts);
         service = mkName name;
       }
       // optionalAttrs cfg.enableTLS { tls = { }; }
@@ -219,10 +221,13 @@ in
             description = "Human-readable route purpose.";
           };
 
-          host = mkOption {
-            type = types.str;
-            description = "Hostname matched by Traefik.";
-            example = "homepage.h";
+          hosts = mkOption {
+            type = types.nonEmptyListOf types.str;
+            description = "Hostnames matched by Traefik. The first hostname is treated as canonical by exposure catalog consumers.";
+            example = [
+              "homepage.h"
+              "hg.h"
+            ];
           };
 
           url = mkOption {

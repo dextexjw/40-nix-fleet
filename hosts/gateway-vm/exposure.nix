@@ -17,7 +17,7 @@ in
           name = "Homepage";
           route = {
             description = "Homepage service directory";
-            host = hostname "homepage";
+            hosts = [ (hostname "homepage") ];
             url = "http://127.0.0.1:8082";
           };
           homepage = {
@@ -56,7 +56,7 @@ in
           name = "Technitium";
           route = {
             description = "Technitium DNS administration and DoH endpoint";
-            host = hostname "technitium";
+            hosts = [ (hostname "technitium") ];
             url = "http://127.0.0.1:5380";
           };
           homepage = {
@@ -72,7 +72,7 @@ in
           name = "Gluetun";
           route = {
             description = "Gluetun WebUI";
-            host = hostname "gluetun";
+            hosts = [ (hostname "gluetun") ];
             url = "http://127.0.0.1:3000";
           };
           homepage = {
@@ -88,7 +88,7 @@ in
           name = "Netboot.xyz";
           route = {
             description = "netboot.xyz web configuration UI";
-            host = hostname "netbootxyz";
+            hosts = [ (hostname "netbootxyz") ];
             url = "http://127.0.0.1:3001";
           };
           homepage = {

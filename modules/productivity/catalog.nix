@@ -14,19 +14,23 @@ let
       icon,
       homepageDescription,
       hostName ? hostname id,
+      hostNames ? [ hostName ],
       monitorPath ? "/",
       smokeHttp ? null,
     }:
+    let
+      primaryHostName = builtins.head hostNames;
+    in
     {
       inherit id name;
       route = {
         description = routeDescription;
-        host = hostName;
+        hosts = hostNames;
         url = backend port;
       };
       homepage = {
         description = homepageDescription;
-        href = "http://${hostName}/";
+        href = "http://${primaryHostName}/";
         inherit icon;
         siteMonitor = "${monitorBase port}${monitorPath}";
       };
@@ -47,13 +51,14 @@ let
       port,
       routeDescription,
       hostName ? hostname id,
+      hostNames ? [ hostName ],
       smokeHttp ? null,
     }:
     {
       inherit id name;
       route = {
         description = routeDescription;
-        host = hostName;
+        hosts = hostNames;
         url = backend port;
       };
     }

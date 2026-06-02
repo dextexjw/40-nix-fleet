@@ -233,7 +233,7 @@ in
     '';
     directAddress = host.ip;
     enable = true;
-    host = "homepage.${serviceDomain}";
+    hosts = exposureCatalog.homepage.hosts;
     layout = exposureCatalog.homepage.layout ++ [
       {
         Links = {
