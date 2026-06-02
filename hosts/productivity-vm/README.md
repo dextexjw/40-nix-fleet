@@ -1,7 +1,7 @@
 # productivity-vm
 
 `productivity-vm` runs the personal productivity stack, nginx-backed internal
-apps, Git forges, LibreSpeed, iperf3, RustDesk, InvoicePlane, Shlink short
+apps, Git forges, OpenSpeedTest, iperf3, RustDesk, InvoicePlane, Shlink short
 links, standalone Garage and RustFS object storage, PostgreSQL, MariaDB,
 appdata backups, and restore checks.
 
@@ -43,7 +43,7 @@ path backed up by Restic.
 | Stirling PDF | `https://stirling-pdf.jax22.com` | `http://stirling-pdf.h` | `10.2.20.114:8086` |
 | Firefly III | `https://firefly.jax22.com` | `http://firefly.h` | `10.2.20.114:80` |
 | Nextcloud | `https://nextcloud.jax22.com` | `http://nextcloud.h` | `10.2.20.114:80` |
-| LibreSpeed | `https://librespeed.jax22.com` | `http://librespeed.h` | `10.2.20.114:8989` |
+| OpenSpeedTest | `https://openspeedtest.jax22.com` | `http://openspeedtest.h` | `10.2.20.114:8989` |
 | InvoicePlane | `https://invoiceplane.jax22.com` | `http://invoiceplane.h` | `10.2.20.114:80` |
 | iperf3 | `iperf3.jax22.com:5201` | `iperf3.h:5201` | `10.2.20.114:5201/tcp+udp` |
 | RustDesk | `rustdesk.jax22.com` | `rustdesk.h` | `10.2.20.114:21115-21119/tcp, 21116/udp` |

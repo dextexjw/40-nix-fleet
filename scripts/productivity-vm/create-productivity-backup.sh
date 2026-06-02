@@ -24,7 +24,7 @@ SERVICES=(
   stirling-pdf.service
   phpfpm-firefly-iii.service
   phpfpm-nextcloud.service
-  librespeed.service
+  podman-openspeedtest.service
   phpfpm-invoiceplane.service
   mysql.service
   iperf3.service

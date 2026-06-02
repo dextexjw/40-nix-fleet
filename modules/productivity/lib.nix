@@ -19,9 +19,9 @@ let
     gitea = "gitea";
     invoiceplane = "invoiceplane";
     iperf3 = "iperf3";
-    librespeed = "librespeed";
     nextcloud = "nextcloud";
     ntfy = "ntfy";
+    openspeedtest = "openspeedtest";
     paperless = "paperless";
     privatebin = "privatebin";
     rustdesk = "rustdesk";
@@ -47,7 +47,7 @@ let
     "stirlingPdf"
     "firefly"
     "nextcloud"
-    "librespeed"
+    "openspeedtest"
     "invoiceplane"
     "iperf3"
     "rustdesk"
@@ -145,10 +145,10 @@ let
     "phpfpm-firefly-iii.service"
     "firefly-iii-cron.timer"
     "phpfpm-nextcloud.service"
-    "librespeed.service"
     "phpfpm-invoiceplane.service"
     "mysql.service"
     "iperf3.service"
+    "podman-openspeedtest.service"
     "rustdesk-signal.service"
     "rustdesk-relay.service"
     "garage.service"

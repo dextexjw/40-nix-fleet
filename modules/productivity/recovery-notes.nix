@@ -29,7 +29,7 @@ in
 
         productivity-vm runs Gitea, Forgejo, Material for MkDocs, Paperless-ngx,
         FreshRSS, SearXNG, Vaultwarden, PrivateBin, Syncthing, Stirling PDF,
-        Firefly III, Nextcloud, LibreSpeed, InvoicePlane, iperf3, RustDesk, Shlink,
+        Firefly III, Nextcloud, OpenSpeedTest, InvoicePlane, iperf3, RustDesk, Shlink,
         Garage, RustFS, ntfy, nginx, PostgreSQL, MariaDB, and Restic appdata backups.
 
         Persistent state root:
@@ -51,7 +51,7 @@ in
           Vaultwarden: ${toString cfg.ports.vaultwarden}
           Syncthing GUI: ${toString cfg.ports.syncthing}
           Stirling PDF: ${toString cfg.ports.stirlingPdf}
-          LibreSpeed: ${toString cfg.ports.librespeed}
+          OpenSpeedTest: ${toString cfg.ports.openspeedtest}
           iperf3 TCP/UDP: ${toString cfg.ports.iperf3}
           RustDesk TCP: 21115, 21116, 21117, 21118, 21119
           RustDesk UDP: 21116

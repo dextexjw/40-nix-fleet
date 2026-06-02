@@ -19,9 +19,9 @@ let
     gitea = "gitea";
     invoiceplane = "invoiceplane";
     iperf3 = "iperf3";
-    librespeed = "librespeed";
     nextcloud = "nextcloud";
     ntfy = "ntfy";
+    openspeedtest = "openspeedtest";
     paperless = "paperless";
     privatebin = "privatebin";
     rustdesk = "rustdesk";
@@ -47,7 +47,7 @@ let
     "stirlingPdf"
     "firefly"
     "nextcloud"
-    "librespeed"
+    "openspeedtest"
     "invoiceplane"
     "iperf3"
     "rustdesk"
@@ -111,8 +111,8 @@ in
         garageWeb = 3902;
         gitea = 3000;
         iperf3 = 5201;
-        librespeed = 8989;
         ntfy = 2586;
+        openspeedtest = 8989;
         rustdeskRelay = 21117;
         rustdeskSignal = 21116;
         rustfsApi = 9000;

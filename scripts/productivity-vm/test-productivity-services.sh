@@ -28,7 +28,7 @@ KEY_SERVICES=(
   stirling-pdf
   phpfpm-firefly-iii
   phpfpm-nextcloud
-  librespeed
+  podman-openspeedtest
   phpfpm-invoiceplane
   mysql
   iperf3
@@ -54,7 +54,7 @@ HOST_ROUTES=(
   stirling-pdf
   firefly
   nextcloud
-  librespeed
+  openspeedtest
   invoiceplane
   garage
   garage-web
@@ -68,7 +68,7 @@ HOST_ROUTES=(
 declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
   [forgejo]=1
   [iperf3]=1
-  [librespeed]=1
+  [podman-openspeedtest]=1
   [mysql]=1
   [phpfpm-invoiceplane]=1
   [podman-shlink]=1
@@ -125,8 +125,8 @@ route_is_skipped() {
     invoiceplane.*)
       service_is_skipped phpfpm-invoiceplane
       ;;
-    librespeed.*)
-      service_is_skipped librespeed
+    openspeedtest.*)
+      service_is_skipped podman-openspeedtest
       ;;
     rustfs.* | rustfs-console.*)
       service_is_skipped podman-rustfs
@@ -183,7 +183,7 @@ colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8087/ >/d
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8222/ >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8384/ >/dev/null"
 colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 http://127.0.0.1:8086/); case \"\$status\" in 2*|3*|401) exit 0 ;; *) echo \"unexpected Stirling PDF status: \$status\" >&2; exit 1 ;; esac'"
-if ! service_is_skipped librespeed; then
+if ! service_is_skipped podman-openspeedtest; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8989/ >/dev/null"
 fi
 if ! service_is_skipped phpfpm-invoiceplane; then
@@ -244,7 +244,7 @@ for route_prefix in "${HOST_ROUTES[@]}"; do
       ntfy.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:2586/v1/health >/dev/null"
         ;;
-      librespeed.*)
+      openspeedtest.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8989/ >/dev/null"
         ;;
       invoiceplane.*)

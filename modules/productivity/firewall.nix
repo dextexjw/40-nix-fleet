@@ -23,8 +23,8 @@ in
       cfg.ports.garageWeb
       cfg.ports.gitea
       cfg.ports.iperf3
-      cfg.ports.librespeed
       cfg.ports.ntfy
+      cfg.ports.openspeedtest
       21115
       21116
       21117

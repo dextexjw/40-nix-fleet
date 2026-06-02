@@ -14,7 +14,7 @@
     ./services/stirling-pdf.nix
     ./services/firefly.nix
     ./services/nextcloud.nix
-    ./services/librespeed.nix
+    ./services/openspeedtest.nix
     ./services/invoiceplane.nix
     ./services/iperf3.nix
     ./services/rustdesk.nix

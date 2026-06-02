@@ -189,11 +189,11 @@ in
           homepageDescription = "Private cloud files\n${backend 80}";
         })
         (mkService {
-          id = "librespeed";
-          name = "LibreSpeed";
+          id = "openspeedtest";
+          name = "OpenSpeedTest";
           port = 8989;
-          routeDescription = "LibreSpeed browser speed test";
-          icon = "librespeed.png";
+          routeDescription = "OpenSpeedTest browser speed test";
+          icon = "openspeedtest.png";
           homepageDescription = "Browser speed test\n${backend 8989}";
           smokeHttp = {
             discard = true;
