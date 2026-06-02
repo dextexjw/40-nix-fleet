@@ -30,9 +30,16 @@ let
       import json
       import os
       import sys
+      import time
       import urllib.error
       import urllib.parse
       import urllib.request
+
+
+      class ApiError(Exception):
+          def __init__(self, message, retryable=False):
+              super().__init__(message)
+              self.retryable = retryable
 
 
       def fail(message):
@@ -68,7 +75,7 @@ let
       hardware_monitors = target_data["hardwareMonitors"]
 
 
-      def request(method, path, body=None, token=None):
+      def request_once(method, path, body=None, token=None):
           data = None
           headers = {"Accept": "application/json"}
           if body is not None:
@@ -88,13 +95,21 @@ let
                   payload = response.read().decode("utf-8")
           except urllib.error.HTTPError as error:
               detail = error.read().decode("utf-8", errors="replace")
-              fail(f"{method} {path} returned HTTP {error.code}: {detail}")
+              retryable = error.code in (502, 503, 504)
+              raise ApiError(f"{method} {path} returned HTTP {error.code}: {detail}", retryable)
           except urllib.error.URLError as error:
-              fail(f"{method} {path} failed: {error}")
+              raise ApiError(f"{method} {path} failed: {error}", True)
 
           if not payload:
               return {}
           return json.loads(payload)
+
+
+      def request(method, path, body=None, token=None):
+          try:
+              return request_once(method, path, body=body, token=token)
+          except ApiError as error:
+              fail(str(error))
 
 
       def response_data(response):
@@ -152,10 +167,24 @@ let
 
 
       def login():
-          payload = response_data(request("POST", "/auth/login", {
+          login_body = {
               "email": email,
               "password": password,
-          }))
+          }
+          last_error = None
+          for attempt in range(1, 31):
+              try:
+                  payload = response_data(request_once("POST", "/auth/login", login_body))
+                  break
+              except ApiError as error:
+                  last_error = error
+                  if not error.retryable:
+                      fail(str(error))
+                  if attempt == 30:
+                      fail(str(last_error))
+                  time.sleep(2)
+          else:
+              fail(str(last_error))
           token = payload.get("token") if isinstance(payload, dict) else None
           if not token:
               fail("Checkmate login did not return an auth token")

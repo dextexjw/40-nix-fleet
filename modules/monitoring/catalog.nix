@@ -8,6 +8,13 @@ let
   backend = port: "http://${host.ip}:${toString port}";
   hostnames = name: map (domain: "${name}.${domain}") serviceDomains;
   hostname = name: "${name}.${builtins.head serviceDomains}";
+  routeUrl =
+    name:
+    let
+      hostName = hostname name;
+      scheme = if builtins.match ".*[.]h" hostName != null then "http" else "https";
+    in
+    "${scheme}://${hostName}";
 in
 {
   groups = [
@@ -27,7 +34,7 @@ in
           };
           homepage = {
             description = "Status monitoring and alerts\n${backend 52345}";
-            href = "http://${hostname "checkmate"}/";
+            href = "${routeUrl "checkmate"}/";
             icon = "mdi-monitor-dashboard";
             siteMonitor = "${backend 52345}/";
           };

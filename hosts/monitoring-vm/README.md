@@ -29,7 +29,7 @@ path backed up by Restic.
 
 | Service | Canonical route | Alias | Backend |
 | --- | --- | --- | --- |
-| Checkmate | `http://checkmate.jax22.com` | `http://checkmate.h` | `10.2.20.115:52345` |
+| Checkmate | `https://checkmate.jax22.com` | `http://checkmate.h` | `10.2.20.115:52345` |
 | Beszel | `http://beszel.jax22.com` | `http://beszel.h` | `10.2.20.115:8090` |
 | Checkmate Capture | direct agent API only | none | `10.2.20.115:59232` |
 | Beszel Agent | direct agent API only | none | `10.2.20.115:45876` |

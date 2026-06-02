@@ -158,6 +158,17 @@ in
         default = "ghcr.io/bluewave-labs/checkmate-mongo@sha256:c9026b4150f77aae3e1d3d47b077866f906776048a538b8d609058b13a0df415";
         description = "Pinned Checkmate MongoDB OCI image.";
       };
+
+      publicUrl = mkOption {
+        type = types.str;
+        default =
+          let
+            host = cfg.serviceHosts.checkmate;
+            scheme = if hasSuffix ".h" host then "http" else "https";
+          in
+          "${scheme}://${host}";
+        description = "Browser-facing Checkmate URL used for client API and CORS settings.";
+      };
     };
   };
 
@@ -243,12 +254,12 @@ in
       pull = "missing";
       dependsOn = [ "checkmate-mongodb" ];
       environment = {
-        CLIENT_HOST = "http://${serviceHosts.checkmate}";
+        CLIENT_HOST = cfg.checkmate.publicUrl;
         DB_CONNECTION_STRING = "mongodb://127.0.0.1:${toString cfg.ports.mongo}/uptime_db";
-        UPTIME_ALLOWED_ORIGINS = "http://${serviceHosts.checkmate}";
-        UPTIME_APP_API_BASE_URL = "http://${serviceHosts.checkmate}/api/v1";
-        UPTIME_APP_CLIENT_HOST = "http://${serviceHosts.checkmate}";
-        UPTIME_APP_PUBLIC_ASSETS_URL = "http://${serviceHosts.checkmate}/uploads";
+        UPTIME_ALLOWED_ORIGINS = cfg.checkmate.publicUrl;
+        UPTIME_APP_API_BASE_URL = "${cfg.checkmate.publicUrl}/api/v1";
+        UPTIME_APP_CLIENT_HOST = cfg.checkmate.publicUrl;
+        UPTIME_APP_PUBLIC_ASSETS_URL = "${cfg.checkmate.publicUrl}/uploads";
         UPTIME_APP_UPLOAD_DIR = "/app/uploads";
       };
       environmentFiles = [ (secretPath "checkmate-environment") ];
