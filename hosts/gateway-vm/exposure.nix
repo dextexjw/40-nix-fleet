@@ -4,6 +4,8 @@ let
   host = hosts.gateway-vm;
   hostname = name: "${name}.${builtins.head serviceDomains}";
   hostnames = name: map (domain: "${name}.${domain}") serviceDomains;
+  urlScheme = hostName: if builtins.match ".*[.]h" hostName != null then "http" else "https";
+  routeUrl = hostName: "${urlScheme hostName}://${hostName}";
 in
 {
   groups = [
@@ -23,7 +25,7 @@ in
           };
           homepage = {
             description = "http://${host.ip}:8082";
-            href = "http://${hostname "homepage"}/";
+            href = "${routeUrl (hostname "homepage")}/";
             icon = "homepage.png";
             siteMonitor = "http://127.0.0.1:8082/";
           };
@@ -33,13 +35,13 @@ in
           id = "traefik";
           name = "Traefik";
           docs.urls = [
-            "http://${hostname "traefik"}/dashboard/"
+            "${routeUrl (hostname "traefik")}/dashboard/"
             "http://${hostname "traefik"}:8080/dashboard/"
             "http://${hostname "traefik"}:8080/metrics"
           ];
           homepage = {
             description = "http://${host.ip}:8080/dashboard/";
-            href = "http://${hostname "traefik"}/dashboard/";
+            href = "${routeUrl (hostname "traefik")}/dashboard/";
             icon = "traefik.png";
             siteMonitor = "http://127.0.0.1:8080/dashboard/";
           };
@@ -62,7 +64,7 @@ in
           };
           homepage = {
             description = "http://${host.ip}:5380";
-            href = "http://${hostname "technitium"}/";
+            href = "${routeUrl (hostname "technitium")}/";
             icon = "technitium.png";
             siteMonitor = "http://127.0.0.1:5380/";
           };
@@ -78,7 +80,7 @@ in
           };
           homepage = {
             description = "HTTP: 8888 - SOCKS v5: 8388";
-            href = "http://${hostname "gluetun"}/";
+            href = "${routeUrl (hostname "gluetun")}/";
             icon = "gluetun.png";
             siteMonitor = "http://127.0.0.1:3000/api/health";
           };
@@ -94,7 +96,7 @@ in
           };
           homepage = {
             description = "TFTP ${host.ip}:69/udp";
-            href = "http://${hostname "netbootxyz"}/";
+            href = "${routeUrl (hostname "netbootxyz")}/";
             icon = "netboot.png";
             siteMonitor = "http://127.0.0.1:3001/";
           };
@@ -117,7 +119,7 @@ in
           id = "technitium-direct-ip";
           name = "Technitium Direct IP";
           homepage = {
-            description = "http://${hostname "technitium"}/";
+            description = "${routeUrl (hostname "technitium")}/";
             href = "http://${host.ip}:5380/";
             icon = "technitium.png";
             siteMonitor = "http://${host.ip}:5380/";

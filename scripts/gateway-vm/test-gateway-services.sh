@@ -5,7 +5,7 @@ HOST="gateway-vm"
 HOST_IP="10.2.20.112"
 REMOTE_USER="smoke"
 EXPOSURE_SMOKE_FILE="/etc/fleet/gateway-exposure-smoke.tsv"
-EXTERNAL_TCP_PORTS=(22 53 80 853 5201 5380 8080 8082 8888 21115 21116 21117 21118 21119 53443)
+EXTERNAL_TCP_PORTS=(22 53 80 443 853 5201 5380 8080 8082 8888 21115 21116 21117 21118 21119 53443)
 LOCAL_TCP_PORTS=(3000)
 UDP_PORTS=(53 69 5201 21116 41641)
 KEY_UNITS=(
@@ -209,6 +209,10 @@ printf 'Checking Gateway-local direct HTTP endpoints...\n'
 wait_for_remote "Traefik dashboard route failed" "curl -fsS http://127.0.0.1:8080/dashboard/ >/dev/null"
 wait_for_remote "Traefik metrics endpoint failed" "tmp=\$(mktemp); trap 'rm -f \"\$tmp\"' EXIT; curl -fsS -o \"\$tmp\" http://127.0.0.1:8080/metrics && grep -q '^traefik_' \"\$tmp\""
 wait_for_remote "Homepage direct endpoint failed" "curl -fsS http://${HOST_IP}:8082/ >/dev/null"
+
+printf 'Checking Traefik ACME storage...\n'
+wait_for_remote "Traefik ACME storage is missing or empty" "sudo test -s /var/lib/traefik/acme.json"
+wait_for_remote "Traefik ACME storage ownership or permissions are incorrect" "sudo stat -c '%U:%G %a' /var/lib/traefik/acme.json | grep -Fxq 'traefik:traefik 600'"
 
 if [[ "$CHECK_NETBOOTXYZ" == 1 ]]; then
   printf 'Checking netboot.xyz TFTP boot file fetch...\n'

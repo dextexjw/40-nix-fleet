@@ -156,6 +156,11 @@ in
       technitium-admin-username = {
         restartUnits = [ "technitium-dns-configure.service" ];
       };
+      traefik-cloudflare-dns-api-token = {
+        owner = "traefik";
+        group = "traefik";
+        restartUnits = [ "traefik.service" ];
+      };
     };
   };
 
@@ -319,6 +324,21 @@ in
     package = traefik_3_7_1;
     routes = exposureCatalog.traefikRoutes;
     tcpRoutes = exposureCatalog.traefikTcpRoutes;
+    tls = {
+      enable = true;
+      domain = "jax22.com";
+      resolver = "letsencrypt";
+      acme = {
+        dnsApiTokenFile = config.sops.secrets.traefik-cloudflare-dns-api-token.path;
+        dnsProvider = "cloudflare";
+        dnsResolvers = [
+          "1.1.1.1:53"
+          "8.8.8.8:53"
+        ];
+        email = "admin@jax22.com";
+        storage = "/var/lib/traefik/acme.json";
+      };
+    };
     udpRoutes = exposureCatalog.traefikUdpRoutes;
   };
 
@@ -382,12 +402,12 @@ in
     ${lib.concatStringsSep "\n" (map (zoneDomain: "      *.${zoneDomain}") serviceDomains)}
 
         Declared services:
-          Traefik: traefik.service, version 3.7.1, ingress ports 80 and optional 443, dashboard and metrics port 8080, JSON access logs in the service journal
-          Homepage: homepage-dashboard.service, declarative service directory, LAN access on ${host.ip}:8082 and http://homepage.${serviceDomain}
-          Technitium: technitium-dns-server.service, version 15.2.0, state /srv/appsdata/technitium-dns-server, admin HTTP on ${host.ip}:5380 and http://technitium.${serviceDomain}
+          Traefik: traefik.service, version 3.7.1, HTTP ingress port 80, HTTPS ingress port 443 for jax22.com routes using Let's Encrypt DNS-01, ACME state /srv/appsdata/traefik/acme.json, dashboard and metrics port 8080, JSON access logs in the service journal
+          Homepage: homepage-dashboard.service, declarative service directory, LAN access on ${host.ip}:8082, https://homepage.jax22.com, and http://homepage.h
+          Technitium: technitium-dns-server.service, version 15.2.0, state /srv/appsdata/technitium-dns-server, admin HTTP on ${host.ip}:5380, https://technitium.jax22.com, and http://technitium.h
           Gluetun: podman-gluetun.service, PIA OpenVPN container, state /srv/appsdata/gluetun, unauthenticated LAN HTTP proxy on ${host.ip}:8888, authenticated control API internal to the container namespace
-          Gluetun WebUI: podman-gluetun-webui.service, LAN access through Traefik at http://gluetun.${serviceDomain}, backend only on 127.0.0.1:3000
-          netboot.xyz: podman-netbootxyz.service, state /srv/appsdata/netbootxyz, web UI http://netbootxyz.${serviceDomain}, TFTP ${host.ip}:69/udp, boot file netboot.xyz.efi
+          Gluetun WebUI: podman-gluetun-webui.service, LAN access through Traefik at https://gluetun.jax22.com and http://gluetun.h, backend only on 127.0.0.1:3000
+          netboot.xyz: podman-netbootxyz.service, state /srv/appsdata/netbootxyz, web UI https://netbootxyz.jax22.com and http://netbootxyz.h, TFTP ${host.ip}:69/udp, boot file netboot.xyz.efi
           NetBird: disabled for now, state preserved at /srv/appsdata/netbird
           Tailscale: tailscaled.service, state /srv/appsdata/tailscale
           State backups: gateway-state-backup.timer, repository /mnt/backup/restic/appdata/gateway-vm
@@ -428,19 +448,25 @@ in
           systemctl is-active podman-netbootxyz.service
           systemctl is-active tailscaled.service
           systemctl is-active gateway-state-backup.timer
+          curl --resolve homepage.jax22.com:443:127.0.0.1 https://homepage.jax22.com/
+          curl --resolve traefik.jax22.com:443:127.0.0.1 https://traefik.jax22.com/dashboard/
           curl -H 'Host: gluetun.${serviceDomain}' http://127.0.0.1/api/health
           curl -H 'Host: homepage.${serviceDomain}' http://127.0.0.1/
           curl -H 'Host: homepage.h' http://127.0.0.1/
           curl -H 'Host: netbootxyz.${serviceDomain}' http://127.0.0.1/
           curl http://${host.ip}:8082/
+          stat -c '%U:%G %a' /var/lib/traefik/acme.json
           ss -lntu
 
         Recovery notes:
           Restic backs up /srv/appsdata to /mnt/backup/restic/appdata/gateway-vm
           using /run/secrets/restic-password. Gluetun and netboot.xyz store state
           directly under /srv/appsdata/gluetun and /srv/appsdata/netbootxyz;
-          Technitium, NetBird, and Tailscale keep
+          Technitium, Traefik, NetBird, and Tailscale keep
           upstream-compatible bind mounts from /srv/appsdata/<service_name>.
+          Traefik's ACME account and wildcard certificate state is kept in
+          /srv/appsdata/traefik/acme.json and should remain owned by traefik:traefik
+          with mode 0600.
           Homepage service cards and Gateway Traefik routes are generated from the
           pure Nix exposure catalog under hosts/*/exposure.nix and modules/*/catalog.nix.
           Gateway, Media, and Productivity render as four-card rows, internal HTTP
@@ -465,14 +491,14 @@ in
 
           Restore outline:
             1. Deploy gateway-vm once to create users, secrets, mounts, and units.
-            2. Stop Technitium, Gluetun, netboot.xyz, NetBird, and Tailscale before replacing state.
+            2. Stop Traefik, Technitium, Gluetun, netboot.xyz, NetBird, and Tailscale before replacing state.
             3. Mount /mnt/backup.
             4. Choose a gateway-vm/appsdata snapshot ID.
             5. Restore the snapshot to / with restic --verify.
             6. Run systemd-tmpfiles --create.
-            7. Restart homepage-dashboard.service, technitium-dns-server.service, podman-gluetun.service, podman-gluetun-webui.service, podman-netbootxyz.service, netbird.service, and tailscaled.service.
+            7. Restart traefik.service, homepage-dashboard.service, technitium-dns-server.service, podman-gluetun.service, podman-gluetun-webui.service, podman-netbootxyz.service, netbird.service, and tailscaled.service.
 
-          Keep auth keys in encrypted secrets only; do not write them into Nix
+          Keep auth keys, DNS API tokens, and service secrets in encrypted secrets only; do not write them into Nix
           files, generated configs, recovery notes, logs, or chat.
   '';
 

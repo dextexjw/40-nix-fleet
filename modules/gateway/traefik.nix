@@ -18,8 +18,6 @@ let
     else
       [ cfg.dashboard.domain ];
 
-  routerEntryPoints = if cfg.enableTLS then [ "websecure" ] else [ "web" ];
-
   dashboardRule = "PathPrefix(`/api`) || PathPrefix(`/dashboard`)";
 
   mkName =
@@ -37,16 +35,29 @@ let
 
   mkHostRule = host: "Host(`${host}`)";
 
+  mkRule = hosts: concatStringsSep " || " (map mkHostRule hosts);
+
+  tlsEnabled = cfg.tls.enable;
+  tlsDomain = cfg.tls.domain;
+  isTlsHost = host: host == tlsDomain || hasSuffix ".${tlsDomain}" host;
+  tlsHosts = hosts: filter isTlsHost hosts;
+
   mkRouter =
     name: route:
-    nameValuePair (mkName name) (
-      {
-        entryPoints = routerEntryPoints;
-        rule = concatStringsSep " || " (map mkHostRule route.hosts);
-        service = mkName name;
-      }
-      // optionalAttrs cfg.enableTLS { tls = { }; }
-    );
+    nameValuePair (mkName name) {
+      entryPoints = [ "web" ];
+      rule = mkRule route.hosts;
+      service = mkName name;
+    };
+
+  mkTlsRouter =
+    name: route:
+    nameValuePair "${mkName name}-tls" {
+      entryPoints = [ "websecure" ];
+      rule = mkRule (tlsHosts route.hosts);
+      service = mkName name;
+      tls = { };
+    };
 
   mkService =
     name: route:
@@ -108,23 +119,34 @@ let
       address = ":${toString route.port}/udp";
     };
 
-  dashboardRouters =
-    optionalAttrs cfg.dashboard.enable {
-      dashboard = {
-        entryPoints = [ "dashboard" ];
-        rule = dashboardRule;
-        service = "api@internal";
-      };
-    }
-    // optionalAttrs (cfg.dashboard.enable && cfg.dashboard.webRoute.enable) {
-      dashboard-web = {
-        entryPoints = [ "web" ];
-        rule = "(${concatStringsSep " || " (map mkHostRule dashboardHosts)}) && (${dashboardRule})";
-        service = "api@internal";
-      };
+  dashboardRouters = optionalAttrs cfg.dashboard.enable {
+    dashboard = {
+      entryPoints = [ "dashboard" ];
+      rule = dashboardRule;
+      service = "api@internal";
     };
+  } // optionalAttrs (cfg.dashboard.enable && cfg.dashboard.webRoute.enable) {
+    dashboard-web = {
+      entryPoints = [ "web" ];
+      rule = "(${mkRule dashboardHosts}) && (${dashboardRule})";
+      service = "api@internal";
+    };
+  } // optionalAttrs (cfg.dashboard.enable && cfg.dashboard.webRoute.enable && tlsEnabled && tlsHosts dashboardHosts != [ ]) {
+    dashboard-websecure = {
+      entryPoints = [ "websecure" ];
+      rule = "(${mkRule (tlsHosts dashboardHosts)}) && (${dashboardRule})";
+      service = "api@internal";
+      tls = { };
+    };
+  };
 
-  metricsEntryPoint = if cfg.metrics.entryPoint == null then "dashboard" else cfg.metrics.entryPoint;
+  tlsRoutes = filterAttrs (_: route: tlsEnabled && tlsHosts route.hosts != [ ]) cfg.routes;
+
+  metricsEntryPoint =
+    if cfg.metrics.entryPoint == null then
+      "dashboard"
+    else
+      cfg.metrics.entryPoint;
 in
 {
   # ============================================================================
@@ -329,6 +351,63 @@ in
       description = "Named Traefik TCP passthrough routes on dedicated entrypoints.";
     };
 
+    tls = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Enable managed HTTPS routers for the public service domain.";
+      };
+
+      domain = mkOption {
+        type = types.str;
+        default = cfg.domain;
+        description = "Public service domain covered by the managed wildcard certificate.";
+        example = "jax22.com";
+      };
+
+      resolver = mkOption {
+        type = types.str;
+        default = "letsencrypt";
+        description = "Traefik certificate resolver name used for ACME issuance.";
+      };
+
+      acme = {
+        dnsApiTokenFile = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          description = "Runtime secret file containing the DNS provider API token.";
+          example = "/run/secrets/traefik-cloudflare-dns-api-token";
+        };
+
+        dnsProvider = mkOption {
+          type = types.str;
+          default = "cloudflare";
+          description = "Traefik ACME DNS-01 provider name.";
+        };
+
+        dnsResolvers = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "1.1.1.1:53"
+            "8.8.8.8:53"
+          ];
+          description = "Recursive DNS resolvers Traefik should use while validating DNS-01 propagation.";
+        };
+
+        email = mkOption {
+          type = types.str;
+          default = "admin@jax22.com";
+          description = "ACME account email address.";
+        };
+
+        storage = mkOption {
+          type = types.str;
+          default = "/var/lib/traefik/acme.json";
+          description = "Runtime path where Traefik stores ACME account and certificate state.";
+        };
+      };
+    };
+
     tracing = {
       enable = mkOption {
         type = types.bool;
@@ -410,24 +489,48 @@ in
         assertion = !cfg.metrics.enable || cfg.dashboard.enable || cfg.metrics.entryPoint != null;
         message = "fleet.gateway.traefik.metrics.entryPoint must be set when metrics are enabled without the dashboard entrypoint.";
       }
+      {
+        assertion = !cfg.tls.enable || cfg.tls.acme.dnsApiTokenFile != null;
+        message = "fleet.gateway.traefik.tls.acme.dnsApiTokenFile must be set when managed TLS is enabled.";
+      }
+      {
+        assertion = !cfg.tls.enable || cfg.tls.acme.dnsProvider == "cloudflare";
+        message = "fleet.gateway.traefik.tls currently supports Cloudflare DNS-01 credentials.";
+      }
     ];
 
     services.traefik = {
       enable = true;
       package = cfg.package;
 
-      dynamicConfigOptions.http = {
-        routers = dashboardRouters // mapAttrs' mkRouter cfg.routes;
-        services = mapAttrs' mkService cfg.routes;
-      };
-      dynamicConfigOptions.tcp = mkIf (cfg.tcpRoutes != { }) {
-        routers = mapAttrs' mkTcpRouter cfg.tcpRoutes;
-        services = mapAttrs' mkTcpService cfg.tcpRoutes;
-      };
-      dynamicConfigOptions.udp = mkIf (cfg.udpRoutes != { }) {
-        routers = mapAttrs' mkUdpRouter cfg.udpRoutes;
-        services = mapAttrs' mkUdpService cfg.udpRoutes;
-      };
+      dynamicConfigOptions =
+        {
+          http = {
+            routers = dashboardRouters // mapAttrs' mkRouter cfg.routes // mapAttrs' mkTlsRouter tlsRoutes;
+            services = mapAttrs' mkService cfg.routes;
+          };
+        }
+        // optionalAttrs (cfg.tcpRoutes != { }) {
+          tcp = {
+            routers = mapAttrs' mkTcpRouter cfg.tcpRoutes;
+            services = mapAttrs' mkTcpService cfg.tcpRoutes;
+          };
+        }
+        // optionalAttrs (cfg.udpRoutes != { }) {
+          udp = {
+            routers = mapAttrs' mkUdpRouter cfg.udpRoutes;
+            services = mapAttrs' mkUdpService cfg.udpRoutes;
+          };
+        }
+        // optionalAttrs cfg.tls.enable {
+          tls.stores.default.defaultGeneratedCert = {
+            resolver = cfg.tls.resolver;
+            domain = {
+              main = cfg.tls.domain;
+              sans = [ "*.${cfg.tls.domain}" ];
+            };
+          };
+        };
 
       staticConfigOptions = {
         api.dashboard = cfg.dashboard.enable;
@@ -448,6 +551,15 @@ in
         };
 
         log.level = cfg.logLevel;
+      }
+      // optionalAttrs cfg.tls.enable {
+        certificatesResolvers.${cfg.tls.resolver}.acme = {
+          inherit (cfg.tls.acme) email storage;
+          dnsChallenge = {
+            provider = cfg.tls.acme.dnsProvider;
+            resolvers = cfg.tls.acme.dnsResolvers;
+          };
+        };
       }
       // optionalAttrs cfg.accessLog.enable {
         accessLog = {
@@ -474,12 +586,17 @@ in
       };
     };
 
-    networking.firewall.allowedTCPPorts = [
-      cfg.httpPort
-    ]
-    ++ optional cfg.enableTLS cfg.httpsPort
-    ++ optional cfg.dashboard.enable cfg.dashboard.port
-    ++ mapAttrsToList (_name: route: route.port) cfg.tcpRoutes;
+    systemd.services.traefik.environment = optionalAttrs cfg.tls.enable {
+      CF_DNS_API_TOKEN_FILE = cfg.tls.acme.dnsApiTokenFile;
+    };
+
+    networking.firewall.allowedTCPPorts =
+      [
+        cfg.httpPort
+      ]
+      ++ optional (cfg.enableTLS || cfg.tls.enable) cfg.httpsPort
+      ++ optional cfg.dashboard.enable cfg.dashboard.port
+      ++ mapAttrsToList (_name: route: route.port) cfg.tcpRoutes;
 
     networking.firewall.allowedUDPPorts = mapAttrsToList (_name: route: route.port) cfg.udpRoutes;
   };

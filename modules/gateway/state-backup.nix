@@ -108,6 +108,12 @@ in
       options = [ "bind" ];
     };
 
+    fileSystems."/var/lib/traefik" = {
+      device = "${appdata}/traefik";
+      fsType = "none";
+      options = [ "bind" ];
+    };
+
     fileSystems."/var/lib/private/technitium-dns-server" = {
       device = "${appdata}/technitium-dns-server";
       fsType = "none";
@@ -150,6 +156,7 @@ in
       mkdir -p "${appdata}"
       migrate_gateway_state /var/lib/netbird "${appdata}/netbird"
       migrate_gateway_state /var/lib/tailscale "${appdata}/tailscale"
+      migrate_gateway_state /var/lib/traefik "${appdata}/traefik"
       migrate_gateway_state /var/lib/private/technitium-dns-server "${appdata}/technitium-dns-server"
     '';
 
@@ -159,6 +166,8 @@ in
       "d ${appdata}/netbird 0700 root root - -"
       "d ${appdata}/tailscale 0700 root root - -"
       "d ${appdata}/technitium-dns-server 0755 root root - -"
+      "d ${appdata}/traefik 0700 traefik traefik - -"
+      "f ${appdata}/traefik/acme.json 0600 traefik traefik - -"
       "d ${cfg.restoreCheckTarget} 0700 root root - -"
     ];
 
@@ -170,6 +179,11 @@ in
     systemd.services.tailscaled = {
       after = [ (mountUnit "/var/lib/tailscale") ];
       requires = [ (mountUnit "/var/lib/tailscale") ];
+    };
+
+    systemd.services.traefik = {
+      after = [ (mountUnit "/var/lib/traefik") ];
+      requires = [ (mountUnit "/var/lib/traefik") ];
     };
 
     systemd.services.technitium-dns-server = {
@@ -324,7 +338,7 @@ in
           exit 1
         fi
 
-        for service_dir in gluetun netbird tailscale technitium-dns-server; do
+        for service_dir in gluetun netbird tailscale technitium-dns-server traefik; do
           if [ ! -d "$restored_source/$service_dir" ]; then
             echo "restore completed but $restored_source/$service_dir is missing"
             exit 1

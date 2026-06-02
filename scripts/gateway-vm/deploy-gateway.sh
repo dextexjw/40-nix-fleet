@@ -44,7 +44,7 @@ if ! decrypted_secrets="$(sops --decrypt "$SECRETS")"; then
   die "unable to decrypt $SECRETS locally; rekey it for your local/admin key"
 fi
 
-for required_key in admin-password-hash beszel-agent-key beszel-agent-token checkmate-capture-environment gluetun-control-api-key gluetun-openvpn-password gluetun-openvpn-username restic-password smb-credentials technitium-admin-username technitium-admin-password; do
+for required_key in admin-password-hash beszel-agent-key beszel-agent-token checkmate-capture-environment gluetun-control-api-key gluetun-openvpn-password gluetun-openvpn-username restic-password smb-credentials technitium-admin-username technitium-admin-password traefik-cloudflare-dns-api-token; do
   grep -q "^${required_key}:" <<<"$decrypted_secrets" || die "$SECRETS is missing $required_key"
 done
 

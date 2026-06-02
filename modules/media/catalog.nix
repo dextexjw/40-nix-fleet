@@ -3,6 +3,7 @@
 let
   backend = port: "http://${host.ip}:${toString port}";
   hostnames = name: map (domain: "${name}.${domain}") serviceDomains;
+  urlScheme = hostName: if builtins.match ".*[.]h" hostName != null then "http" else "https";
 
   mkService =
     {
@@ -29,7 +30,7 @@ let
       };
       homepage = {
         description = homepageDescription;
-        href = "http://${primaryHostName}/";
+        href = "${urlScheme primaryHostName}://${primaryHostName}/";
         inherit icon;
         siteMonitor = "${backend port}${monitorPath}";
       };

@@ -25,6 +25,7 @@ State paths:
 - `/srv/appsdata/gluetun`
 - `/srv/appsdata/netbootxyz`
 - `/srv/appsdata/technitium-dns-server`
+- `/srv/appsdata/traefik`
 - `/srv/appsdata/netbird`
 - `/srv/appsdata/tailscale`
 
@@ -37,27 +38,27 @@ Gateway state is backed up with Restic to
 Service access:
 
 - Traefik HTTP ingress: `http://10.2.20.112`
-- Traefik HTTPS ingress: `https://10.2.20.112`
+- Traefik HTTPS ingress: `https://10.2.20.112` for `jax22.com` routes with Let’s Encrypt DNS-01 certificates
 - Traefik dashboard: `http://10.2.20.112:8080/dashboard/`
 - Traefik Prometheus metrics: `http://10.2.20.112:8080/metrics`
-- Homepage: `http://homepage.jax22.com/` through Traefik, `http://homepage.h/` as an alias, and `http://10.2.20.112:8082/` directly
+- Homepage: `https://homepage.jax22.com/` through Traefik, `http://homepage.h/` as an alias, and `http://10.2.20.112:8082/` directly
 - DNS: `10.2.20.112:53` over TCP and UDP
 - DNS-over-TLS: `10.2.20.112:853`
 - Technitium admin HTTP: `http://10.2.20.112:5380`
 - Technitium HTTPS and DNS-over-HTTPS: `https://10.2.20.112:53443`
 - Gluetun HTTP proxy: `http://10.2.20.112:8888`
-- Gluetun WebUI: `http://gluetun.jax22.com/` through Traefik, `http://gluetun.h/` as an alias; backend only on `127.0.0.1:3000`
-- MediaVM Gluetun WebUI: `http://media-gluetun.jax22.com/` through Traefik, `http://media-gluetun.h/` as an alias; backend on `10.2.20.113:3001`
-- Checkmate: `http://checkmate.jax22.com/` through Traefik, `http://checkmate.h/` as an alias; backend on `10.2.20.115:52345`
-- Beszel: `http://beszel.jax22.com/` through Traefik, `http://beszel.h/` as an alias; backend on `10.2.20.115:8090`
-- netboot.xyz WebUI: `http://netbootxyz.jax22.com/` through Traefik, `http://netbootxyz.h/` as an alias; backend only on `127.0.0.1:3001`
+- Gluetun WebUI: `https://gluetun.jax22.com/` through Traefik, `http://gluetun.h/` as an alias; backend only on `127.0.0.1:3000`
+- MediaVM Gluetun WebUI: `https://media-gluetun.jax22.com/` through Traefik, `http://media-gluetun.h/` as an alias; backend on `10.2.20.113:3001`
+- Checkmate: `https://checkmate.jax22.com/` through Traefik, `http://checkmate.h/` as an alias; backend on `10.2.20.115:52345`
+- Beszel: `https://beszel.jax22.com/` through Traefik, `http://beszel.h/` as an alias; backend on `10.2.20.115:8090`
+- netboot.xyz WebUI: `https://netbootxyz.jax22.com/` through Traefik, `http://netbootxyz.h/` as an alias; backend only on `127.0.0.1:3001`
 - netboot.xyz local assets: backend only on `127.0.0.1:8083`
 - netboot.xyz TFTP: `10.2.20.112:69/udp`, boot file `netboot.xyz.efi`
 - NetBird: disabled for now; state preserved at `/srv/appsdata/netbird`
 - Tailscale: `10.2.20.112:41641/udp`
 
 Technitium admin HTTP is available directly at `http://10.2.20.112:5380` and
-through Traefik at `http://technitium.jax22.com/` and `http://technitium.h/`.
+through Traefik at `https://technitium.jax22.com/` and `http://technitium.h/`.
 
 Homepage is declared in Nix and generated into `/etc/homepage-dashboard`.
 Gateway renders Homepage service groups and Traefik routes from the pure
@@ -72,8 +73,13 @@ does not use service API widgets or mutable UI configuration in this pass.
 
 Traefik writes JSON access logs to the `traefik.service` journal. Prometheus
 metrics are exposed on the existing dashboard entrypoint at
-`http://10.2.20.112:8080/metrics`. OpenTelemetry tracing is declared in the
-Gateway Traefik module but should only be enabled after an OTLP collector
+`http://10.2.20.112:8080/metrics`. Public `jax22.com` service names also get
+HTTPS routers on port 443 backed by a single Let’s Encrypt wildcard certificate
+issued through Cloudflare DNS-01. The `.h` aliases remain HTTP-only. HTTP is not
+redirected to HTTPS in this pass. ACME account and certificate state lives in
+`/srv/appsdata/traefik/acme.json`, bind-mounted to `/var/lib/traefik/acme.json`,
+and is included in Gateway appdata backups. OpenTelemetry tracing is declared in
+the Gateway Traefik module but should only be enabled after an OTLP collector
 endpoint is available.
 
 `gateway-vm` intentionally pins Traefik to the upstream `3.7.1` Linux AMD64
@@ -90,7 +96,7 @@ SOPS-managed API key and is only consumed by the WebUI sidecar inside Gluetun's
 container network namespace.
 
 The Gluetun WebUI runs as `podman-gluetun-webui.service` and is available on
-the LAN through Traefik at `http://gluetun.jax22.com/` and `http://gluetun.h/`.
+the LAN through Traefik at `https://gluetun.jax22.com/` and `http://gluetun.h/`.
 It has no native UI login, so
 the direct backend listener stays bound to `127.0.0.1:3000` and is not opened
 on the LAN as a separate port.
@@ -98,12 +104,12 @@ on the LAN as a separate port.
 The MediaVM Gluetun WebUI runs on `media-vm` as
 `podman-media-gluetun-webui.service`, shares the `media-gluetun` network
 namespace used by qBittorrent and SABnzbd, and is available through Gateway Traefik at
-`http://media-gluetun.jax22.com/` and `http://media-gluetun.h/`. Gateway only
+`https://media-gluetun.jax22.com/` and `http://media-gluetun.h/`. Gateway only
 routes to its MediaVM LAN backend on `10.2.20.113:3001`; the VPN container and
 downloader kill switch still live on `media-vm`.
 
 The netboot.xyz container runs as `podman-netbootxyz.service`. Its web
-configuration UI is available through Traefik at `http://netbootxyz.jax22.com/`
+configuration UI is available through Traefik at `https://netbootxyz.jax22.com/`
 and `http://netbootxyz.h/`, while the web UI backend on `127.0.0.1:3001` and local asset server on
 `127.0.0.1:8083` stay host-local. TFTP is exposed on `10.2.20.112:69/udp` with
 single-port transfers enabled. Persistent config and downloaded assets live
@@ -111,7 +117,9 @@ under `/srv/appsdata/netbootxyz`.
 
 Technitium serves the `jax22.com` and `.h` service zones. Wildcard DNS resolves
 `*.jax22.com` and `*.h` to `gateway-vm` at `10.2.20.112`, where Traefik routes
-known hostnames to their backends.
+known hostnames to their backends. Traefik uses Cloudflare DNS-01 only for the
+public `jax22.com` wildcard certificate; `.h` cannot be issued by Let’s Encrypt
+and remains HTTP-only.
 VM hostnames stay under `home.arpa` and are managed outside this Gateway
 service zone. Clients must use `10.2.20.112` as DNS, or the LAN DNS/DHCP server
 must forward/delegate `jax22.com` and `.h` to `10.2.20.112` on DNS port 53, for
@@ -185,6 +193,7 @@ Required secrets:
 - `beszel-agent-key`
 - `beszel-agent-token` (reserved for Beszel universal-token registration)
 - `checkmate-capture-environment`
+- `traefik-cloudflare-dns-api-token`
 
 Normal edit flow:
 
@@ -317,7 +326,7 @@ Post-deploy validation:
 scripts/gateway-vm/test-gateway-services.sh
 ```
 
-That script verifies service health, listener ports, Traefik routes, DNS
+That script verifies service health, listener ports, Traefik HTTP and HTTPS routes, DNS
 records, Gluetun proxy egress, netboot.xyz TFTP fetches, Homepage generated
 config, and gateway state backup/restore validation.
 
@@ -333,12 +342,12 @@ systemctl status gateway-state-backup.service gateway-state-restore-check.servic
 Restore outline:
 
 1. Deploy `gateway-vm` once to create users, secrets, mounts, and units.
-2. Stop Technitium, Gluetun, netboot.xyz, NetBird, and Tailscale before replacing state.
+2. Stop Traefik, Technitium, Gluetun, netboot.xyz, NetBird, and Tailscale before replacing state.
 3. Mount `/mnt/backup`.
 4. Choose a `gateway-vm` appdata snapshot ID.
 5. Restore the snapshot to `/` with `restic --verify`.
 6. Run `systemd-tmpfiles --create`.
-7. Restart `homepage-dashboard.service`, `technitium-dns-server.service`, `podman-gluetun.service`, `podman-gluetun-webui.service`, `podman-netbootxyz.service`, and `tailscaled.service`; restart `netbird.service` too if NetBird is re-enabled.
+7. Restart `traefik.service`, `homepage-dashboard.service`, `technitium-dns-server.service`, `podman-gluetun.service`, `podman-gluetun-webui.service`, `podman-netbootxyz.service`, and `tailscaled.service`; restart `netbird.service` too if NetBird is re-enabled.
 
 Homepage has no authoritative mutable app state in this fleet pass. Restore its
 dashboard by redeploying the Gateway Nix configuration.
@@ -374,5 +383,5 @@ You can also reboot and choose an earlier generation from the bootloader.
 
 - `hosts.nix` declares the `gateway-vm` disk as `/dev/sda`; any installer or partitioning command against that disk is destructive.
 - `gateway-vm` serves netboot.xyz TFTP and the web UI but does not take over DHCP for the subnet.
-- Keep auth keys and service secrets in encrypted secrets only.
+- Keep auth keys, DNS API tokens, and service secrets in encrypted secrets only.
 - Do not write plaintext secrets into Nix files, generated configs, recovery notes, logs, or chat.

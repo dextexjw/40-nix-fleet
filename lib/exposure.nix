@@ -34,7 +34,9 @@ let
 
   primaryRouteHost = route: head route.hosts;
 
-  mkCommand =
+  routeScheme = hostName: if hasSuffix ".h" hostName then "http" else "https";
+
+  mkHttpCommand =
     http: hostName:
     let
       path = http.path or "/";
@@ -42,12 +44,20 @@ let
     in
     http.command or "${curl} -H 'Host: ${hostName}' http://127.0.0.1${path} >/dev/null";
 
+  mkHttpsCommand =
+    http: hostName:
+    let
+      path = http.path or "/";
+      curl = if http.discard or false then "curl -fsS -o /dev/null" else "curl -fsS";
+    in
+    http.httpsCommand or "${curl} --resolve '${hostName}:443:127.0.0.1' https://${hostName}${path} >/dev/null";
+
   routeDefaultDocs =
     service:
     let
       route = service.route or null;
     in
-    optionals (route != null) (map (host: "http://${host}") route.hosts);
+    optionals (route != null) (map (host: "${routeScheme host}://${host}") route.hosts);
 
   serviceDocs =
     service:
@@ -152,16 +162,62 @@ let
       requiredUnit = (http.requiredUnit or (smoke.requiredUnit or ""));
     in
     optionals (http != null && (http.enable or true)) (
-      map (hostName: [
-        "http"
-        (http.description or (
-          "${service.name} route"
-          + optionalString (canonicalHost != null && hostName != canonicalHost) " (${hostName})"
-        )
-        )
-        (mkCommand http hostName)
-        requiredUnit
-      ]) hostNames
+      map (
+        hostName:
+        [
+          "http"
+          (
+            http.description or (
+              "${service.name} route"
+              + optionalString (canonicalHost != null && hostName != canonicalHost) " (${hostName})"
+            )
+          )
+          (mkHttpCommand http hostName)
+          requiredUnit
+        ]
+      ) hostNames
+    );
+
+  mkHttpsRows =
+    service:
+    let
+      route = service.route or null;
+      smoke = service.smoke or { };
+      http = smoke.http or null;
+      canonicalHost =
+        if route == null then
+          null
+        else
+          primaryRouteHost route;
+      hostNames =
+        if http == null then
+          [ ]
+        else if http ? hosts then
+          http.hosts
+        else if http ? host then
+          [ http.host ]
+        else if route != null then
+          route.hosts
+        else
+          [ ];
+      httpsHostNames = filter (hostName: routeScheme hostName == "https") hostNames;
+      requiredUnit = (http.requiredUnit or (smoke.requiredUnit or ""));
+    in
+    optionals (http != null && (http.enable or true)) (
+      map (
+        hostName:
+        [
+          "http"
+          (
+            http.httpsDescription or (
+              "${service.name} HTTPS route"
+              + optionalString (canonicalHost != null && hostName != canonicalHost) " (${hostName})"
+            )
+          )
+          (mkHttpsCommand http hostName)
+          requiredUnit
+        ]
+      ) httpsHostNames
     );
 
   mkHomepageRows =
@@ -312,12 +368,13 @@ in
           ""
         ]
       ]
-      ++ concatMap mkHomepageGroupRows homepageGroups
-      ++ concatMap (mkDnsRows gatewayHost) serviceEntries
-      ++ concatMap mkHttpRows serviceEntries
-      ++ concatMap mkTcpRows serviceEntries
-      ++ concatMap mkUdpRows serviceEntries
-      ++ concatMap mkHomepageRows serviceEntries;
+        ++ concatMap mkHomepageGroupRows homepageGroups
+        ++ concatMap (mkDnsRows gatewayHost) serviceEntries
+        ++ concatMap mkHttpRows serviceEntries
+        ++ concatMap mkHttpsRows serviceEntries
+        ++ concatMap mkTcpRows serviceEntries
+        ++ concatMap mkUdpRows serviceEntries
+        ++ concatMap mkHomepageRows serviceEntries;
     in
     {
       inherit groups serviceEntries;

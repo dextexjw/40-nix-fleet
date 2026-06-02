@@ -46,8 +46,8 @@ Incomplete downloader files live on local VM storage at
 FlareSolverr listens on `8191` for app integration and is not opened in the
 firewall.
 
-Traefik routes are declared on `gateway-vm` for the canonical `jax22.com`
-service names and `.h` aliases:
+Traefik routes are declared on `gateway-vm` for HTTPS `jax22.com` service names
+and HTTP-only `.h` aliases:
 
 - `jellyfin.jax22.com`, `jellyfin.h`
 - `audiobookshelf.jax22.com`, `audiobookshelf.h`
@@ -62,7 +62,7 @@ service names and `.h` aliases:
 - `seerr.jax22.com`, `seerr.h`
 
 MediaVM Gluetun WebUI is available directly at `10.2.20.113:3001` and through
-Gateway Traefik at `http://media-gluetun.jax22.com/` and
+Gateway Traefik at `https://media-gluetun.jax22.com/` and
 `http://media-gluetun.h/`. The Gateway Homepage card monitors
 `http://10.2.20.113:3001/api/health`.
 
