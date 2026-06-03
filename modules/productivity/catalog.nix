@@ -21,6 +21,7 @@ let
       hostPrefix ? id,
       hostNames ? hostnames hostPrefix,
       monitorPath ? "/",
+      rootRedirectPath ? null,
       smokeHttp ? null,
       authMode ? "none",
       authGroups ? [ ],
@@ -34,6 +35,7 @@ let
       route = {
         description = routeDescription;
         hosts = hostNames;
+        inherit rootRedirectPath;
         url = backend port;
       };
       homepage = {
@@ -72,6 +74,7 @@ let
       routeDescription,
       hostPrefix ? id,
       hostNames ? hostnames hostPrefix,
+      rootRedirectPath ? null,
       smokeHttp ? null,
       authMode ? "none",
       authGroups ? [ ],
@@ -82,6 +85,7 @@ let
       route = {
         description = routeDescription;
         hosts = hostNames;
+        inherit rootRedirectPath;
         url = backend port;
       };
     }
@@ -423,6 +427,15 @@ in
           icon = "rustfs.png";
           homepageDescription = "Object storage console\n${backend 9001}";
           monitorPath = "/rustfs/console/health";
+          rootRedirectPath = "/rustfs/console/";
+          authMode = "native-oidc";
+          authGroups = [ "fleet-admins" ];
+          authOidc = {
+            clientId = "rustfs-console";
+            clientSecretFile = "/run/secrets/rustfs-oidc-client-secret";
+            launchUrl = "https://rustfs-console.jax22.com/";
+            redirectUris = [ "https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik" ];
+          };
           smokeHttp.path = "/rustfs/console/health";
         })
         (mkService {

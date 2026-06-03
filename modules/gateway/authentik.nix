@@ -76,6 +76,7 @@ let
     from django.db import transaction
 
     from authentik.core.models import Application, Group, PropertyMapping, User
+    from authentik.crypto.models import CertificateKeyPair
     from authentik.flows.models import Flow
     from authentik.outposts.models import Outpost
     from authentik.policies.models import PolicyBinding, PolicyEngineMode
@@ -204,6 +205,14 @@ let
         return value
 
 
+    def oidc_signing_key(oidc, slug):
+        key_name = oidc.get("signingKeyName") or "authentik Self-signed Certificate"
+        key = CertificateKeyPair.objects.filter(name=key_name).first()
+        if key is None:
+            raise ValueError(f"native OIDC application {slug} signing key {key_name!r} was not found")
+        return key
+
+
     def ensure_oidc_provider(app, authorization_flow, invalidation_flow, mappings):
         slug = app["slug"]
         oidc = app.get("oidc") or {}
@@ -223,6 +232,7 @@ let
         provider.client_id = oidc.get("clientId") or slug
         provider.client_secret = read_secret(oidc.get("clientSecretFile"), slug)
         provider.include_claims_in_id_token = oidc.get("includeClaimsInIdToken", True)
+        provider.signing_key = oidc_signing_key(oidc, slug)
         provider.sub_mode = oidc.get("subMode") or SubModes.HASHED_USER_ID
         provider.redirect_uris = [
             RedirectURI(RedirectURIMatchingMode.STRICT, uri)

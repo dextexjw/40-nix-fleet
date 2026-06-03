@@ -285,10 +285,80 @@ in
         };
       };
     };
+
+    rustfs = {
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Configure RustFS console Authentik OIDC login.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "rustfs-console";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        configUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/rustfs-console/.well-known/openid-configuration";
+          description = "Authentik OIDC discovery URL used by RustFS.";
+        };
+
+        displayName = mkOption {
+          type = types.str;
+          default = "Authentik";
+          description = "RustFS console OIDC provider label.";
+        };
+
+        environmentFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime env file containing RUSTFS_IDENTITY_OPENID_CLIENT_SECRET_authentik.";
+        };
+
+        providerId = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "RustFS OIDC provider ID.";
+        };
+
+        redirectUri = mkOption {
+          type = types.str;
+          default = "https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik";
+          description = "Strict RustFS OIDC callback URL registered in Authentik.";
+        };
+
+        rolePolicy = mkOption {
+          type = types.str;
+          default = "rustfs-console-admin";
+          description = "RustFS IAM policy assigned to OIDC console sessions.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "openid"
+            "profile"
+            "email"
+          ];
+          description = "OIDC scopes requested by RustFS.";
+        };
+      };
+    };
   };
 
   # ============================================================================
   # MODULE IMPLEMENTATION
   # ============================================================================
 
+  config = {
+    assertions = [
+      {
+        assertion = !cfg.rustfs.oidc.enable || cfg.rustfs.oidc.environmentFile != null;
+        message = "fleet.productivity.stack.rustfs.oidc.environmentFile must be set when RustFS OIDC is enabled.";
+      }
+    ];
+  };
 }

@@ -91,7 +91,12 @@ Native OIDC integrations are provisioned from the route catalog. Beszel uses
 the `beszel` client, allows `monitoring-users`, and uses
 `https://beszel.jax22.com/api/oauth2-redirect` as the callback. Memos uses the
 `memos` client, allows `productivity-users`, and uses
-`https://memos.jax22.com/auth/callback` as the callback.
+`https://memos.jax22.com/auth/callback` as the callback. RustFS Console uses
+the `rustfs-console` client, allows `fleet-admins`, and uses
+`https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik` as
+the callback. Native OIDC providers use Authentik's self-signed signing key so
+the provider JWKS is populated for clients that validate discovery during
+startup.
 
 Native SSO playbook for the next apps:
 
@@ -232,6 +237,7 @@ Required secrets:
 - `authentik-secret-key`
 - `beszel-oidc-client-secret`
 - `memos-oidc-client-secret`
+- `rustfs-oidc-client-secret`
 - `gluetun-control-api-key`
 - `gluetun-openvpn-username`
 - `gluetun-openvpn-password`

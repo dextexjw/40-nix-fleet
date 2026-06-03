@@ -213,6 +213,8 @@ printf 'Checking Gateway-local direct HTTP endpoints...\n'
 wait_for_remote "Traefik dashboard route failed" "curl -fsS http://127.0.0.1:8080/dashboard/ >/dev/null"
 wait_for_remote "Traefik metrics endpoint failed" "tmp=\$(mktemp); trap 'rm -f \"\$tmp\"' EXIT; curl -fsS -o \"\$tmp\" http://127.0.0.1:8080/metrics && grep -q '^traefik_' \"\$tmp\""
 wait_for_remote "Authentik readiness endpoint failed" "curl -fsS http://127.0.0.1:9000/-/health/ready/ >/dev/null"
+wait_for_remote "Authentik provisioning did not complete successfully" "systemctl show authentik-provision.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show authentik-provision.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+wait_for_remote "RustFS Console Authentik discovery endpoint failed" "curl -fsS --resolve auth.jax22.com:443:127.0.0.1 https://auth.jax22.com/application/o/rustfs-console/.well-known/openid-configuration >/dev/null"
 wait_for_remote "Homepage direct endpoint failed" "curl -fsS http://${HOST_IP}:8082/ >/dev/null"
 
 printf 'Checking Traefik ACME storage...\n'

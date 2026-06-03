@@ -81,6 +81,16 @@ let
       service = mkName name;
     };
 
+  mkRootRedirectRouter =
+    name: route:
+    nameValuePair "${mkName name}-root-redirect" {
+      entryPoints = [ "web" ];
+      middlewares = [ "${mkName name}-root-redirect" ];
+      priority = 100;
+      rule = "(${mkRule route.hosts}) && Path(`/`)";
+      service = mkName name;
+    };
+
   mkTlsRouter =
     name: route:
     nameValuePair "${mkName name}-tls" (
@@ -94,6 +104,17 @@ let
         middlewares = [ cfg.authentik.middlewareName ];
       }
     );
+
+  mkTlsRootRedirectRouter =
+    name: route:
+    nameValuePair "${mkName name}-root-redirect-tls" {
+      entryPoints = [ "websecure" ];
+      middlewares = [ "${mkName name}-root-redirect" ];
+      priority = 100;
+      rule = "(${mkRule (tlsHosts route.hosts)}) && Path(`/`)";
+      service = mkName name;
+      tls = { };
+    };
 
   mkService =
     name: route:
@@ -228,6 +249,18 @@ let
   };
 
   tlsRoutes = filterAttrs (_: route: tlsEnabled && tlsHosts route.hosts != [ ]) cfg.routes;
+  rootRedirectRoutes = filterAttrs (_: route: route.rootRedirectPath != null) cfg.routes;
+  tlsRootRedirectRoutes = filterAttrs (_: route: route.rootRedirectPath != null) tlsRoutes;
+  rootRedirectMiddlewares = mapAttrs' (
+    name: route:
+    nameValuePair "${mkName name}-root-redirect" {
+      redirectRegex = {
+        permanent = true;
+        regex = "^https?://([^/]+)/$";
+        replacement = "https://\${1}${route.rootRedirectPath}";
+      };
+    }
+  ) rootRedirectRoutes;
 
   metricsEntryPoint = if cfg.metrics.entryPoint == null then "dashboard" else cfg.metrics.entryPoint;
 in
@@ -413,6 +446,13 @@ in
               type = types.str;
               description = "Backend URL Traefik should proxy to.";
               example = "http://10.2.20.113:8096";
+            };
+
+            rootRedirectPath = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = "Optional absolute path where requests for / should be redirected.";
+              example = "/app/";
             };
 
             auth = {
@@ -656,11 +696,13 @@ in
             dashboardRouters
             // authentikRouters
             // mapAttrs' mkRouter cfg.routes
-            // mapAttrs' mkTlsRouter tlsRoutes;
+            // mapAttrs' mkTlsRouter tlsRoutes
+            // mapAttrs' mkRootRedirectRouter rootRedirectRoutes
+            // mapAttrs' mkTlsRootRedirectRouter tlsRootRedirectRoutes;
           services = authentikServices // mapAttrs' mkService cfg.routes;
         }
-        // optionalAttrs (authentikMiddlewares != { }) {
-          middlewares = authentikMiddlewares;
+        // optionalAttrs (authentikMiddlewares != { } || rootRedirectMiddlewares != { }) {
+          middlewares = authentikMiddlewares // rootRedirectMiddlewares;
         };
       }
       // optionalAttrs (cfg.tcpRoutes != { }) {

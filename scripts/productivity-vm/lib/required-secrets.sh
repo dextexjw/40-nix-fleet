@@ -1,0 +1,15 @@
+PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
+  admin-password-hash
+  beszel-agent-key
+  beszel-agent-token
+  checkmate-capture-environment
+  freshrss-admin-password
+  memos-admin-pat
+  memos-oidc-client-secret
+  nextcloud-admin-password
+  paperless-admin-password
+  restic-password
+  rustfs-environment
+  rustfs-oidc-client-secret
+  smb-credentials
+)

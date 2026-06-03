@@ -87,10 +87,15 @@ let
 
   mkRoute =
     service:
-    nameValuePair service.id {
-      inherit (service.route) description hosts url;
-      auth = serviceAuth service;
-    };
+    nameValuePair service.id (
+      {
+        inherit (service.route) description hosts url;
+        auth = serviceAuth service;
+      }
+      // optionalAttrs (service.route ? rootRedirectPath) {
+        inherit (service.route) rootRedirectPath;
+      }
+    );
 
   mkTcpRoute =
     service:

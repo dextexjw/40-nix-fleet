@@ -115,6 +115,7 @@ Required productivity secrets:
 - `nextcloud-admin-password`
 - `paperless-admin-password`
 - `rustfs-environment`
+- `rustfs-oidc-client-secret`
 - `searxng-environment`
 - `shlink-environment`
 - `syncthing-gui-password`
@@ -254,7 +255,14 @@ named endpoint alias.
 RustFS is separate S3-compatible storage. It does not share Garage buckets or
 credentials. `rustfs.jax22.com` is the S3 API and `rustfs-console.jax22.com` is
 the console. RustFS virtual-host style is canonical on `jax22.com`; `.h` is only
-retained as a named endpoint alias.
+retained as a named endpoint alias. The console uses Authentik native OIDC for
+`fleet-admins` only. Authentik owns the `rustfs-console` client and only allows
+`https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik` as
+the callback. `rustfs-oidc-policy.service` ensures the
+`rustfs-console-admin` RustFS IAM policy exists for OIDC console sessions; the
+S3 API remains access-key based through `rustfs-environment`. Authentik native
+OIDC provisioning attaches the self-signed signing key so RustFS can validate
+JWKS during startup discovery.
 
 InvoicePlane uses MariaDB database `invoiceplane` and persistent runtime state
 under `/srv/appsdata/invoiceplane`. Complete initial setup at
@@ -281,3 +289,8 @@ Memos stores its SQLite database and local app state under `/srv/appsdata/memos`
 The pre-backup SQLite copy is `/srv/appsdata/memos-backups/latest.db`.
 `memos-oidc-config.service` declaratively keeps the Authentik OAuth2 provider
 visible on the Memos sign-in page without disabling existing local auth.
+
+`rustfs-oidc-policy.service` declaratively keeps the RustFS
+`rustfs-console-admin` IAM policy available for Authentik-backed console
+sessions. Re-run it after restoring RustFS appdata or rotating
+`rustfs-environment` / `rustfs-oidc-client-secret`.

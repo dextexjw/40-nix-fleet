@@ -117,6 +117,15 @@ in
       rustfs-environment = {
         restartUnits = [ "podman-rustfs.service" ];
       };
+      rustfs-oidc-client-secret = {
+        owner = "root";
+        group = "root";
+        mode = "0400";
+        restartUnits = [
+          "podman-rustfs.service"
+          "rustfs-oidc-policy.service"
+        ];
+      };
       searxng-environment = {
         restartUnits = [
           "searx-init.service"
@@ -139,6 +148,20 @@ in
       vaultwarden-environment = {
         restartUnits = [ "vaultwarden.service" ];
       };
+    };
+    templates."rustfs-oidc-environment" = {
+      content = ''
+        RUSTFS_IDENTITY_OPENID_CLIENT_SECRET_authentik=${
+          config.sops.placeholder."rustfs-oidc-client-secret"
+        }
+      '';
+      owner = "root";
+      group = "root";
+      mode = "0400";
+      restartUnits = [
+        "podman-rustfs.service"
+        "rustfs-oidc-policy.service"
+      ];
     };
   };
 
@@ -166,6 +189,10 @@ in
       enable = true;
       adminTokenFile = config.sops.secrets.memos-admin-pat.path;
       clientSecretFile = config.sops.secrets.memos-oidc-client-secret.path;
+    };
+    rustfs.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      environmentFile = config.sops.templates."rustfs-oidc-environment".path;
     };
     smb.backupDevice = "//nas.home.arpa/backups";
   };

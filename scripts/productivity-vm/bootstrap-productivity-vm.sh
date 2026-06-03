@@ -7,6 +7,9 @@ HOST_IP="10.2.20.114"
 REMOTE_USER="smoke"
 SECRETS="$ROOT/secrets/secrets.yaml"
 
+# shellcheck source=scripts/productivity-vm/lib/required-secrets.sh
+source "$ROOT/scripts/productivity-vm/lib/required-secrets.sh"
+
 die() {
   printf 'error: %s\n' "$*" >&2
   exit 1
@@ -85,7 +88,7 @@ phase_check_local_readiness() {
     die "unable to decrypt $SECRETS; rekey it for your local/admin key"
   fi
 
-  for required_key in admin-password-hash beszel-agent-key beszel-agent-token checkmate-capture-environment memos-admin-pat memos-oidc-client-secret restic-password smb-credentials; do
+  for required_key in "${PRODUCTIVITY_REQUIRED_SECRET_KEYS[@]}"; do
     grep -q "^${required_key}:" <<<"$decrypted_secrets" || die "$SECRETS is missing $required_key"
   done
 

@@ -97,7 +97,12 @@ in
         share Garage buckets or credentials. ${serviceHosts.rustfs} is the S3 API
         and ${serviceHosts.rustfsConsole} is the RustFS console. RustFS
         virtual-host style remains canonical on ${serviceHosts.rustfs}; the .h
-        name is only a routed named endpoint.
+        name is only a routed named endpoint. The console uses Authentik native
+        OIDC for fleet-admins only. rustfs-oidc-policy.service keeps the
+        rustfs-console-admin IAM policy present for OIDC console sessions; the
+        S3 API remains access-key based through rustfs-environment. Authentik
+        native OIDC provisioning attaches the self-signed signing key so RustFS
+        can validate JWKS during startup discovery.
 
         InvoicePlane uses MariaDB database invoiceplane and persistent runtime state
         under ${appdata}/invoiceplane. Initial setup is completed through
@@ -125,6 +130,11 @@ in
         Authentik OAuth2 provider with the encrypted memos-admin-pat and
         memos-oidc-client-secret secrets. Local password auth and signup policy
         remain managed in Memos.
+
+        RustFS OIDC uses the encrypted rustfs-oidc-client-secret shared between
+        gateway-vm Authentik provisioning and this host's root-only generated
+        RustFS environment file. Re-run rustfs-oidc-policy.service after RustFS
+        appdata restores or RustFS root credential rotation.
     '';
   };
 }

@@ -226,6 +226,14 @@ fi
 if ! service_is_skipped podman-rustfs; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9000/health >/dev/null"
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9001/rustfs/console/health >/dev/null"
+  if allow_missing_unit rustfs-oidc-policy.service; then
+    printf 'Skipping RustFS OIDC policy checks because rustfs-oidc-policy.service is not deployed yet.\n'
+  else
+    colmena exec --on "$HOST" -- systemctl start rustfs-oidc-policy.service
+    colmena exec --on "$HOST" -- "systemctl show rustfs-oidc-policy.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show rustfs-oidc-policy.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9000/rustfs/admin/v3/oidc/providers | grep -Eq '\"provider_id\"[[:space:]]*:[[:space:]]*\"authentik\"'"
+    colmena exec --on "$HOST" -- "sh -lc 'set -euo pipefail; set -a; . /run/secrets/rustfs-environment; set +a; export MC_CONFIG_DIR=\$(mktemp -d); export HOME=\"\$MC_CONFIG_DIR\"; mc alias set rustfs http://127.0.0.1:9000 \"\$RUSTFS_ACCESS_KEY\" \"\$RUSTFS_SECRET_KEY\" --api S3v4 >/dev/null; mc admin policy info rustfs rustfs-console-admin >/dev/null; rm -rf \"\$MC_CONFIG_DIR\"'"
+  fi
 fi
 if ! service_is_skipped podman-shlink; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8088/rest/health >/dev/null"
