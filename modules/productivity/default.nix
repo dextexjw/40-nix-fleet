@@ -20,6 +20,7 @@
     ./services/rustdesk.nix
     ./services/vaultwarden.nix
     ./services/garage.nix
+    ./services/memos.nix
     ./services/ntfy.nix
     ./services/shlink.nix
     ./services/rustfs.nix

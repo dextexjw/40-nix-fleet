@@ -28,6 +28,7 @@ SERVICES=(
   phpfpm-invoiceplane.service
   mysql.service
   iperf3.service
+  podman-memos.service
   rustdesk-signal.service
   rustdesk-relay.service
   garage.service
@@ -99,6 +100,11 @@ if remote_unit_exists productivity-mariadb-dump.service; then
   ssh_productivity_vm "sudo systemctl start productivity-mariadb-dump.service"
 else
   printf 'Skipping productivity-mariadb-dump.service because it is not deployed yet.\n'
+fi
+if remote_unit_exists productivity-memos-sqlite-backup.service; then
+  ssh_productivity_vm "sudo systemctl start productivity-memos-sqlite-backup.service"
+else
+  printf 'Skipping productivity-memos-sqlite-backup.service because it is not deployed yet.\n'
 fi
 ssh_productivity_vm "sudo systemctl start productivity-appdata-backup.service"
 ssh_productivity_vm "sudo systemctl start productivity-appdata-restore-check.service"

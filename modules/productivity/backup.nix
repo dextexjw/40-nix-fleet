@@ -12,16 +12,59 @@ let
   productivityLib = import ./lib.nix {
     inherit config lib pkgs;
   };
-  inherit (productivityLib) cfg appdata resticPasswordFile;
+  inherit (productivityLib)
+    cfg
+    appdata
+    memosGid
+    memosUid
+    resticPasswordFile
+    ;
 in
 {
   config = mkIf cfg.enable {
     environment.systemPackages = [
       pkgs.restic
       pkgs.garage
+      pkgs.sqlite
       config.services.mysql.package
       config.services.paperless.manage
     ];
+
+    systemd.services.productivity-memos-sqlite-backup = {
+      description = "Create a consistent Memos SQLite backup before appdata backup";
+      after = [ "podman-memos.service" ];
+      path = [
+        pkgs.coreutils
+        pkgs.sqlite
+      ];
+      serviceConfig = {
+        Type = "oneshot";
+        User = "root";
+        Group = "root";
+      };
+      script = ''
+        set -euo pipefail
+
+        db='${appdata}/memos/memos_prod.db'
+        backup_dir='${appdata}/memos-backups'
+
+        install -d -m 0750 -o ${toString memosUid} -g ${toString memosGid} "$backup_dir"
+
+        if [ ! -s "$db" ]; then
+          echo "$db does not exist yet; skipping Memos SQLite backup"
+          exit 0
+        fi
+
+        tmp="$(mktemp "$backup_dir/.latest.XXXXXX.db")"
+        trap 'rm -f "$tmp"' EXIT
+
+        sqlite3 "$db" ".backup '$tmp'"
+        chown ${toString memosUid}:${toString memosGid} "$tmp"
+        chmod 0640 "$tmp"
+        mv "$tmp" "$backup_dir/latest.db"
+        trap - EXIT
+      '';
+    };
 
     systemd.services.productivity-mariadb-dump = {
       description = "Dump productivity-vm MariaDB databases before backup";
@@ -84,12 +127,14 @@ in
       after = [
         "network-online.target"
         "productivity-mariadb-dump.service"
+        "productivity-memos-sqlite-backup.service"
         "productivity-postgresql-dump.service"
         "${utils.escapeSystemdPath cfg.smb.backupMount}.mount"
       ];
       wants = [
         "network-online.target"
         "productivity-mariadb-dump.service"
+        "productivity-memos-sqlite-backup.service"
         "productivity-postgresql-dump.service"
       ];
       requires = [ "${utils.escapeSystemdPath cfg.smb.backupMount}.mount" ];

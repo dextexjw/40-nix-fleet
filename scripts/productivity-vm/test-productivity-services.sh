@@ -32,6 +32,7 @@ KEY_SERVICES=(
   phpfpm-invoiceplane
   mysql
   iperf3
+  podman-memos
   rustdesk-signal
   rustdesk-relay
   garage
@@ -56,6 +57,7 @@ HOST_ROUTES=(
   nextcloud
   openspeedtest
   invoiceplane
+  memos
   garage
   garage-web
   rustfs
@@ -71,6 +73,7 @@ declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
   [podman-openspeedtest]=1
   [mysql]=1
   [phpfpm-invoiceplane]=1
+  [podman-memos]=1
   [podman-shlink]=1
   [podman-shlink-web]=1
   [podman-rustfs]=1
@@ -127,6 +130,9 @@ route_is_skipped() {
       ;;
     openspeedtest.*)
       service_is_skipped podman-openspeedtest
+      ;;
+    memos.*)
+      service_is_skipped podman-memos
       ;;
     rustfs.* | rustfs-console.*)
       service_is_skipped podman-rustfs
@@ -192,6 +198,10 @@ fi
 if ! service_is_skipped iperf3; then
   colmena exec --on "$HOST" -- "iperf3 -c 127.0.0.1 -p 5201 -t 1 >/dev/null"
 fi
+if ! service_is_skipped podman-memos; then
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:5230/ >/dev/null"
+  colmena exec --on "$HOST" -- "sh -lc 'if [ -s /srv/appsdata/memos/memos_prod.db ]; then test -s /srv/appsdata/memos-backups/latest.db; fi'"
+fi
 if ! service_is_skipped rustdesk-signal && ! service_is_skipped rustdesk-relay; then
   colmena exec --on "$HOST" -- "test -s /srv/appsdata/rustdesk/id_ed25519.pub"
   for port in 21115 21116 21117 21118 21119; do
@@ -249,6 +259,9 @@ for route_prefix in "${HOST_ROUTES[@]}"; do
         ;;
       invoiceplane.*)
         colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1/); case \"\$status\" in 2*|3*) exit 0 ;; *) echo \"unexpected InvoicePlane status for $route: \$status\" >&2; exit 1 ;; esac'"
+        ;;
+      memos.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:5230/ >/dev/null"
         ;;
       rustfs.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9000/health >/dev/null"

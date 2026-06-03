@@ -212,6 +212,18 @@ in
             path = "/";
           };
         })
+        (mkService {
+          id = "memos";
+          name = "Memos";
+          port = 5230;
+          routeDescription = "Memos personal notes";
+          icon = "memos.png";
+          homepageDescription = "Personal notes\n${backend 5230}";
+          smokeHttp = {
+            discard = true;
+            path = "/";
+          };
+        })
         {
           id = "iperf3";
           name = "iperf3";

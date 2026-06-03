@@ -19,6 +19,7 @@ let
     gitea = "gitea";
     invoiceplane = "invoiceplane";
     iperf3 = "iperf3";
+    memos = "memos";
     nextcloud = "nextcloud";
     ntfy = "ntfy";
     openspeedtest = "openspeedtest";
@@ -50,6 +51,7 @@ let
     "openspeedtest"
     "invoiceplane"
     "iperf3"
+    "memos"
     "rustdesk"
     "garage"
     "garageWeb"
@@ -82,6 +84,8 @@ let
       [ serviceHosts.rustdesk ] ++ serviceHostAliases.rustdesk
     )
   );
+  memosGid = 10002;
+  memosUid = 10002;
   rustfsGid = 10001;
   rustfsUid = 10001;
 
@@ -148,6 +152,7 @@ let
     "phpfpm-invoiceplane.service"
     "mysql.service"
     "iperf3.service"
+    "podman-memos.service"
     "podman-openspeedtest.service"
     "rustdesk-signal.service"
     "rustdesk-relay.service"
@@ -168,6 +173,8 @@ in
     mkdocsEnv
     mkdocsIndex
     mkdocsRoot
+    memosGid
+    memosUid
     resticPasswordFile
     rustfsGid
     rustfsUid

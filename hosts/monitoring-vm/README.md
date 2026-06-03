@@ -158,8 +158,8 @@ into `/etc/fleet/checkmate-targets.json`.
 - Target file: `/etc/fleet/checkmate-targets.json`
 - Last run summary: `/var/lib/checkmate-provisioning/last-summary.json`
 - Managed identity: `fleet-declared` plus `fleet-service:<id>` or `fleet-host:<host>`
-- Expected managed monitors: `42`
-- Service route monitors: `38`
+- Expected managed monitors: `43`
+- Service route monitors: `39`
 - Host hardware monitors: `4`
 
 Service HTTP monitors use the real routed `https://*.jax22.com` hostnames.

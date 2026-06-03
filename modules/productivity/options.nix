@@ -19,6 +19,7 @@ let
     gitea = "gitea";
     invoiceplane = "invoiceplane";
     iperf3 = "iperf3";
+    memos = "memos";
     nextcloud = "nextcloud";
     ntfy = "ntfy";
     openspeedtest = "openspeedtest";
@@ -50,6 +51,7 @@ let
     "openspeedtest"
     "invoiceplane"
     "iperf3"
+    "memos"
     "rustdesk"
     "garage"
     "garageWeb"
@@ -111,6 +113,7 @@ in
         garageWeb = 3902;
         gitea = 3000;
         iperf3 = 5201;
+        memos = 5230;
         ntfy = 2586;
         openspeedtest = 8989;
         rustdeskRelay = 21117;

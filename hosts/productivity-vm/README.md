@@ -2,7 +2,7 @@
 
 `productivity-vm` runs the personal productivity stack, nginx-backed internal
 apps, Git forges, OpenSpeedTest, iperf3, RustDesk, InvoicePlane, Shlink short
-links, standalone Garage and RustFS object storage, PostgreSQL, MariaDB,
+links, Memos notes, standalone Garage and RustFS object storage, PostgreSQL, MariaDB,
 appdata backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
@@ -45,6 +45,7 @@ path backed up by Restic.
 | Nextcloud | `https://nextcloud.jax22.com` | `http://nextcloud.h` | `10.2.20.114:80` |
 | OpenSpeedTest | `https://openspeedtest.jax22.com` | `http://openspeedtest.h` | `10.2.20.114:8989` |
 | InvoicePlane | `https://invoiceplane.jax22.com` | `http://invoiceplane.h` | `10.2.20.114:80` |
+| Memos | `https://memos.jax22.com` | `http://memos.h` | `10.2.20.114:5230` |
 | iperf3 | `iperf3.jax22.com:5201` | `iperf3.h:5201` | `10.2.20.114:5201/tcp+udp` |
 | RustDesk | `rustdesk.jax22.com` | `rustdesk.h` | `10.2.20.114:21115-21119/tcp, 21116/udp` |
 | Shlink short links/API | `https://s.jax22.com` | `http://s.h` | `10.2.20.114:8088` |
@@ -71,6 +72,8 @@ Important appdata paths:
 - `/srv/appsdata/firefly-iii`
 - `/srv/appsdata/nextcloud`
 - `/srv/appsdata/invoiceplane`
+- `/srv/appsdata/memos`
+- `/srv/appsdata/memos-backups`
 - `/srv/appsdata/vaultwarden`
 - `/srv/appsdata/syncthing`
 - `/srv/appsdata/stirling-pdf`
@@ -87,6 +90,9 @@ Important appdata paths:
 `/srv/appsdata/postgresql-dumps/latest.sql.gz` before Restic backups.
 `productivity-mariadb-dump.service` writes
 `/srv/appsdata/mariadb-dumps/latest.sql.gz` before Restic backups.
+`productivity-memos-sqlite-backup.service` writes
+`/srv/appsdata/memos-backups/latest.db` before Restic backups when the Memos
+SQLite database exists.
 
 ## Secrets
 
@@ -111,6 +117,10 @@ Required productivity secrets:
 - `shlink-environment`
 - `syncthing-gui-password`
 - `vaultwarden-environment`
+
+Memos introduces no SOPS secret in this repo. Initial admin setup and signup
+policy are managed in the app and must not be written into Nix, docs, logs, or
+chat.
 
 Normal edit flow:
 
@@ -256,3 +266,6 @@ Client is served at `shlink.jax22.com`. Get the API key from the encrypted
 `shlink-environment` secret, then add `https://s.jax22.com` in the web client.
 Do not preconfigure the web client with the API key because that static
 configuration is browser-readable.
+
+Memos stores its SQLite database and local app state under `/srv/appsdata/memos`.
+The pre-backup SQLite copy is `/srv/appsdata/memos-backups/latest.db`.

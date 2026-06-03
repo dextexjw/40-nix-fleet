@@ -518,7 +518,7 @@ in
               Targets: /etc/fleet/checkmate-targets.json
               Last summary: /var/lib/checkmate-provisioning/last-summary.json
               Managed identity: fleet-declared plus fleet-service:<id> or fleet-host:<host>
-              Expected managed monitors: 42
+              Expected managed monitors: 43
               Stale managed monitors are paused, not deleted.
 
             Backup validation:

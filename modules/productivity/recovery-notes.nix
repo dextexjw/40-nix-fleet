@@ -29,8 +29,9 @@ in
 
         productivity-vm runs Gitea, Forgejo, Material for MkDocs, Paperless-ngx,
         FreshRSS, SearXNG, Vaultwarden, PrivateBin, Syncthing, Stirling PDF,
-        Firefly III, Nextcloud, OpenSpeedTest, InvoicePlane, iperf3, RustDesk, Shlink,
-        Garage, RustFS, ntfy, nginx, PostgreSQL, MariaDB, and Restic appdata backups.
+        Firefly III, Nextcloud, OpenSpeedTest, InvoicePlane, Memos, iperf3,
+        RustDesk, Shlink, Garage, RustFS, ntfy, nginx, PostgreSQL, MariaDB, and
+        Restic appdata backups.
 
         Persistent state root:
           ${appdata}
@@ -53,6 +54,7 @@ in
           Stirling PDF: ${toString cfg.ports.stirlingPdf}
           OpenSpeedTest: ${toString cfg.ports.openspeedtest}
           iperf3 TCP/UDP: ${toString cfg.ports.iperf3}
+          Memos: ${toString cfg.ports.memos}
           RustDesk TCP: 21115, 21116, 21117, 21118, 21119
           RustDesk UDP: 21116
           Garage S3 API: ${toString cfg.ports.garageS3}
@@ -115,6 +117,13 @@ in
         shlink-environment secret and add http://${serviceHosts.shlink} as a server
         in the web client; do not publish the API key in web client static
         configuration.
+
+        Memos stores its SQLite database and local app state under
+        ${appdata}/memos. The pre-backup copy
+        ${appdata}/memos-backups/latest.db is created with SQLite's backup
+        command before Restic runs. Memos introduces no SOPS secret in this repo;
+        initial admin setup and signup policy are managed in the app and must not
+        be written into Nix, docs, logs, or chat.
     '';
   };
 }
