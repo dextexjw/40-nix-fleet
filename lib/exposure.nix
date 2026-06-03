@@ -35,6 +35,21 @@ let
   primaryRouteHost = route: head route.hosts;
 
   routeScheme = hostName: if hasSuffix ".h" hostName then "http" else "https";
+  isPublicTlsHost = hostName: hasSuffix ".jax22.com" hostName;
+
+  serviceAuth =
+    service:
+    let
+      route = service.route or null;
+      auth = service.auth or { };
+      mode = auth.mode or "none";
+      defaultProtectedHosts = if route == null then [ ] else filter isPublicTlsHost route.hosts;
+    in
+    {
+      inherit mode;
+      groups = auth.groups or [ ];
+      protectedHosts = auth.protectedHosts or defaultProtectedHosts;
+    };
 
   mkHttpCommand =
     http: hostName:
@@ -45,12 +60,19 @@ let
     http.command or "${curl} -H 'Host: ${hostName}' http://127.0.0.1${path} >/dev/null";
 
   mkHttpsCommand =
-    http: hostName:
+    service: http: hostName:
     let
       path = http.path or "/";
       curl = if http.discard or false then "curl -fsS -o /dev/null" else "curl -fsS";
+      auth = serviceAuth service;
+      expectsAuth = auth.mode == "forward-auth" && elem hostName auth.protectedHosts;
     in
-    http.httpsCommand or "${curl} --resolve '${hostName}:443:127.0.0.1' https://${hostName}${path} >/dev/null";
+    http.httpsCommand or (
+      if expectsAuth then
+        "status=$(curl -sS -o /dev/null -w '%{http_code}' --resolve '${hostName}:443:127.0.0.1' https://${hostName}${path}); case \"$status\" in 30[1278]|401|403) exit 0 ;; *) echo \"unexpected auth status $status\" >&2; exit 1 ;; esac"
+      else
+        "${curl} --resolve '${hostName}:443:127.0.0.1' https://${hostName}${path} >/dev/null"
+    );
 
   routeDefaultDocs =
     service:
@@ -67,6 +89,7 @@ let
     service:
     nameValuePair service.id {
       inherit (service.route) description hosts url;
+      auth = serviceAuth service;
     };
 
   mkTcpRoute =
@@ -111,6 +134,21 @@ let
       filter (service: (service.homepage or null) != null) group.services
     );
   };
+
+  mkAuthentikApplication =
+    service:
+    let
+      auth = serviceAuth service;
+      serviceAuthConfig = service.auth or { };
+    in
+    {
+      slug = service.id;
+      name = service.name;
+      mode = auth.mode;
+      groups = auth.groups;
+      hosts = service.route.hosts;
+      oidc = serviceAuthConfig.oidc or { };
+    };
 
   mkHomepageLayout = group: {
     ${group.name} = {
@@ -162,20 +200,16 @@ let
       requiredUnit = (http.requiredUnit or (smoke.requiredUnit or ""));
     in
     optionals (http != null && (http.enable or true)) (
-      map (
-        hostName:
-        [
-          "http"
-          (
-            http.description or (
-              "${service.name} route"
-              + optionalString (canonicalHost != null && hostName != canonicalHost) " (${hostName})"
-            )
-          )
-          (mkHttpCommand http hostName)
-          requiredUnit
-        ]
-      ) hostNames
+      map (hostName: [
+        "http"
+        (http.description or (
+          "${service.name} route"
+          + optionalString (canonicalHost != null && hostName != canonicalHost) " (${hostName})"
+        )
+        )
+        (mkHttpCommand http hostName)
+        requiredUnit
+      ]) hostNames
     );
 
   mkHttpsRows =
@@ -184,11 +218,7 @@ let
       route = service.route or null;
       smoke = service.smoke or { };
       http = smoke.http or null;
-      canonicalHost =
-        if route == null then
-          null
-        else
-          primaryRouteHost route;
+      canonicalHost = if route == null then null else primaryRouteHost route;
       hostNames =
         if http == null then
           [ ]
@@ -204,20 +234,16 @@ let
       requiredUnit = (http.requiredUnit or (smoke.requiredUnit or ""));
     in
     optionals (http != null && (http.enable or true)) (
-      map (
-        hostName:
-        [
-          "http"
-          (
-            http.httpsDescription or (
-              "${service.name} HTTPS route"
-              + optionalString (canonicalHost != null && hostName != canonicalHost) " (${hostName})"
-            )
-          )
-          (mkHttpsCommand http hostName)
-          requiredUnit
-        ]
-      ) httpsHostNames
+      map (hostName: [
+        "http"
+        (http.httpsDescription or (
+          "${service.name} HTTPS route"
+          + optionalString (canonicalHost != null && hostName != canonicalHost) " (${hostName})"
+        )
+        )
+        (mkHttpsCommand service http hostName)
+        requiredUnit
+      ]) httpsHostNames
     );
 
   mkHomepageRows =
@@ -342,6 +368,9 @@ in
         group: map (service: service // { group = group.name; }) group.services
       ) groups;
       routeServices = filter (service: (service.route or null) != null) serviceEntries;
+      authServices = filter (
+        service: (service.route or null) != null && (serviceAuth service).mode != "none"
+      ) serviceEntries;
       tcpRouteServices = filter (service: (service.tcpRoute or null) != null) serviceEntries;
       udpRouteServices = filter (service: (service.udpRoute or null) != null) serviceEntries;
       homepageRouteHosts =
@@ -368,16 +397,18 @@ in
           ""
         ]
       ]
-        ++ concatMap mkHomepageGroupRows homepageGroups
-        ++ concatMap (mkDnsRows gatewayHost) serviceEntries
-        ++ concatMap mkHttpRows serviceEntries
-        ++ concatMap mkHttpsRows serviceEntries
-        ++ concatMap mkTcpRows serviceEntries
-        ++ concatMap mkUdpRows serviceEntries
-        ++ concatMap mkHomepageRows serviceEntries;
+      ++ concatMap mkHomepageGroupRows homepageGroups
+      ++ concatMap (mkDnsRows gatewayHost) serviceEntries
+      ++ concatMap mkHttpRows serviceEntries
+      ++ concatMap mkHttpsRows serviceEntries
+      ++ concatMap mkTcpRows serviceEntries
+      ++ concatMap mkUdpRows serviceEntries
+      ++ concatMap mkHomepageRows serviceEntries;
     in
     {
       inherit groups serviceEntries;
+
+      authentikApplications = map mkAuthentikApplication authServices;
 
       homepage = {
         hosts = homepageRouteHosts;

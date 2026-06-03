@@ -1,6 +1,6 @@
 # gateway-vm
 
-`gateway-vm` runs Traefik ingress, Homepage, Technitium DNS, Gluetun,
+`gateway-vm` runs Authentik SSO, Traefik ingress, Homepage, Technitium DNS, Gluetun,
 netboot.xyz, NetBird, and Tailscale.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
@@ -24,6 +24,7 @@ State paths:
 
 - `/srv/appsdata/gluetun`
 - `/srv/appsdata/netbootxyz`
+- `/srv/appsdata/authentik`
 - `/srv/appsdata/technitium-dns-server`
 - `/srv/appsdata/traefik`
 - `/srv/appsdata/netbird`
@@ -41,6 +42,7 @@ Service access:
 - Traefik HTTPS ingress: `https://10.2.20.112` for `jax22.com` routes with Let’s Encrypt DNS-01 certificates
 - Traefik dashboard: `http://10.2.20.112:8080/dashboard/`
 - Traefik Prometheus metrics: `http://10.2.20.112:8080/metrics`
+- Authentik: `https://auth.jax22.com/` through Traefik and `http://auth.h/` as an unprotected LAN alias; backend only on `127.0.0.1:9000`
 - Homepage: `https://homepage.jax22.com/` through Traefik, `http://homepage.h/` as an alias, and `http://10.2.20.112:8082/` directly
 - DNS: `10.2.20.112:53` over TCP and UDP
 - DNS-over-TLS: `10.2.20.112:853`
@@ -70,6 +72,47 @@ through Traefik. A bottom `Links` bookmark section uses a compact three-column
 layout with icons and service names for external references such as TorrentPeek,
 GitHub, NixOS Search, Homepage docs, Traefik docs, and Technitium GitHub. It
 does not use service API widgets or mutable UI configuration in this pass.
+
+Authentik is the fleet identity provider. The canonical public URL is
+`https://auth.jax22.com/`; `http://auth.h/` stays unprotected for LAN break-glass
+access while `.h` is HTTP-only. Authentik runs as `authentik-server.service` and
+`authentik-worker.service`, with PostgreSQL and Redis local to `gateway-vm`.
+Persistent state lives under `/srv/appsdata/authentik`, including PostgreSQL,
+Redis, uploaded media, and discovered certificates. The bootstrap admin password,
+bootstrap/provisioning API token, secret key, and PostgreSQL password are SOPS
+secrets.
+
+Authentik is not attached as a Traefik forwardAuth proxy in front of fleet
+applications. Browser routes are ordinary Traefik routes unless the application
+has its own auth or a native SSO integration is configured. Role groups are
+`fleet-admins`, `media-users`, `productivity-users`, and `monitoring-users`;
+they are provisioned in Authentik for native app integrations.
+Native OIDC integrations are provisioned from the route catalog. Beszel uses
+the `beszel` client, allows `monitoring-users`, and uses
+`https://beszel.jax22.com/api/oauth2-redirect` as the callback. Memos uses the
+`memos` client, allows `productivity-users`, and uses
+`https://memos.jax22.com/auth/callback` as the callback.
+
+Native SSO playbook for the next apps:
+
+1. Confirm the app supports declarative OIDC or header auth. Prefer native OIDC;
+   use header auth only when the app explicitly supports trusted reverse-proxy
+   identity; leave proxy-only/browser protection out unless native auth is not
+   possible.
+2. Add the route catalog auth metadata: `auth.mode = "native-oidc"`,
+   `auth.groups`, and `auth.oidc.clientId`, `clientSecretFile`, `launchUrl`, and
+   exact callback `redirectUris`.
+3. Add one SOPS client-secret key per app and expose it to both sides: owner
+   `authentik` on `gateway-vm`, and the app service user on the app host.
+4. Let `authentik-provision.service` create/update the Authentik provider,
+   application, redirect URIs, scopes, and group bindings from the catalog.
+5. Configure the app side declaratively in its host module before service start.
+   Keep local/break-glass auth enabled until an interactive login test passes.
+6. Update host docs, deploy/bootstrap/upgrade readiness checks, and smoke tests.
+   Smoke tests should verify Authentik discovery, app auth-provider visibility,
+   unit success, direct health endpoints, and routed HTTPS behavior.
+7. Deploy in order: backup, `gateway-vm` dry/switch, app-host dry/switch, then
+   run both host smoke scripts.
 
 Traefik writes JSON access logs to the `traefik.service` journal. Prometheus
 metrics are exposed on the existing dashboard entrypoint at
@@ -183,6 +226,12 @@ for the subnet.
 Required secrets:
 
 - `admin-password-hash`
+- `authentik-bootstrap-password`
+- `authentik-bootstrap-token`
+- `authentik-postgresql-password`
+- `authentik-secret-key`
+- `beszel-oidc-client-secret`
+- `memos-oidc-client-secret`
 - `gluetun-control-api-key`
 - `gluetun-openvpn-username`
 - `gluetun-openvpn-password`

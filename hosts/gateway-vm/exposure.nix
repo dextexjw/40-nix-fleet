@@ -1,4 +1,9 @@
-{ hosts, serviceDomain, serviceDomains ? [ serviceDomain ], ... }:
+{
+  hosts,
+  serviceDomain,
+  serviceDomains ? [ serviceDomain ],
+  ...
+}:
 
 let
   host = hosts.gateway-vm;
@@ -15,6 +20,34 @@ in
       columns = 4;
       style = "row";
       services = [
+        {
+          id = "authentik";
+          name = "Authentik";
+          route = {
+            description = "Authentik fleet identity provider";
+            hosts = [
+              "auth.jax22.com"
+              "auth.h"
+            ];
+            url = "http://127.0.0.1:9000";
+          };
+          homepage = {
+            description = " http://${host.ip}:9000";
+            href = "https://auth.jax22.com/";
+            icon = "authentik.png";
+            siteMonitor = "http://127.0.0.1:9000/-/health/ready/";
+          };
+          smoke = {
+            requiredUnit = "authentik-server.service";
+            http = {
+              hosts = [
+                "auth.jax22.com"
+                "auth.h"
+              ];
+              path = "/-/health/ready/";
+            };
+          };
+        }
         {
           id = "homepage";
           name = "Homepage";

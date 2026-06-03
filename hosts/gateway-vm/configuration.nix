@@ -90,6 +90,7 @@ in
     ../common.nix
     ./hardware-configuration.nix
     ../../modules/gateway/gluetun.nix
+    ../../modules/gateway/authentik.nix
     ../../modules/gateway/homepage.nix
     ../../modules/gateway/netbird.nix
     ../../modules/gateway/netbootxyz.nix
@@ -105,7 +106,7 @@ in
 
   networking.hostName = "gateway-vm";
   networking.domain = host.domain;
-  users.motd = "gateway-vm: Traefik ingress, Homepage, Technitium DNS, Gluetun VPN proxy, netboot.xyz, NetBird, and Tailscale";
+  users.motd = "gateway-vm: Authentik SSO, Traefik ingress, Homepage, Technitium DNS, Gluetun VPN proxy, netboot.xyz, NetBird, and Tailscale";
 
   # ============================================================================
   # SECRETS
@@ -117,6 +118,49 @@ in
     secrets = {
       admin-password-hash = {
         neededForUsers = true;
+      };
+      authentik-bootstrap-password = {
+        owner = "authentik";
+        group = "authentik";
+        mode = "0400";
+        restartUnits = [ "authentik-worker.service" ];
+      };
+      authentik-bootstrap-token = {
+        owner = "authentik";
+        group = "authentik";
+        mode = "0400";
+        restartUnits = [ "authentik-worker.service" ];
+      };
+      authentik-postgresql-password = {
+        owner = "postgres";
+        group = "authentik";
+        mode = "0440";
+        restartUnits = [
+          "authentik-postgresql-password.service"
+          "authentik-server.service"
+          "authentik-worker.service"
+        ];
+      };
+      authentik-secret-key = {
+        owner = "authentik";
+        group = "authentik";
+        mode = "0400";
+        restartUnits = [
+          "authentik-server.service"
+          "authentik-worker.service"
+        ];
+      };
+      beszel-oidc-client-secret = {
+        owner = "authentik";
+        group = "authentik";
+        mode = "0400";
+        restartUnits = [ "authentik-provision.service" ];
+      };
+      memos-oidc-client-secret = {
+        owner = "authentik";
+        group = "authentik";
+        mode = "0400";
+        restartUnits = [ "authentik-provision.service" ];
       };
       beszel-agent-key = {
         owner = "beszel-agent";
@@ -192,6 +236,22 @@ in
       enable = true;
       trustProxy = true;
     };
+  };
+
+  fleet.gateway.authentik = {
+    aliases = [ "auth.h" ];
+    applications = exposureCatalog.authentikApplications;
+    bootstrap = {
+      username = "smoke";
+      email = "admin@jax22.com";
+      passwordFile = config.sops.secrets.authentik-bootstrap-password.path;
+      tokenFile = config.sops.secrets.authentik-bootstrap-token.path;
+    };
+    domain = "auth.jax22.com";
+    enable = true;
+    postgresql.passwordFile = config.sops.secrets.authentik-postgresql-password.path;
+    provisioning.tokenFile = config.sops.secrets.authentik-secret-key.path;
+    secretKeyFile = config.sops.secrets.authentik-secret-key.path;
   };
 
   fleet.gateway.homepage = {
@@ -391,7 +451,7 @@ in
         gateway-vm service model
         ========================
 
-        gateway-vm is scoped to Traefik, Homepage, Technitium, Gluetun, netboot.xyz,
+        gateway-vm is scoped to Authentik SSO, Traefik, Homepage, Technitium, Gluetun, netboot.xyz,
         NetBird, and Tailscale. Prometheus, Grafana, Jenkins, nginx reverse proxy,
         and node exporter are intentionally not enabled on this host.
 
@@ -402,6 +462,7 @@ in
     ${lib.concatStringsSep "\n" (map (zoneDomain: "      *.${zoneDomain}") serviceDomains)}
 
         Declared services:
+          Authentik: authentik-server.service and authentik-worker.service, version ${pkgs.authentik.version}, state /srv/appsdata/authentik, PostgreSQL data /srv/appsdata/authentik/postgresql, Redis data /srv/appsdata/authentik/redis, canonical URL https://auth.jax22.com, LAN alias http://auth.h, backend only on 127.0.0.1:9000, metrics on 127.0.0.1:9300
           Traefik: traefik.service, version 3.7.1, HTTP ingress port 80, HTTPS ingress port 443 for jax22.com routes using Let's Encrypt DNS-01, ACME state /srv/appsdata/traefik/acme.json, dashboard and metrics port 8080, JSON access logs in the service journal
           Homepage: homepage-dashboard.service, declarative service directory, LAN access on ${host.ip}:8082, https://homepage.jax22.com, and http://homepage.h
           Technitium: technitium-dns-server.service, version 15.2.0, state /srv/appsdata/technitium-dns-server, admin HTTP on ${host.ip}:5380, https://technitium.jax22.com, and http://technitium.h
@@ -411,6 +472,10 @@ in
           NetBird: disabled for now, state preserved at /srv/appsdata/netbird
           Tailscale: tailscaled.service, state /srv/appsdata/tailscale
           State backups: gateway-state-backup.timer, repository /mnt/backup/restic/appdata/gateway-vm
+
+        Auth model:
+          Authentik is the fleet identity provider, but it is not attached as a Traefik forwardAuth proxy in front of application routes. Browser routes are ordinary Traefik routes unless the application has its own auth or a native SSO integration is configured. Role groups are fleet-admins, media-users, productivity-users, and monitoring-users; they are provisioned in Authentik for native app integrations.
+          Native OIDC applications are declared in the exposure catalog. Beszel uses the beszel client with monitoring-users. Memos uses the memos client with productivity-users and https://memos.jax22.com/auth/callback.
 
         Internal routes:
     ${exposureCatalog.routeUrlsText}
@@ -460,8 +525,8 @@ in
 
         Recovery notes:
           Restic backs up /srv/appsdata to /mnt/backup/restic/appdata/gateway-vm
-          using /run/secrets/restic-password. Gluetun and netboot.xyz store state
-          directly under /srv/appsdata/gluetun and /srv/appsdata/netbootxyz;
+          using /run/secrets/restic-password. Authentik, Gluetun, and netboot.xyz store state
+          directly under /srv/appsdata/authentik, /srv/appsdata/gluetun, and /srv/appsdata/netbootxyz;
           Technitium, Traefik, NetBird, and Tailscale keep
           upstream-compatible bind mounts from /srv/appsdata/<service_name>.
           Traefik's ACME account and wildcard certificate state is kept in
@@ -491,12 +556,12 @@ in
 
           Restore outline:
             1. Deploy gateway-vm once to create users, secrets, mounts, and units.
-            2. Stop Traefik, Technitium, Gluetun, netboot.xyz, NetBird, and Tailscale before replacing state.
+            2. Stop Traefik, Authentik, PostgreSQL, Redis, Technitium, Gluetun, netboot.xyz, NetBird, and Tailscale before replacing state.
             3. Mount /mnt/backup.
             4. Choose a gateway-vm/appsdata snapshot ID.
             5. Restore the snapshot to / with restic --verify.
             6. Run systemd-tmpfiles --create.
-            7. Restart traefik.service, homepage-dashboard.service, technitium-dns-server.service, podman-gluetun.service, podman-gluetun-webui.service, podman-netbootxyz.service, netbird.service, and tailscaled.service.
+            7. Restart postgresql.service, redis-authentik.service, authentik-server.service, authentik-worker.service, traefik.service, homepage-dashboard.service, technitium-dns-server.service, podman-gluetun.service, podman-gluetun-webui.service, podman-netbootxyz.service, netbird.service, and tailscaled.service.
 
           Keep auth keys, DNS API tokens, and service secrets in encrypted secrets only; do not write them into Nix
           files, generated configs, recovery notes, logs, or chat.

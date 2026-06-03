@@ -85,6 +85,10 @@ phase_check_local_readiness() {
     die "unable to decrypt $SECRETS; rekey it for your local/admin key"
   fi
 
+  for required_key in admin-password-hash beszel-agent-key beszel-agent-token checkmate-capture-environment memos-admin-pat memos-oidc-client-secret restic-password smb-credentials; do
+    grep -q "^${required_key}:" <<<"$decrypted_secrets" || die "$SECRETS is missing $required_key"
+  done
+
   if grep -q 'CHANGE_ME' <<<"$decrypted_secrets"; then
     die "$SECRETS still contains CHANGE_ME placeholders"
   fi

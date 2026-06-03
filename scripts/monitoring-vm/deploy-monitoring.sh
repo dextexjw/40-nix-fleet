@@ -44,7 +44,7 @@ if ! decrypted_secrets="$(sops --decrypt "$SECRETS")"; then
   die "unable to decrypt $SECRETS locally; rekey it for your local/admin key"
 fi
 
-for required_key in admin-password-hash beszel-agent-key beszel-agent-token checkmate-capture-environment checkmate-environment checkmate-provisioning-credentials restic-password smb-credentials; do
+for required_key in admin-password-hash beszel-agent-key beszel-agent-token beszel-oidc-client-secret checkmate-capture-environment checkmate-environment checkmate-provisioning-credentials restic-password smb-credentials; do
   grep -q "^${required_key}:" <<<"$decrypted_secrets" || die "$SECRETS is missing $required_key"
 done
 

@@ -118,6 +118,13 @@ service_is_skipped() {
   [[ "${SKIPPED_SERVICE[$service]:-0}" == 1 ]]
 }
 
+allow_missing_unit() {
+  local unit="$1"
+
+  (( ALLOW_MISSING_NEW_SERVICES )) \
+    && ! colmena exec --on "$HOST" -- "systemctl cat '$unit' >/dev/null 2>&1" >/dev/null 2>&1
+}
+
 route_is_skipped() {
   local route="$1"
 
@@ -200,6 +207,13 @@ if ! service_is_skipped iperf3; then
 fi
 if ! service_is_skipped podman-memos; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:5230/ >/dev/null"
+  if allow_missing_unit memos-oidc-config.service; then
+    printf 'Skipping Memos OIDC provider checks because memos-oidc-config.service is not deployed yet.\n'
+  else
+    colmena exec --on "$HOST" -- "systemctl show memos-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show memos-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:5230/api/v1/identity-providers | grep -Fq 'identity-providers/authentik'"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://memos.jax22.com/ >/dev/null"
+  fi
   colmena exec --on "$HOST" -- "sh -lc 'if [ -s /srv/appsdata/memos/memos_prod.db ]; then test -s /srv/appsdata/memos-backups/latest.db; fi'"
 fi
 if ! service_is_skipped rustdesk-signal && ! service_is_skipped rustdesk-relay; then

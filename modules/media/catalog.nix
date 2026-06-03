@@ -1,4 +1,8 @@
-{ host, serviceDomain ? "h", serviceDomains ? [ serviceDomain ] }:
+{
+  host,
+  serviceDomain ? "h",
+  serviceDomains ? [ serviceDomain ],
+}:
 
 let
   backend = port: "http://${host.ip}:${toString port}";
@@ -17,6 +21,8 @@ let
       hostNames ? hostnames hostPrefix,
       monitorPath ? "/",
       smokeHttp ? null,
+      authGroups ? [ ],
+      authMode ? "none",
     }:
     let
       primaryHostName = builtins.head hostNames;
@@ -35,6 +41,17 @@ let
         siteMonitor = "${backend port}${monitorPath}";
       };
     }
+    // (
+      if authMode == "none" then
+        { }
+      else
+        {
+          auth = {
+            mode = authMode;
+            groups = authGroups;
+          };
+        }
+    )
     // (
       if smokeHttp == null then
         { }

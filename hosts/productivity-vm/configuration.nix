@@ -93,6 +93,18 @@ in
           "phpfpm-invoiceplane.service"
         ];
       };
+      memos-admin-pat = {
+        owner = "memos";
+        group = "memos";
+        mode = "0400";
+        restartUnits = [ "memos-oidc-config.service" ];
+      };
+      memos-oidc-client-secret = {
+        owner = "memos";
+        group = "memos";
+        mode = "0400";
+        restartUnits = [ "memos-oidc-config.service" ];
+      };
       nextcloud-admin-password = {
         restartUnits = [ "nextcloud-setup.service" ];
       };
@@ -150,6 +162,11 @@ in
     enable = true;
     secrets.enable = secretsEnabled;
     inherit serviceDomains;
+    memos.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      adminTokenFile = config.sops.secrets.memos-admin-pat.path;
+      clientSecretFile = config.sops.secrets.memos-oidc-client-secret.path;
+    };
     smb.backupDevice = "//nas.home.arpa/backups";
   };
 

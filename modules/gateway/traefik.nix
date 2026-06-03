@@ -9,6 +9,12 @@ with lib;
 
 let
   cfg = config.fleet.gateway.traefik;
+  authModes = [
+    "none"
+    "forward-auth"
+    "native-header"
+    "native-oidc"
+  ];
 
   dashboardHosts =
     if cfg.dashboard.domains != [ ] then
@@ -42,6 +48,31 @@ let
   isTlsHost = host: host == tlsDomain || hasSuffix ".${tlsDomain}" host;
   tlsHosts = hosts: filter isTlsHost hosts;
 
+  routeProtectedHosts =
+    route:
+    filter (
+      host: route.auth.mode == "forward-auth" && elem host route.auth.protectedHosts && isTlsHost host
+    ) route.hosts;
+
+  dashboardProtectedHosts =
+    let
+      protectedHosts =
+        if cfg.dashboard.auth.protectedHosts == [ ] then
+          tlsHosts dashboardHosts
+        else
+          cfg.dashboard.auth.protectedHosts;
+    in
+    filter (
+      host: cfg.dashboard.auth.mode == "forward-auth" && elem host protectedHosts && isTlsHost host
+    ) dashboardHosts;
+
+  allForwardAuthHosts = unique (
+    dashboardProtectedHosts
+    ++ concatLists (mapAttrsToList (_name: route: routeProtectedHosts route) cfg.routes)
+  );
+
+  hasForwardAuth = allForwardAuthHosts != [ ];
+
   mkRouter =
     name: route:
     nameValuePair (mkName name) {
@@ -52,12 +83,17 @@ let
 
   mkTlsRouter =
     name: route:
-    nameValuePair "${mkName name}-tls" {
-      entryPoints = [ "websecure" ];
-      rule = mkRule (tlsHosts route.hosts);
-      service = mkName name;
-      tls = { };
-    };
+    nameValuePair "${mkName name}-tls" (
+      {
+        entryPoints = [ "websecure" ];
+        rule = mkRule (tlsHosts route.hosts);
+        service = mkName name;
+        tls = { };
+      }
+      // optionalAttrs (routeProtectedHosts route != [ ]) {
+        middlewares = [ cfg.authentik.middlewareName ];
+      }
+    );
 
   mkService =
     name: route:
@@ -119,34 +155,81 @@ let
       address = ":${toString route.port}/udp";
     };
 
-  dashboardRouters = optionalAttrs cfg.dashboard.enable {
-    dashboard = {
-      entryPoints = [ "dashboard" ];
-      rule = dashboardRule;
-      service = "api@internal";
+  dashboardRouters =
+    optionalAttrs cfg.dashboard.enable {
+      dashboard = {
+        entryPoints = [ "dashboard" ];
+        rule = dashboardRule;
+        service = "api@internal";
+      };
+    }
+    // optionalAttrs (cfg.dashboard.enable && cfg.dashboard.webRoute.enable) {
+      dashboard-web = {
+        entryPoints = [ "web" ];
+        rule = "(${mkRule dashboardHosts}) && (${dashboardRule})";
+        service = "api@internal";
+      };
+    }
+    //
+      optionalAttrs
+        (
+          cfg.dashboard.enable
+          && cfg.dashboard.webRoute.enable
+          && tlsEnabled
+          && tlsHosts dashboardHosts != [ ]
+        )
+        {
+          dashboard-websecure = {
+            entryPoints = [ "websecure" ];
+            rule = "(${mkRule (tlsHosts dashboardHosts)}) && (${dashboardRule})";
+            service = "api@internal";
+            tls = { };
+          }
+          // optionalAttrs (dashboardProtectedHosts != [ ]) {
+            middlewares = [ cfg.authentik.middlewareName ];
+          };
+        };
+
+  authentikMiddlewares = optionalAttrs (cfg.authentik.enable && hasForwardAuth) {
+    ${cfg.authentik.middlewareName} = {
+      forwardAuth = {
+        address = "${cfg.authentik.serviceUrl}/outpost.goauthentik.io/auth/traefik";
+        authResponseHeaders = [
+          "X-authentik-username"
+          "X-authentik-groups"
+          "X-authentik-entitlements"
+          "X-authentik-email"
+          "X-authentik-name"
+          "X-authentik-uid"
+          "X-authentik-jwt"
+          "X-authentik-meta-jwks"
+        ];
+        trustForwardHeader = true;
+      };
     };
-  } // optionalAttrs (cfg.dashboard.enable && cfg.dashboard.webRoute.enable) {
-    dashboard-web = {
-      entryPoints = [ "web" ];
-      rule = "(${mkRule dashboardHosts}) && (${dashboardRule})";
-      service = "api@internal";
-    };
-  } // optionalAttrs (cfg.dashboard.enable && cfg.dashboard.webRoute.enable && tlsEnabled && tlsHosts dashboardHosts != [ ]) {
-    dashboard-websecure = {
+  };
+
+  authentikRouters = optionalAttrs (cfg.authentik.enable && hasForwardAuth) {
+    authentik-outpost = {
       entryPoints = [ "websecure" ];
-      rule = "(${mkRule (tlsHosts dashboardHosts)}) && (${dashboardRule})";
-      service = "api@internal";
+      priority = 1000;
+      rule = "(${mkRule allForwardAuthHosts}) && PathPrefix(`/outpost.goauthentik.io/`)";
+      service = "authentik-outpost";
       tls = { };
     };
   };
 
+  authentikServices = optionalAttrs (cfg.authentik.enable && hasForwardAuth) {
+    authentik-outpost.loadBalancer.servers = [
+      {
+        url = cfg.authentik.serviceUrl;
+      }
+    ];
+  };
+
   tlsRoutes = filterAttrs (_: route: tlsEnabled && tlsHosts route.hosts != [ ]) cfg.routes;
 
-  metricsEntryPoint =
-    if cfg.metrics.entryPoint == null then
-      "dashboard"
-    else
-      cfg.metrics.entryPoint;
+  metricsEntryPoint = if cfg.metrics.entryPoint == null then "dashboard" else cfg.metrics.entryPoint;
 in
 {
   # ============================================================================
@@ -215,6 +298,26 @@ in
           type = types.bool;
           default = false;
           description = "Expose the dashboard and API paths on the HTTP web entrypoint using dashboard.domain.";
+        };
+      };
+
+      auth = {
+        mode = mkOption {
+          type = types.enum authModes;
+          default = "none";
+          description = "Authentication mode for the HTTPS dashboard route.";
+        };
+
+        groups = mkOption {
+          type = types.listOf types.str;
+          default = [ ];
+          description = "Authentik groups allowed to reach the dashboard route.";
+        };
+
+        protectedHosts = mkOption {
+          type = types.listOf types.str;
+          default = [ ];
+          description = "Dashboard hostnames that should receive forwardAuth middleware. Defaults to TLS dashboard hosts.";
         };
       };
     };
@@ -310,6 +413,26 @@ in
               type = types.str;
               description = "Backend URL Traefik should proxy to.";
               example = "http://10.2.20.113:8096";
+            };
+
+            auth = {
+              mode = mkOption {
+                type = types.enum authModes;
+                default = "none";
+                description = "Authentication mode for this route.";
+              };
+
+              groups = mkOption {
+                type = types.listOf types.str;
+                default = [ ];
+                description = "Authentik groups allowed to reach this route.";
+              };
+
+              protectedHosts = mkOption {
+                type = types.listOf types.str;
+                default = [ ];
+                description = "Hostnames that should receive forwardAuth middleware.";
+              };
             };
           };
         }
@@ -441,6 +564,26 @@ in
       };
     };
 
+    authentik = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Enable generated Authentik forwardAuth middleware and embedded-outpost route.";
+      };
+
+      middlewareName = mkOption {
+        type = types.str;
+        default = "authentik-forward-auth";
+        description = "Traefik middleware name used for Authentik forwardAuth.";
+      };
+
+      serviceUrl = mkOption {
+        type = types.str;
+        default = "http://127.0.0.1:9000";
+        description = "Internal Authentik server URL used for forwardAuth and embedded outpost paths.";
+      };
+    };
+
     udpRoutes = mkOption {
       type = types.attrsOf (
         types.submodule {
@@ -497,40 +640,50 @@ in
         assertion = !cfg.tls.enable || cfg.tls.acme.dnsProvider == "cloudflare";
         message = "fleet.gateway.traefik.tls currently supports Cloudflare DNS-01 credentials.";
       }
+      {
+        assertion = !hasForwardAuth || cfg.authentik.enable;
+        message = "fleet.gateway.traefik.authentik.enable must be true when any route uses forward-auth.";
+      }
     ];
 
     services.traefik = {
       enable = true;
       package = cfg.package;
 
-      dynamicConfigOptions =
-        {
-          http = {
-            routers = dashboardRouters // mapAttrs' mkRouter cfg.routes // mapAttrs' mkTlsRouter tlsRoutes;
-            services = mapAttrs' mkService cfg.routes;
-          };
+      dynamicConfigOptions = {
+        http = {
+          routers =
+            dashboardRouters
+            // authentikRouters
+            // mapAttrs' mkRouter cfg.routes
+            // mapAttrs' mkTlsRouter tlsRoutes;
+          services = authentikServices // mapAttrs' mkService cfg.routes;
         }
-        // optionalAttrs (cfg.tcpRoutes != { }) {
-          tcp = {
-            routers = mapAttrs' mkTcpRouter cfg.tcpRoutes;
-            services = mapAttrs' mkTcpService cfg.tcpRoutes;
-          };
-        }
-        // optionalAttrs (cfg.udpRoutes != { }) {
-          udp = {
-            routers = mapAttrs' mkUdpRouter cfg.udpRoutes;
-            services = mapAttrs' mkUdpService cfg.udpRoutes;
-          };
-        }
-        // optionalAttrs cfg.tls.enable {
-          tls.stores.default.defaultGeneratedCert = {
-            resolver = cfg.tls.resolver;
-            domain = {
-              main = cfg.tls.domain;
-              sans = [ "*.${cfg.tls.domain}" ];
-            };
+        // optionalAttrs (authentikMiddlewares != { }) {
+          middlewares = authentikMiddlewares;
+        };
+      }
+      // optionalAttrs (cfg.tcpRoutes != { }) {
+        tcp = {
+          routers = mapAttrs' mkTcpRouter cfg.tcpRoutes;
+          services = mapAttrs' mkTcpService cfg.tcpRoutes;
+        };
+      }
+      // optionalAttrs (cfg.udpRoutes != { }) {
+        udp = {
+          routers = mapAttrs' mkUdpRouter cfg.udpRoutes;
+          services = mapAttrs' mkUdpService cfg.udpRoutes;
+        };
+      }
+      // optionalAttrs cfg.tls.enable {
+        tls.stores.default.defaultGeneratedCert = {
+          resolver = cfg.tls.resolver;
+          domain = {
+            main = cfg.tls.domain;
+            sans = [ "*.${cfg.tls.domain}" ];
           };
         };
+      };
 
       staticConfigOptions = {
         api.dashboard = cfg.dashboard.enable;
@@ -586,17 +739,20 @@ in
       };
     };
 
-    systemd.services.traefik.environment = optionalAttrs cfg.tls.enable {
-      CF_DNS_API_TOKEN_FILE = cfg.tls.acme.dnsApiTokenFile;
+    systemd.services.traefik = {
+      after = optional cfg.authentik.enable "authentik-server.service";
+      environment = optionalAttrs cfg.tls.enable {
+        CF_DNS_API_TOKEN_FILE = cfg.tls.acme.dnsApiTokenFile;
+      };
+      wants = optional cfg.authentik.enable "authentik-server.service";
     };
 
-    networking.firewall.allowedTCPPorts =
-      [
-        cfg.httpPort
-      ]
-      ++ optional (cfg.enableTLS || cfg.tls.enable) cfg.httpsPort
-      ++ optional cfg.dashboard.enable cfg.dashboard.port
-      ++ mapAttrsToList (_name: route: route.port) cfg.tcpRoutes;
+    networking.firewall.allowedTCPPorts = [
+      cfg.httpPort
+    ]
+    ++ optional (cfg.enableTLS || cfg.tls.enable) cfg.httpsPort
+    ++ optional cfg.dashboard.enable cfg.dashboard.port
+    ++ mapAttrsToList (_name: route: route.port) cfg.tcpRoutes;
 
     networking.firewall.allowedUDPPorts = mapAttrsToList (_name: route: route.port) cfg.udpRoutes;
   };

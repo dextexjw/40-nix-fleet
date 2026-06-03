@@ -179,6 +179,112 @@ in
         description = "Temporary target used by productivity-appdata-restore-check.service.";
       };
     };
+
+    memos = {
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Provision the Memos Authentik OAuth2 identity provider.";
+        };
+
+        adminTokenFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing a Memos admin personal access token.";
+        };
+
+        apiBaseUrl = mkOption {
+          type = types.str;
+          default = "http://127.0.0.1:${toString cfg.ports.memos}";
+          description = "Local Memos API base URL used by the OIDC provisioning unit.";
+        };
+
+        authUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/authorize/";
+          description = "Authentik OAuth2 authorization endpoint.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "memos";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        clientSecretFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Memos OIDC client secret.";
+        };
+
+        displayName = mkOption {
+          type = types.str;
+          default = "Authentik";
+          description = "Memos sign-in button label for the identity provider.";
+        };
+
+        fieldMapping = {
+          avatarUrl = mkOption {
+            type = types.str;
+            default = "picture";
+            description = "OAuth2 userinfo field mapped to the Memos avatar URL.";
+          };
+
+          displayName = mkOption {
+            type = types.str;
+            default = "name";
+            description = "OAuth2 userinfo field mapped to the Memos display name.";
+          };
+
+          email = mkOption {
+            type = types.str;
+            default = "email";
+            description = "OAuth2 userinfo field mapped to the Memos email.";
+          };
+
+          identifier = mkOption {
+            type = types.str;
+            default = "sub";
+            description = "OAuth2 userinfo field mapped to the Memos external identity.";
+          };
+        };
+
+        identifierFilter = mkOption {
+          type = types.str;
+          default = "";
+          description = "Optional Memos identifier allow-list regex.";
+        };
+
+        providerUid = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "Stable Memos identity provider UID.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "openid"
+            "profile"
+            "email"
+          ];
+          description = "OAuth2 scopes requested by Memos.";
+        };
+
+        tokenUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/token/";
+          description = "Authentik OAuth2 token endpoint.";
+        };
+
+        userInfoUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/userinfo/";
+          description = "Authentik OAuth2 userinfo endpoint.";
+        };
+      };
+    };
   };
 
   # ============================================================================

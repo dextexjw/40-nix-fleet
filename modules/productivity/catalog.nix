@@ -22,6 +22,9 @@ let
       hostNames ? hostnames hostPrefix,
       monitorPath ? "/",
       smokeHttp ? null,
+      authMode ? "none",
+      authGroups ? [ ],
+      authOidc ? { },
     }:
     let
       primaryHostName = builtins.head hostNames;
@@ -41,6 +44,18 @@ let
       };
     }
     // (
+      if authMode == "none" then
+        { }
+      else
+        {
+          auth = {
+            mode = authMode;
+            groups = authGroups;
+            oidc = authOidc;
+          };
+        }
+    )
+    // (
       if smokeHttp == null then
         { }
       else
@@ -58,6 +73,9 @@ let
       hostPrefix ? id,
       hostNames ? hostnames hostPrefix,
       smokeHttp ? null,
+      authMode ? "none",
+      authGroups ? [ ],
+      authOidc ? { },
     }:
     {
       inherit id name;
@@ -67,6 +85,18 @@ let
         url = backend port;
       };
     }
+    // (
+      if authMode == "none" then
+        { }
+      else
+        {
+          auth = {
+            mode = authMode;
+            groups = authGroups;
+            oidc = authOidc;
+          };
+        }
+    )
     // (
       if smokeHttp == null then
         { }
@@ -219,6 +249,14 @@ in
           routeDescription = "Memos personal notes";
           icon = "memos.png";
           homepageDescription = "Personal notes\n${backend 5230}";
+          authMode = "native-oidc";
+          authGroups = [ "productivity-users" ];
+          authOidc = {
+            clientId = "memos";
+            clientSecretFile = "/run/secrets/memos-oidc-client-secret";
+            launchUrl = "https://memos.jax22.com/";
+            redirectUris = [ "https://memos.jax22.com/auth/callback" ];
+          };
           smokeHttp = {
             discard = true;
             path = "/";
@@ -374,6 +412,7 @@ in
           icon = "rustfs.png";
           homepageDescription = "S3-compatible object storage\n${backend 9000}";
           monitorPath = "/health";
+          authMode = "none";
           smokeHttp.path = "/health";
         })
         (mkService {
@@ -394,6 +433,7 @@ in
           icon = "ntfy.png";
           homepageDescription = "Push notifications\n${backend 2586}";
           monitorPath = "/v1/health";
+          authMode = "none";
         })
       ];
     }

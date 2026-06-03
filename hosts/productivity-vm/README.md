@@ -110,6 +110,8 @@ Required productivity secrets:
 - `garage-metrics-token`
 - `garage-rpc-secret`
 - `invoiceplane-db-password`
+- `memos-admin-pat`
+- `memos-oidc-client-secret`
 - `nextcloud-admin-password`
 - `paperless-admin-password`
 - `rustfs-environment`
@@ -118,9 +120,17 @@ Required productivity secrets:
 - `syncthing-gui-password`
 - `vaultwarden-environment`
 
-Memos introduces no SOPS secret in this repo. Initial admin setup and signup
-policy are managed in the app and must not be written into Nix, docs, logs, or
-chat.
+Memos uses native OAuth2 with Authentik. Authentik provisions the `memos`
+client and allows `productivity-users`; `memos-oidc-config.service` provisions
+the Memos identity provider through the Memos API using the SOPS-managed
+`memos-admin-pat`. The only allowed callback is
+`https://memos.jax22.com/auth/callback`; `http://memos.h` remains a non-SSO LAN
+alias. Local password auth and signup policy stay managed in Memos.
+
+FreshRSS is not wired to native OIDC in this NixOS deployment yet. The upstream
+FreshRSS OIDC path is Apache `mod_auth_openidc` or the official Apache-based
+image; this host currently uses the NixOS FreshRSS module with nginx/PHP-FPM and
+form auth, so enabling FreshRSS SSO needs a serving-model change first.
 
 Normal edit flow:
 
@@ -269,3 +279,5 @@ configuration is browser-readable.
 
 Memos stores its SQLite database and local app state under `/srv/appsdata/memos`.
 The pre-backup SQLite copy is `/srv/appsdata/memos-backups/latest.db`.
+`memos-oidc-config.service` declaratively keeps the Authentik OAuth2 provider
+visible on the Memos sign-in page without disabling existing local auth.

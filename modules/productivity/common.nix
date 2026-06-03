@@ -28,12 +28,20 @@ in
 
     users.groups.productivity = { };
     users.groups.garage = { };
+    users.groups.memos.gid = memosGid;
     users.groups.stirling-pdf = { };
 
     users.users.garage = {
       isSystemUser = true;
       group = "garage";
       home = "${appdata}/garage";
+    };
+
+    users.users.memos = {
+      isSystemUser = true;
+      uid = memosUid;
+      group = "memos";
+      home = "${appdata}/memos";
     };
 
     users.users.stirling-pdf = {
@@ -65,10 +73,10 @@ in
       "z '${appdata}/mkdocs/docs' 0775 root productivity - -"
       "d '${appdata}/mkdocs/site' 0775 root productivity - -"
       "z '${appdata}/mkdocs/site' 0775 root productivity - -"
-      "d '${appdata}/memos' 0750 ${toString memosUid} ${toString memosGid} - -"
-      "z '${appdata}/memos' 0750 ${toString memosUid} ${toString memosGid} - -"
-      "d '${appdata}/memos-backups' 0750 ${toString memosUid} ${toString memosGid} - -"
-      "z '${appdata}/memos-backups' 0750 ${toString memosUid} ${toString memosGid} - -"
+      "d '${appdata}/memos' 0750 memos memos - -"
+      "z '${appdata}/memos' 0750 memos memos - -"
+      "d '${appdata}/memos-backups' 0750 memos memos - -"
+      "z '${appdata}/memos-backups' 0750 memos memos - -"
       "d '${appdata}/nextcloud' 0750 nextcloud nextcloud - -"
       "z '${appdata}/nextcloud' 0750 nextcloud nextcloud - -"
       "d '${appdata}/ntfy' 0750 ntfy-sh ntfy-sh - -"

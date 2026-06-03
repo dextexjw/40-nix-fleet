@@ -44,6 +44,10 @@ colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:52345/ >/
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8090/ >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:59232/health >/dev/null"
 
+printf 'Checking Beszel OIDC configuration...\n'
+colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8090/api/collections/users/auth-methods | jq -e 'any(.authProviders[]; .name == \"oidc\" and .displayName == \"Authentik\")' >/dev/null"
+colmena exec --on "$HOST" -- "systemctl show beszel-hub-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show beszel-hub-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+
 printf 'Checking routed host-header behavior on monitoring-vm backends...\n'
 for domain in "${SERVICE_DOMAINS[@]}"; do
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: checkmate.${domain}' http://127.0.0.1:52345/ >/dev/null"
@@ -52,11 +56,11 @@ done
 
 printf 'Checking declarative Checkmate provisioning state...\n'
 colmena exec --on "$HOST" -- "getent hosts homepage.jax22.com | grep -q '10[.]2[.]20[.]112'"
-colmena exec --on "$HOST" -- "jq -e '.expectedServiceMonitors == 39 and .expectedHardwareMonitors == 4 and .expectedManagedMonitors == 43 and (.serviceMonitors | length == 39) and (.hardwareMonitors | length == 4)' /etc/fleet/checkmate-targets.json >/dev/null"
+colmena exec --on "$HOST" -- "jq -e '.expectedServiceMonitors == 40 and .expectedHardwareMonitors == 4 and .expectedManagedMonitors == 44 and (.serviceMonitors | length == 40) and (.hardwareMonitors | length == 4)' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'any(.serviceMonitors[]; .id == \"memos\") and any(.serviceMonitors[]; .id == \"openspeedtest\") and all(.serviceMonitors[]; (.id | test(\"^libr(e)?speed$\") | not))' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'all(.hardwareMonitors[]; .url | endswith(\"/api/v1/metrics\"))' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "systemctl show checkmate-provisioning.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show checkmate-provisioning.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
-colmena exec --on "$HOST" -- "sudo jq -e '.expectedServiceMonitors == 39 and .expectedHardwareMonitors == 4 and .expectedManagedMonitors == 43' /var/lib/checkmate-provisioning/last-summary.json >/dev/null"
+colmena exec --on "$HOST" -- "sudo jq -e '.expectedServiceMonitors == 40 and .expectedHardwareMonitors == 4 and .expectedManagedMonitors == 44' /var/lib/checkmate-provisioning/last-summary.json >/dev/null"
 
 printf 'Checking backup and restore validation...\n'
 colmena exec --on "$HOST" -- "sh -lc 'findmnt -rn --target /mnt/backups >/dev/null || mount /mnt/backups'"

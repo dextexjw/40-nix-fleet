@@ -121,9 +121,10 @@ in
         Memos stores its SQLite database and local app state under
         ${appdata}/memos. The pre-backup copy
         ${appdata}/memos-backups/latest.db is created with SQLite's backup
-        command before Restic runs. Memos introduces no SOPS secret in this repo;
-        initial admin setup and signup policy are managed in the app and must not
-        be written into Nix, docs, logs, or chat.
+        command before Restic runs. memos-oidc-config.service provisions the
+        Authentik OAuth2 provider with the encrypted memos-admin-pat and
+        memos-oidc-client-secret secrets. Local password auth and signup policy
+        remain managed in Memos.
     '';
   };
 }

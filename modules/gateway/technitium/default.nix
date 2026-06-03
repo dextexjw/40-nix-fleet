@@ -306,12 +306,12 @@ in
           exit 1
         fi
 
-        for attempt in {1..60}; do
+        for attempt in {1..180}; do
           if curl -fsS "$base/" >/dev/null; then
             break
           fi
 
-          if [ "$attempt" = 60 ]; then
+          if [ "$attempt" = 180 ]; then
             echo "Timed out waiting for Technitium web API." >&2
             exit 1
           fi
@@ -428,14 +428,14 @@ in
 
         systemctl restart technitium-dns-server.service
 
-        for attempt in {1..60}; do
+        for attempt in {1..180}; do
           if curl -fsS "$base/" >/dev/null \
             && ss -ltn "( sport = :${toString cfg.dnsOverTlsPort} )" | grep -q ":${toString cfg.dnsOverTlsPort}" \
             && ss -ltn "( sport = :${toString cfg.httpsPort} )" | grep -q ":${toString cfg.httpsPort}"; then
             exit 0
           fi
 
-          if [ "$attempt" = 60 ]; then
+          if [ "$attempt" = 180 ]; then
             echo "Timed out waiting for Technitium encrypted DNS listeners." >&2
             exit 1
           fi

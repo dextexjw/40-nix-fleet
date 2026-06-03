@@ -111,6 +111,7 @@
     mtr
     ncdu
     neovim
+    python3
     ripgrep
     rsync
     tmux
