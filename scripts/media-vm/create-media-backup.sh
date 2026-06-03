@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="media-vm"
 REPOSITORY="/mnt/backups/restic/appdata/media-stack-vm"
 SOURCE="/srv/appsdata"

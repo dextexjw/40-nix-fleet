@@ -46,7 +46,7 @@ runbooks live under `hosts/<name>/`.
 - `modules/apps/freshrss.nix`: available module, not currently enabled.
 - `secrets/example-secrets.yaml`: expected SOPS secret shape.
 - `secrets/secrets.yaml`: encrypted real secrets.
-- `scripts/`: local helper scripts for checks, guarded deploys, bootstrap, backup validation, and restore.
+- `scripts/<host>/`: local helper scripts grouped by host.
 
 ## Documentation Model
 
@@ -87,10 +87,10 @@ colmena build --on monitoring-vm
 colmena apply --on monitoring-vm dry-activate
 ```
 
-The repo also has a focused check helper:
+`media-vm` also has a focused check helper:
 
 ```sh
-scripts/check.sh
+scripts/media-vm/check.sh
 ```
 
 ## Deployments
@@ -125,7 +125,7 @@ Guarded deploy helpers check local SOPS decryption and confirm the target VM has
 a matching SOPS recipient before switching:
 
 ```sh
-scripts/deploy-media.sh
+scripts/media-vm/deploy-media.sh
 scripts/gateway-vm/deploy-gateway.sh
 scripts/productivity-vm/deploy-productivity.sh
 scripts/monitoring-vm/deploy-monitoring.sh
@@ -194,7 +194,7 @@ For `media-vm` changes touching the media stack, SMB mounts, SOPS secrets, or
 Restic, deploy and then run:
 
 ```sh
-scripts/test-media-backup.sh
+scripts/media-vm/test-media-backup.sh
 ```
 
 Keep README changes and `/etc/fleet/<host>.md` recovery notes aligned when

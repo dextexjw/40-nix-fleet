@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="media-vm"
 HOST_IP="10.2.20.113"
 REMOTE_USER="smoke"
@@ -30,12 +30,12 @@ die() {
 usage() {
   cat <<EOF
 Usage:
-  scripts/upgrade-media-vm.sh run
-  scripts/upgrade-media-vm.sh check-upgrade-readiness
-  scripts/upgrade-media-vm.sh create-pre-upgrade-backup
-  scripts/upgrade-media-vm.sh dry-activate-media-vm
-  scripts/upgrade-media-vm.sh deploy-media-vm
-  scripts/upgrade-media-vm.sh verify-media-vm
+  scripts/media-vm/upgrade-media-vm.sh run
+  scripts/media-vm/upgrade-media-vm.sh check-upgrade-readiness
+  scripts/media-vm/upgrade-media-vm.sh create-pre-upgrade-backup
+  scripts/media-vm/upgrade-media-vm.sh dry-activate-media-vm
+  scripts/media-vm/upgrade-media-vm.sh deploy-media-vm
+  scripts/media-vm/upgrade-media-vm.sh verify-media-vm
 
 This orchestrates a safe media-vm upgrade for the current repo state. It does
 not update flake.lock and never restores appdata automatically.
@@ -107,7 +107,7 @@ phase_check_upgrade_readiness() {
 }
 
 phase_create_pre_upgrade_backup() {
-  "$ROOT/scripts/create-media-backup.sh"
+  "$ROOT/scripts/media-vm/create-media-backup.sh"
 }
 
 phase_dry_activate_media_vm() {
@@ -117,7 +117,7 @@ phase_dry_activate_media_vm() {
 }
 
 phase_deploy_media_vm() {
-  "$ROOT/scripts/deploy-media.sh"
+  "$ROOT/scripts/media-vm/deploy-media.sh"
   ensure_vm_hostname
 }
 
@@ -139,7 +139,7 @@ phase_verify_media_vm() {
   [[ "$static_hostname" == "$HOST" ]] || die "static hostname is '$static_hostname', expected '$HOST'"
   [[ "$transient_hostname" == "$HOST" ]] || die "transient hostname is '$transient_hostname', expected '$HOST'"
 
-  "$ROOT/scripts/test-media-backup.sh"
+  "$ROOT/scripts/media-vm/test-media-backup.sh"
 
   printf 'Checking systemd-tmpfiles declarations...\n'
   ssh_media_vm "sudo systemd-tmpfiles --create" || die "systemd-tmpfiles check failed on $HOST_IP"

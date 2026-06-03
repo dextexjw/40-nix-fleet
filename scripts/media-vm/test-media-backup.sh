@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="media-vm"
 HOST_IP="10.2.20.113"
 REPOSITORY="/mnt/backups/restic/appdata/media-stack-vm"
@@ -20,7 +20,7 @@ die() {
 usage() {
   cat <<EOF
 Usage:
-  scripts/test-media-backup.sh [--include-kill-switch]
+  scripts/media-vm/test-media-backup.sh [--include-kill-switch]
 
 Runs MediaVM backup, restore, Gluetun, qBittorrent, SABnzbd, and container
 isolation checks. The kill-switch check briefly stops MediaVM Gluetun and

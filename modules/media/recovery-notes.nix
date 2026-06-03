@@ -68,13 +68,13 @@ environment.etc."fleet/media-vm.md".text = ''
   Bootstrap restore outline:
     1. Deploy media-vm once.
     2. Before opening app web UIs, run this from the repo development shell:
-         scripts/restore-media-appdata.sh
+         scripts/media-vm/restore-media-appdata.sh
     3. The script stops media services, mounts /mnt/backups, checks for
        media-vm/appsdata snapshots, moves fresh appdata aside, repairs
        restored ownership, reapplies tmpfiles, fixes Prowlarr DynamicUser
        ownership, and restarts media services.
     4. If multiple snapshots exist, rerun with an explicit snapshot ID:
-         scripts/restore-media-appdata.sh <snapshot-id>
+         scripts/media-vm/restore-media-appdata.sh <snapshot-id>
     5. If no matching snapshot exists, the script starts media services and
        appsdata-backup.timer, then continues as a fresh system.
 

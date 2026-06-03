@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="media-vm"
 REPOSITORY="/mnt/backups/restic/appdata/media-stack-vm"
 SOURCE="/srv/appsdata"
@@ -84,7 +84,7 @@ elif [ "\$snapshot_count" -eq 1 ]; then
   snapshot="\$snapshot_ids"
 else
   echo "Multiple matching snapshots exist; refusing to guess which one to restore." >&2
-  echo "Rerun with an explicit snapshot ID, for example: scripts/restore-media-appdata.sh \$(printf '%s\n' "\$snapshot_ids" | tail -n 1)" >&2
+  echo "Rerun with an explicit snapshot ID, for example: scripts/media-vm/restore-media-appdata.sh \$(printf '%s\n' "\$snapshot_ids" | tail -n 1)" >&2
   echo "Tip: after a rebuild, avoid tiny fresh-system snapshots and choose the last known good appdata snapshot." >&2
   systemctl start \$services
   systemctl start appsdata-backup.timer

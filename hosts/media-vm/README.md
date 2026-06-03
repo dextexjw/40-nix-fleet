@@ -175,13 +175,13 @@ ssh -o BatchMode=yes smoke@10.2.20.113 true
 3. Run the guided post-install bootstrap.
 
 ```sh
-scripts/bootstrap-media-vm.sh run
+scripts/media-vm/bootstrap-media-vm.sh run
 ```
 
 The wrapper runs these phases in order:
 
 - `check-local-readiness`: verifies local tools, encrypted secrets, `nix flake check`, and `colmena build --on media-vm`.
-- `enable-vm-secret-access`: runs `scripts/update-media-sops-recipient.sh` to add the VM SSH host key as a SOPS age recipient and rekey secrets.
+- `enable-vm-secret-access`: runs `scripts/media-vm/update-media-sops-recipient.sh` to add the VM SSH host key as a SOPS age recipient and rekey secrets.
 - `deploy-media-vm`: runs the guarded `media-vm` deployment and normalizes the transient hostname left by the installer.
 - `restore-appdata`: restores existing appdata from Restic when a matching snapshot exists.
 - `verify-media-vm`: confirms hostname state and runs the backup/restore validation.
@@ -190,8 +190,8 @@ If the restore phase lists multiple matching snapshots, rerun it with the exact
 snapshot ID you want to restore:
 
 ```sh
-scripts/bootstrap-media-vm.sh restore-appdata <snapshot-id>
-scripts/bootstrap-media-vm.sh verify-media-vm
+scripts/media-vm/bootstrap-media-vm.sh restore-appdata <snapshot-id>
+scripts/media-vm/bootstrap-media-vm.sh verify-media-vm
 ```
 
 After a rebuild, avoid tiny fresh-system snapshots and choose the last known
@@ -200,17 +200,17 @@ good appdata snapshot from before the rebuild.
 The phases can also be run individually:
 
 ```sh
-scripts/bootstrap-media-vm.sh check-local-readiness
-scripts/bootstrap-media-vm.sh enable-vm-secret-access
-scripts/bootstrap-media-vm.sh deploy-media-vm
-scripts/bootstrap-media-vm.sh restore-appdata [snapshot-id]
-scripts/bootstrap-media-vm.sh verify-media-vm
+scripts/media-vm/bootstrap-media-vm.sh check-local-readiness
+scripts/media-vm/bootstrap-media-vm.sh enable-vm-secret-access
+scripts/media-vm/bootstrap-media-vm.sh deploy-media-vm
+scripts/media-vm/bootstrap-media-vm.sh restore-appdata [snapshot-id]
+scripts/media-vm/bootstrap-media-vm.sh verify-media-vm
 ```
 
 To pass a known snapshot through the full bootstrap:
 
 ```sh
-scripts/bootstrap-media-vm.sh run --snapshot-id <snapshot-id>
+scripts/media-vm/bootstrap-media-vm.sh run --snapshot-id <snapshot-id>
 ```
 
 During verification, both static and transient hostname values should report
@@ -223,7 +223,7 @@ state only; update and review `flake.lock` separately before running it.
 
 ```sh
 nix develop
-scripts/upgrade-media-vm.sh run
+scripts/media-vm/upgrade-media-vm.sh run
 ```
 
 The wrapper runs these phases in order:
@@ -240,11 +240,11 @@ workflow only when recovering from a failed host or bad application state.
 The phases can also be run individually:
 
 ```sh
-scripts/upgrade-media-vm.sh check-upgrade-readiness
-scripts/upgrade-media-vm.sh create-pre-upgrade-backup
-scripts/upgrade-media-vm.sh dry-activate-media-vm
-scripts/upgrade-media-vm.sh deploy-media-vm
-scripts/upgrade-media-vm.sh verify-media-vm
+scripts/media-vm/upgrade-media-vm.sh check-upgrade-readiness
+scripts/media-vm/upgrade-media-vm.sh create-pre-upgrade-backup
+scripts/media-vm/upgrade-media-vm.sh dry-activate-media-vm
+scripts/media-vm/upgrade-media-vm.sh deploy-media-vm
+scripts/media-vm/upgrade-media-vm.sh verify-media-vm
 ```
 
 ## Deploy
@@ -261,7 +261,7 @@ The guarded deploy helper checks local SOPS decryption and confirms the VM has
 a matching SOPS recipient before switching:
 
 ```sh
-scripts/deploy-media.sh
+scripts/media-vm/deploy-media.sh
 ```
 
 ## Backups and Restore
@@ -282,7 +282,7 @@ scripts/deploy-media.sh
 Post-deploy validation:
 
 ```sh
-scripts/test-media-backup.sh
+scripts/media-vm/test-media-backup.sh
 ```
 
 That script mounts `/mnt/backups` if needed, starts a backup, starts the restore
@@ -295,7 +295,7 @@ To run the disruptive kill-switch check after changing Gluetun or downloader
 networking:
 
 ```sh
-scripts/test-media-backup.sh --include-kill-switch
+scripts/media-vm/test-media-backup.sh --include-kill-switch
 ```
 
 That briefly stops `podman-media-gluetun.service`, confirms qBittorrent and

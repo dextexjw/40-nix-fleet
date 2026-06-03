@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="media-vm"
 HOST_IP="10.2.20.113"
 REMOTE_USER="smoke"
@@ -14,12 +14,12 @@ die() {
 usage() {
   cat <<EOF
 Usage:
-  scripts/bootstrap-media-vm.sh run [--snapshot-id <id>]
-  scripts/bootstrap-media-vm.sh check-local-readiness
-  scripts/bootstrap-media-vm.sh enable-vm-secret-access
-  scripts/bootstrap-media-vm.sh deploy-media-vm
-  scripts/bootstrap-media-vm.sh restore-appdata [snapshot-id]
-  scripts/bootstrap-media-vm.sh verify-media-vm
+  scripts/media-vm/bootstrap-media-vm.sh run [--snapshot-id <id>]
+  scripts/media-vm/bootstrap-media-vm.sh check-local-readiness
+  scripts/media-vm/bootstrap-media-vm.sh enable-vm-secret-access
+  scripts/media-vm/bootstrap-media-vm.sh deploy-media-vm
+  scripts/media-vm/bootstrap-media-vm.sh restore-appdata [snapshot-id]
+  scripts/media-vm/bootstrap-media-vm.sh verify-media-vm
 
 This orchestrates the post-install media-vm bootstrap. Run the external
 nixos-anywhere install first, then confirm SSH works for ${REMOTE_USER}@${HOST_IP}.
@@ -60,15 +60,15 @@ confirm_ssh_access() {
 }
 
 phase_check_local_readiness() {
-  "$ROOT/scripts/bootstrap-media.sh"
+  "$ROOT/scripts/media-vm/bootstrap-media.sh"
 }
 
 phase_enable_vm_secret_access() {
-  "$ROOT/scripts/update-media-sops-recipient.sh"
+  "$ROOT/scripts/media-vm/update-media-sops-recipient.sh"
 }
 
 phase_deploy_media_vm() {
-  "$ROOT/scripts/deploy-media.sh"
+  "$ROOT/scripts/media-vm/deploy-media.sh"
   ensure_vm_hostname
 }
 
@@ -78,9 +78,9 @@ phase_restore_appdata() {
   validate_snapshot_id "$snapshot_id"
 
   if [[ -n "$snapshot_id" ]]; then
-    "$ROOT/scripts/restore-media-appdata.sh" "$snapshot_id"
+    "$ROOT/scripts/media-vm/restore-media-appdata.sh" "$snapshot_id"
   else
-    "$ROOT/scripts/restore-media-appdata.sh"
+    "$ROOT/scripts/media-vm/restore-media-appdata.sh"
   fi
 }
 
@@ -109,7 +109,7 @@ phase_verify_media_vm() {
   [[ "$static_hostname" == "$HOST" ]] || die "static hostname is '$static_hostname', expected '$HOST'"
   [[ "$transient_hostname" == "$HOST" ]] || die "transient hostname is '$transient_hostname', expected '$HOST'"
 
-  "$ROOT/scripts/test-media-backup.sh"
+  "$ROOT/scripts/media-vm/test-media-backup.sh"
 }
 
 run_phase() {

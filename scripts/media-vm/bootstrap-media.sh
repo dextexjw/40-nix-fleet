@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="media-vm"
 SECRETS="$ROOT/secrets/secrets.yaml"
 
@@ -51,5 +51,5 @@ Local readiness checks passed for $HOST.
 Next steps:
   1. Run the external nixos-anywhere install flow for the VM.
   2. Ensure non-interactive SSH for smoke works at 10.2.20.113.
-  3. Continue with: scripts/bootstrap-media-vm.sh run
+  3. Continue with: scripts/media-vm/bootstrap-media-vm.sh run
 MSG

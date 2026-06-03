@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="media-vm"
 HOST_IP="10.2.20.113"
 SECRETS="$ROOT/secrets/secrets.yaml"
@@ -53,7 +53,7 @@ if [[ -z "$target_recipient" ]]; then
 fi
 
 if ! grep -Fq "$target_recipient" "$SECRETS"; then
-  die "$HOST cannot decrypt $SECRETS; add '$target_recipient' to .sops.yaml, then run: sops updatekeys secrets/secrets.yaml"
+  die "$HOST cannot decrypt $SECRETS; run: scripts/media-vm/update-media-sops-recipient.sh"
 fi
 
 colmena apply --on "$HOST" switch

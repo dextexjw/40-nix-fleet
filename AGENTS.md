@@ -37,7 +37,7 @@ Fleet is managed as a Nix flake and deployed with Colmena, so changes should alw
 ## Testing Guidelines
 - Extend or adjust modules under `modules/` and rerun `nix flake check` before review.
 - For behavioural changes, exercise `colmena apply --on <host> dry-activate` to confirm activations succeed.
-- For `media-vm` changes touching the media stack, SMB mounts, SOPS secrets, or Restic, deploy with `colmena apply --on media-vm switch` and run `scripts/test-media-backup.sh` from the development shell. This starts `appsdata-backup.service`, runs `appsdata-restore-check.service`, verifies `appsdata-backup.timer`, and lists the latest tagged snapshots.
+- For `media-vm` changes touching the media stack, SMB mounts, SOPS secrets, or Restic, deploy with `colmena apply --on media-vm switch` and run `scripts/media-vm/test-media-backup.sh` from the development shell. This starts `appsdata-backup.service`, runs `appsdata-restore-check.service`, verifies `appsdata-backup.timer`, and lists the latest tagged snapshots.
 - Keep `README.md` and the generated `/etc/fleet/media-vm.md` recovery notes in sync when backup or restore procedures change.
 - Capture any manual verification (e.g. Grafana reachable on port 3000) in the pull request notes so reviewers can mirror the checks.
 
