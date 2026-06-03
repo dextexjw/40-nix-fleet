@@ -76,7 +76,7 @@ phase_check_upgrade_readiness() {
     die "unable to decrypt $SECRETS; rekey it for your local/admin key"
   fi
 
-  for required_key in admin-password-hash beszel-agent-key beszel-agent-token checkmate-capture-environment memos-admin-pat memos-oidc-client-secret restic-password smb-credentials; do
+  for required_key in admin-password-hash beszel-agent-key beszel-agent-token checkmate-capture-environment freshrss-admin-password memos-admin-pat memos-oidc-client-secret nextcloud-admin-password paperless-admin-password restic-password rustfs-environment rustfs-oidc-client-secret smb-credentials; do
     grep -q "^${required_key}:" <<<"$decrypted_secrets" || die "$SECRETS is missing $required_key"
   done
 
