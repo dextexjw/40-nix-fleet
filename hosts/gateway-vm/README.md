@@ -102,26 +102,49 @@ the callback. Native OIDC providers use Authentik's self-signed signing key so
 the provider JWKS is populated for clients that validate discovery during
 startup.
 
-Native SSO playbook for the next apps:
+Future Authentik integrations should follow this pattern:
 
-1. Confirm the app supports declarative OIDC or header auth. Prefer native OIDC;
-   use header auth only when the app explicitly supports trusted reverse-proxy
-   identity; leave proxy-only/browser protection out unless native auth is not
-   possible.
-2. Add the route catalog auth metadata: `auth.mode = "native-oidc"`,
-   `auth.groups`, and `auth.oidc.clientId`, `clientSecretFile`, `launchUrl`, and
-   exact callback `redirectUris`.
-3. Add one SOPS client-secret key per app and expose it to both sides: owner
-   `authentik` on `gateway-vm`, and the app service user on the app host.
-4. Let `authentik-provision.service` create/update the Authentik provider,
-   application, redirect URIs, scopes, and group bindings from the catalog.
-5. Configure the app side declaratively in its host module before service start.
-   Keep local/break-glass auth enabled until an interactive login test passes.
-6. Update host docs, deploy/bootstrap/upgrade readiness checks, and smoke tests.
-   Smoke tests should verify Authentik discovery, app auth-provider visibility,
-   unit success, direct health endpoints, and routed HTTPS behavior.
-7. Deploy in order: backup, `gateway-vm` dry/switch, app-host dry/switch, then
-   run both host smoke scripts.
+1. Prefer native OIDC. Do not put Authentik forwardAuth in front of ordinary
+   browser routes unless the target app has no usable native SSO path and the
+   proxy-only behavior is deliberately designed.
+2. Declare the integration in the service exposure catalog, not manually in
+   Authentik. For catalog helpers such as `mkService`, set `authMode`,
+   `authGroups`, and `authOidc`; for hand-written entries, set the equivalent
+   `auth` attribute:
+
+   ```nix
+   authMode = "native-oidc";
+   authGroups = [ "productivity-users" ];
+   authOidc = {
+     clientId = "service-name";
+     clientSecretFile = "/run/secrets/service-name-oidc-client-secret";
+     launchUrl = "https://service-name.jax22.com/";
+     redirectUris = [ "https://service-name.jax22.com/oidc/callback" ];
+   };
+   ```
+
+3. Use exact callback URLs. `redirectUris` are provisioned as strict Authentik
+   redirect URIs; include only callbacks the app actually uses.
+4. Add one encrypted SOPS client-secret key per app. Gateway derives its
+   Authentik-owned SOPS secret declarations from the catalog
+   `clientSecretFile`; the app host must also expose the same secret to the app
+   service user or app-specific OIDC config unit.
+5. Configure the app side declaratively before service start. Use the same
+   `clientId`, client secret, and Authentik discovery URL:
+   `https://auth.jax22.com/application/o/<clientId>/.well-known/openid-configuration`.
+   Keep local or break-glass login enabled until an interactive OIDC login is
+   confirmed.
+6. Let `authentik-provision.service` on `gateway-vm` create or update the
+   Authentik provider, application, redirect URIs, OAuth scopes, signing key, and
+   group bindings from `exposureCatalog.authentikApplications`. Native OIDC
+   declarations without `clientSecretFile` or `redirectUris` fail Nix evaluation.
+7. Update the app host README, readiness checks, and smoke tests. Gateway smoke
+   checks are generated for Authentik discovery and authorize URLs from the
+   catalog; the app host smoke test must still verify that the app sees the
+   configured provider and that direct and routed health checks pass.
+8. Deploy in order: create or confirm a fresh backup, dry/switch `gateway-vm`,
+   dry/switch the app host, then run `scripts/gateway-vm/test-gateway-services.sh`
+   and the app host smoke script.
 
 Traefik writes JSON access logs to the `traefik.service` journal. Prometheus
 metrics are exposed on the existing dashboard entrypoint at
@@ -235,8 +258,10 @@ for the subnet.
 Required secrets:
 
 - `admin-password-hash`
+- `authentik-bootstrap-email`
 - `authentik-bootstrap-password`
 - `authentik-bootstrap-token`
+- `authentik-bootstrap-username`
 - `authentik-postgresql-password`
 - `authentik-secret-key`
 - `beszel-oidc-client-secret`
