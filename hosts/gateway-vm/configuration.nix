@@ -134,17 +134,43 @@ in
       admin-password-hash = {
         neededForUsers = true;
       };
+      authentik-bootstrap-email = {
+        owner = "authentik";
+        group = "authentik";
+        mode = "0400";
+        restartUnits = [
+          "authentik-provision.service"
+          "authentik-server.service"
+          "authentik-worker.service"
+        ];
+      };
       authentik-bootstrap-password = {
         owner = "authentik";
         group = "authentik";
         mode = "0400";
-        restartUnits = [ "authentik-worker.service" ];
+        restartUnits = [
+          "authentik-provision.service"
+          "authentik-worker.service"
+        ];
       };
       authentik-bootstrap-token = {
         owner = "authentik";
         group = "authentik";
         mode = "0400";
-        restartUnits = [ "authentik-worker.service" ];
+        restartUnits = [
+          "authentik-provision.service"
+          "authentik-worker.service"
+        ];
+      };
+      authentik-bootstrap-username = {
+        owner = "authentik";
+        group = "authentik";
+        mode = "0400";
+        restartUnits = [
+          "authentik-provision.service"
+          "authentik-server.service"
+          "authentik-worker.service"
+        ];
       };
       authentik-postgresql-password = {
         owner = "postgres";
@@ -165,7 +191,9 @@ in
           "authentik-worker.service"
         ];
       };
-    } // authentikOidcSecrets // {
+    }
+    // authentikOidcSecrets
+    // {
       beszel-agent-key = {
         owner = "beszel-agent";
         group = "beszel-agent";
@@ -246,10 +274,10 @@ in
     aliases = [ "auth.h" ];
     applications = exposureCatalog.authentikApplications;
     bootstrap = {
-      username = "smoke";
-      email = "admin@jax22.com";
+      emailFile = config.sops.secrets.authentik-bootstrap-email.path;
       passwordFile = config.sops.secrets.authentik-bootstrap-password.path;
       tokenFile = config.sops.secrets.authentik-bootstrap-token.path;
+      usernameFile = config.sops.secrets.authentik-bootstrap-username.path;
     };
     domain = "auth.jax22.com";
     enable = true;

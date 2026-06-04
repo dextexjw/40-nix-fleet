@@ -104,9 +104,11 @@ Required shared secrets:
 
 Required productivity secrets:
 
+- `authentik-bootstrap-email`
 - `firefly-app-key`
 - `forgejo-oidc-client-secret`
 - `freshrss-admin-password`
+- `freshrss-admin-username`
 - `garage-admin-token`
 - `garage-metrics-token`
 - `garage-rpc-secret`
@@ -114,14 +116,17 @@ Required productivity secrets:
 - `memos-admin-pat`
 - `memos-oidc-client-secret`
 - `nextcloud-admin-password`
+- `nextcloud-admin-username`
 - `nextcloud-oidc-client-secret`
 - `paperless-admin-password`
+- `paperless-admin-username`
 - `paperless-oidc-client-secret`
 - `rustfs-environment`
 - `rustfs-oidc-client-secret`
 - `searxng-environment`
 - `shlink-environment`
 - `syncthing-gui-password`
+- `syncthing-gui-username`
 - `vaultwarden-environment`
 
 Forgejo uses native OIDC with Authentik. Authentik provisions the `forgejo`
@@ -145,8 +150,8 @@ Paperless uses native OIDC through django-allauth. Authentik provisions the
 `paperless`. The only allowed callback is
 `https://paperless.jax22.com/accounts/oidc/authentik/login/callback/`.
 Authentik-backed Paperless accounts are created on first successful OIDC login.
-`paperless-oidc-superuser.service` promotes the configured Authentik admin
-identity, username `smoke` or email `admin@jax22.com`, to Django staff and
+`paperless-oidc-superuser.service` promotes the SOPS-backed admin identity from
+`paperless-admin-username` or `authentik-bootstrap-email` to Django staff and
 superuser. `paperless-oidc-superuser.timer` retries this after boot so the
 admin OIDC account is promoted after its first browser login.
 Local Paperless username/password login remains enabled for break-glass access.
@@ -330,15 +335,16 @@ for break-glass access.
 Paperless uses Authentik native OIDC for `productivity-users`.
 `paperless-oidc-client-secret` is shared between Gateway Authentik provisioning
 and the Paperless runtime environment template. `paperless-oidc-superuser`
-promotes the Authentik admin identity, username `smoke` or email
-`admin@jax22.com`, to Paperless staff and superuser. Local Paperless password
-login stays enabled for break-glass access.
+promotes the SOPS-backed admin identity from `paperless-admin-username` or
+`authentik-bootstrap-email` to Paperless staff and superuser. Local Paperless
+password login stays enabled for break-glass access.
 
 Nextcloud uses Authentik native OIDC for `productivity-users`.
 `nextcloud-oidc-client-secret` is shared between Gateway Authentik provisioning
 and `nextcloud-oidc-config.service`. The integration is additive: local
-Nextcloud accounts, including the `smoke` admin account from
-`nextcloud-admin-password`, remain valid for break-glass access.
+Nextcloud accounts, including the admin account from
+`nextcloud-admin-username` and `nextcloud-admin-password`, remain valid for
+break-glass access.
 
 `rustfs-oidc-policy.service` declaratively keeps the RustFS
 `rustfs-console-admin` IAM policy available for Authentik-backed console

@@ -201,16 +201,27 @@ colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/ >/d
 if allow_missing_paperless_oidc_environment; then
   printf 'Skipping Paperless OIDC provider checks because paperless-oidc-environment is not deployed yet.\n'
 else
-  colmena exec --on "$HOST" -- "sh -lc 'env_file=\$(systemctl show paperless-web.service -p EnvironmentFiles --value | tr \" \" \"\\n\" | grep -F \"paperless-oidc-environment\" | head -n1); test -n \"\$env_file\"; sudo stat -c \"%U:%G %a\" \"\$env_file\" | grep -Fxq \"paperless:paperless 400\"; sudo grep -Fq \"PAPERLESS_SOCIALACCOUNT_PROVIDERS=\" \"\$env_file\"; sudo grep -Fq \"authentik\" \"\$env_file\"; sudo grep -Fq \"paperless\" \"\$env_file\"'"
+  colmena exec --on "$HOST" -- "sh -lc 'env_file=\$(systemctl show paperless-web.service -p EnvironmentFiles --value | tr \" \" \"\\n\" | grep -F \"paperless-oidc-environment\" | head -n1); test -n \"\$env_file\"; sudo stat -c \"%U:%G %a\" \"\$env_file\" | grep -Fxq \"paperless:paperless 400\"; sudo grep -Fq \"PAPERLESS_ADMIN_USER=\" \"\$env_file\"; sudo grep -Fq \"PAPERLESS_SOCIALACCOUNT_PROVIDERS=\" \"\$env_file\"; sudo grep -Fq \"authentik\" \"\$env_file\"; sudo grep -Fq \"paperless\" \"\$env_file\"'"
   if allow_missing_unit paperless-oidc-superuser.service || allow_missing_unit paperless-oidc-superuser.timer; then
     printf 'Skipping Paperless OIDC superuser unit checks because paperless-oidc-superuser is not deployed yet.\n'
   else
     colmena exec --on "$HOST" -- systemctl is-enabled --quiet paperless-oidc-superuser.timer
     colmena exec --on "$HOST" -- systemctl start paperless-oidc-superuser.service
   fi
-  colmena exec --on "$HOST" -- "sudo -u paperless paperless-manage shell -c 'from django.conf import settings; from django.contrib.auth.models import User; providers = settings.SOCIALACCOUNT_PROVIDERS; provider = providers[\"openid_connect\"]; app = provider[\"APPS\"][0]; admin = User.objects.get(username=\"smoke\"); assert \"allauth.socialaccount.providers.openid_connect\" in settings.INSTALLED_APPS; assert app[\"provider_id\"] == \"authentik\"; assert app[\"name\"] == \"Authentik\"; assert app[\"client_id\"] == \"paperless\"; assert app[\"settings\"][\"server_url\"] == \"https://auth.jax22.com/application/o/paperless/.well-known/openid-configuration\"; assert app[\"settings\"][\"fetch_userinfo\"] is True; assert provider[\"OAUTH_PKCE_ENABLED\"] is True; assert provider[\"SCOPE\"] == [\"openid\", \"profile\", \"email\"]; assert settings.SOCIALACCOUNT_AUTO_SIGNUP is True; assert settings.SOCIALACCOUNT_ALLOW_SIGNUPS is True; assert admin.is_staff is True; assert admin.is_superuser is True'"
+  colmena exec --on "$HOST" -- "sudo -u paperless sh -lc 'set -a; . /run/secrets/rendered/paperless-oidc-environment; set +a; paperless-manage shell -c '\''from pathlib import Path; from django.conf import settings; from django.contrib.auth.models import User; providers = settings.SOCIALACCOUNT_PROVIDERS; provider = providers[\"openid_connect\"]; app = provider[\"APPS\"][0]; admin_user = Path(\"/run/secrets/paperless-admin-username\").read_text(encoding=\"utf-8\").strip(); admin = User.objects.get(username=admin_user); assert \"allauth.socialaccount.providers.openid_connect\" in settings.INSTALLED_APPS; assert app[\"provider_id\"] == \"authentik\"; assert app[\"name\"] == \"Authentik\"; assert app[\"client_id\"] == \"paperless\"; assert app[\"settings\"][\"server_url\"] == \"https://auth.jax22.com/application/o/paperless/.well-known/openid-configuration\"; assert app[\"settings\"][\"fetch_userinfo\"] is True; assert provider[\"OAUTH_PKCE_ENABLED\"] is True; assert provider[\"SCOPE\"] == [\"openid\", \"profile\", \"email\"]; assert settings.SOCIALACCOUNT_AUTO_SIGNUP is True; assert settings.SOCIALACCOUNT_ALLOW_SIGNUPS is True; assert admin.is_staff is True; assert admin.is_superuser is True'\'''"
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: paperless.jax22.com' http://127.0.0.1/accounts/login/ | grep -Fq 'Authentik'"
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://paperless.jax22.com/accounts/login/ | grep -Fq 'Authentik'"
+fi
+if allow_missing_unit nextcloud-admin-user.service; then
+  printf 'Skipping Nextcloud admin user checks because nextcloud-admin-user.service is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- "systemctl show nextcloud-admin-user.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show nextcloud-admin-user.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+  colmena exec --on "$HOST" -- "sudo -u nextcloud sh -lc 'IFS= read -r admin_user < /run/secrets/nextcloud-admin-username; test -n \"\$admin_user\"; nextcloud-occ user:info \"\$admin_user\" | grep -Fxq \"    - admin\"'"
+fi
+if allow_missing_unit syncthing-gui-username.service; then
+  printf 'Skipping Syncthing GUI username checks because syncthing-gui-username.service is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- "systemctl show syncthing-gui-username.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show syncthing-gui-username.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
 fi
 if allow_missing_nextcloud_oidc_config; then
   printf 'Skipping Nextcloud OIDC provider checks because nextcloud-oidc-config.service is not deployed yet.\n'

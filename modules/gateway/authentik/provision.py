@@ -25,8 +25,8 @@ with open("@applicationProvisioningJson@", "r", encoding="utf-8") as application
     application_config = json.load(applications_file)
     declared_admin_groups = application_config["adminGroups"]
     declared_applications = application_config["applications"]
-    bootstrap_email = application_config["bootstrapEmail"]
-    bootstrap_username = application_config["bootstrapUsername"]
+    bootstrap_email = os.environ.get("AUTHENTIK_BOOTSTRAP_EMAIL")
+    bootstrap_username = os.environ.get("AUTHENTIK_BOOTSTRAP_USERNAME")
     bootstrap_password = os.environ.get("AUTHENTIK_BOOTSTRAP_PASSWORD")
 
 

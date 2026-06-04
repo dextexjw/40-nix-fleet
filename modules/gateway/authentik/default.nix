@@ -12,6 +12,8 @@ let
   postgresqlDataDir = "${cfg.stateDir}/postgresql/${config.services.postgresql.package.psqlSchema}";
   redisDataDir = "${cfg.stateDir}/redis";
   secretFile = path: if path == null then "/run/secrets/UNSET" else path;
+  bootstrapEmailFallback = if cfg.bootstrap.email == null then "" else cfg.bootstrap.email;
+  bootstrapUsernameFallback = if cfg.bootstrap.username == null then "" else cfg.bootstrap.username;
   authentikEnvironment = {
     AUTHENTIK_CERT_DISCOVERY_DIR = "${cfg.stateDir}/certs";
     AUTHENTIK_DISABLE_STARTUP_ANALYTICS = "true";
@@ -35,13 +37,23 @@ let
     export AUTHENTIK_SECRET_KEY="$(<${secretFile cfg.secretKeyFile})"
     export AUTHENTIK_POSTGRESQL__PASSWORD="$(<${secretFile cfg.postgresql.passwordFile})"
 
-    if [ -n "${cfg.bootstrap.email}" ]; then
-      export AUTHENTIK_BOOTSTRAP_EMAIL="${cfg.bootstrap.email}"
-    fi
+    read_secret_or_fallback() {
+      local variable_name="$1"
+      local file="$2"
+      local fallback="$3"
+      local value="$fallback"
 
-    ${lib.optionalString (cfg.bootstrap.username != null) ''
-      export AUTHENTIK_BOOTSTRAP_USERNAME="${cfg.bootstrap.username}"
-    ''}
+      if [ -r "$file" ]; then
+        IFS= read -r value < "$file" || [ -n "$value" ]
+      fi
+
+      if [ -n "$value" ]; then
+        export "$variable_name=$value"
+      fi
+    }
+
+    read_secret_or_fallback AUTHENTIK_BOOTSTRAP_EMAIL ${escapeShellArg (secretFile cfg.bootstrap.emailFile)} ${escapeShellArg bootstrapEmailFallback}
+    read_secret_or_fallback AUTHENTIK_BOOTSTRAP_USERNAME ${escapeShellArg (secretFile cfg.bootstrap.usernameFile)} ${escapeShellArg bootstrapUsernameFallback}
 
     if [ -r "${secretFile cfg.bootstrap.passwordFile}" ]; then
       export AUTHENTIK_BOOTSTRAP_PASSWORD="$(<${secretFile cfg.bootstrap.passwordFile})"
@@ -64,25 +76,21 @@ let
     builtins.toJSON {
       adminGroups = cfg.adminGroups;
       applications = cfg.applications;
-      bootstrapEmail = cfg.bootstrap.email;
-      bootstrapUsername = cfg.bootstrap.username;
     }
   );
 
   nativeOidcApplications = filter (app: app.mode == "native-oidc") cfg.applications;
 
-  mkOidcApplicationAssertions =
-    app:
-    [
-      {
-        assertion = app.oidc.clientSecretFile != null;
-        message = "fleet.gateway.authentik application ${app.slug} uses native-oidc but does not set oidc.clientSecretFile.";
-      }
-      {
-        assertion = app.oidc.redirectUris != [ ];
-        message = "fleet.gateway.authentik application ${app.slug} uses native-oidc but does not set oidc.redirectUris.";
-      }
-    ];
+  mkOidcApplicationAssertions = app: [
+    {
+      assertion = app.oidc.clientSecretFile != null;
+      message = "fleet.gateway.authentik application ${app.slug} uses native-oidc but does not set oidc.clientSecretFile.";
+    }
+    {
+      assertion = app.oidc.redirectUris != [ ];
+      message = "fleet.gateway.authentik application ${app.slug} uses native-oidc but does not set oidc.redirectUris.";
+    }
+  ];
 
   provisioningPython = pkgs.replaceVars ./provision.py {
     inherit groupProvisioningJson applicationProvisioningJson;
@@ -264,15 +272,27 @@ in
 
     bootstrap = {
       email = mkOption {
-        type = types.str;
-        default = "admin@jax22.com";
-        description = "Bootstrap admin email.";
+        type = types.nullOr types.str;
+        default = null;
+        description = "Fallback bootstrap admin email when emailFile is unset or unreadable.";
+      };
+
+      emailFile = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        description = "Runtime file containing the bootstrap admin email.";
       };
 
       username = mkOption {
         type = types.nullOr types.str;
         default = null;
-        description = "Optional bootstrap admin username.";
+        description = "Fallback bootstrap admin username when usernameFile is unset or unreadable.";
+      };
+
+      usernameFile = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        description = "Runtime file containing the bootstrap admin username.";
       };
 
       passwordFile = mkOption {
@@ -319,7 +339,8 @@ in
         assertion = cfg.postgresql.passwordFile != null;
         message = "fleet.gateway.authentik.postgresql.passwordFile must be set.";
       }
-    ] ++ concatMap mkOidcApplicationAssertions nativeOidcApplications;
+    ]
+    ++ concatMap mkOidcApplicationAssertions nativeOidcApplications;
 
     users.groups.authentik = { };
     users.users.authentik = {

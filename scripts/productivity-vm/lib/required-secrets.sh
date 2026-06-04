@@ -1,18 +1,23 @@
 PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   admin-password-hash
+  authentik-bootstrap-email
   beszel-agent-key
   beszel-agent-token
   checkmate-capture-environment
   forgejo-oidc-client-secret
   freshrss-admin-password
+  freshrss-admin-username
   memos-admin-pat
   memos-oidc-client-secret
   nextcloud-admin-password
+  nextcloud-admin-username
   nextcloud-oidc-client-secret
   paperless-admin-password
+  paperless-admin-username
   paperless-oidc-client-secret
   restic-password
   rustfs-environment
   rustfs-oidc-client-secret
   smb-credentials
+  syncthing-gui-username
 )

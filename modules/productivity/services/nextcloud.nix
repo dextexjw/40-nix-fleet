@@ -12,10 +12,55 @@ let
   productivityLib = import ../lib.nix {
     inherit config lib pkgs;
   };
-  inherit (productivityLib) cfg appdata secretPath serviceHostAliases serviceHosts;
+  inherit (productivityLib)
+    cfg
+    appdata
+    secretPath
+    serviceHostAliases
+    serviceHosts
+    ;
   oidcCfg = cfg.nextcloud.oidc;
+  adminUsernameFile = secretPath "nextcloud-admin-username";
+  adminPasswordFile = secretPath "nextcloud-admin-password";
   oidcClientSecretFile =
-    if oidcCfg.clientSecretFile == null then "/run/secrets/UNSET" else toString oidcCfg.clientSecretFile;
+    if oidcCfg.clientSecretFile == null then
+      "/run/secrets/UNSET"
+    else
+      toString oidcCfg.clientSecretFile;
+  nextcloudAdminProvision = pkgs.writeShellScript "nextcloud-admin-user" ''
+    set -euo pipefail
+
+    IFS= read -r admin_user < ${adminUsernameFile} || [ -n "$admin_user" ]
+    test -n "$admin_user"
+
+    export OC_PASS="$(<${adminPasswordFile})"
+    test -n "$OC_PASS"
+
+    for attempt in $(seq 1 60); do
+      if nextcloud-occ status >/dev/null 2>&1; then
+        break
+      fi
+      if [ "$attempt" -eq 60 ]; then
+        echo "Nextcloud did not become ready for admin user provisioning" >&2
+        exit 1
+      fi
+      sleep 2
+    done
+
+    if nextcloud-occ user:info "$admin_user" >/dev/null 2>&1; then
+      nextcloud-occ user:resetpassword --password-from-env "$admin_user"
+    else
+      nextcloud-occ user:add --password-from-env --display-name "$admin_user" "$admin_user"
+    fi
+
+    nextcloud-occ group:add admin >/dev/null 2>&1 || true
+    nextcloud-occ group:adduser admin "$admin_user" >/dev/null 2>&1 || true
+
+    if ! nextcloud-occ user:info "$admin_user" | grep -Fxq "    - admin"; then
+      echo "Nextcloud admin user is not a member of the admin group" >&2
+      exit 1
+    fi
+  '';
   nextcloudOidcProvision = pkgs.writeShellScript "nextcloud-oidc-provision" ''
     set -euo pipefail
 
@@ -68,8 +113,8 @@ in
       https = false;
       package = pkgs.nextcloud32;
       config = {
-        adminpassFile = secretPath "nextcloud-admin-password";
-        adminuser = "smoke";
+        adminpassFile = null;
+        adminuser = null;
         dbtype = "pgsql";
       };
       settings = {
@@ -80,13 +125,41 @@ in
       };
     };
 
-    systemd.services.nextcloud-oidc-config = mkIf oidcCfg.enable {
-      description = "Configure Nextcloud Authentik OIDC provider";
+    systemd.services.nextcloud-admin-user = {
+      description = "Ensure SOPS-backed Nextcloud admin user";
       after = [
         "network-online.target"
         "nextcloud-setup.service"
       ];
       requires = [ "nextcloud-setup.service" ];
+      wants = [ "network-online.target" ];
+      wantedBy = [ "multi-user.target" ];
+      path = [
+        config.services.nextcloud.occ
+        pkgs.coreutils
+        pkgs.gnugrep
+      ];
+      restartTriggers = [ nextcloudAdminProvision ];
+      serviceConfig = {
+        ExecStart = nextcloudAdminProvision;
+        Group = "nextcloud";
+        RemainAfterExit = true;
+        Type = "oneshot";
+        User = "nextcloud";
+      };
+    };
+
+    systemd.services.nextcloud-oidc-config = mkIf oidcCfg.enable {
+      description = "Configure Nextcloud Authentik OIDC provider";
+      after = [
+        "network-online.target"
+        "nextcloud-admin-user.service"
+        "nextcloud-setup.service"
+      ];
+      requires = [
+        "nextcloud-admin-user.service"
+        "nextcloud-setup.service"
+      ];
       wants = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
       path = [

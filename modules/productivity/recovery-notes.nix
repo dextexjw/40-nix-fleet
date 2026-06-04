@@ -134,15 +134,18 @@ in
         Paperless OIDC uses the encrypted paperless-oidc-client-secret shared
         between gateway-vm Authentik provisioning and this host's paperless-owned
         generated runtime environment file. Authentik allows productivity-users,
-        paperless-oidc-superuser promotes username smoke or email admin@jax22.com
-        to Paperless staff and superuser, and local Paperless password login
-        remains enabled for break-glass access.
+        paperless-oidc-superuser promotes the SOPS-backed identity from
+        paperless-admin-username or authentik-bootstrap-email to Paperless staff
+        and superuser, and local Paperless password login remains enabled for
+        break-glass access.
 
         Nextcloud OIDC uses the encrypted nextcloud-oidc-client-secret shared
         between gateway-vm Authentik provisioning and this host's
         nextcloud-oidc-config.service. The service configures the native
         user_oidc app for productivity-users while keeping local Nextcloud
-        username/password login enabled for break-glass access.
+        username/password login enabled for break-glass access. The local admin
+        identity is sourced from nextcloud-admin-username and
+        nextcloud-admin-password.
 
         RustFS OIDC uses the encrypted rustfs-oidc-client-secret shared between
         gateway-vm Authentik provisioning and this host's root-only generated

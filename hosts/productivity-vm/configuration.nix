@@ -42,6 +42,12 @@ in
       admin-password-hash = {
         neededForUsers = true;
       };
+      authentik-bootstrap-email = {
+        owner = "paperless";
+        group = "paperless";
+        mode = "0400";
+        restartUnits = [ "paperless-oidc-superuser.service" ];
+      };
       beszel-agent-key = {
         owner = "beszel-agent";
         group = "beszel-agent";
@@ -62,6 +68,12 @@ in
         group = "nginx";
         mode = "0400";
         restartUnits = [ "phpfpm-firefly-iii.service" ];
+      };
+      freshrss-admin-username = {
+        owner = "freshrss";
+        group = "freshrss";
+        mode = "0400";
+        restartUnits = [ "freshrss-config.service" ];
       };
       freshrss-admin-password = {
         owner = "freshrss";
@@ -112,7 +124,19 @@ in
         restartUnits = [ "memos-oidc-config.service" ];
       };
       nextcloud-admin-password = {
-        restartUnits = [ "nextcloud-setup.service" ];
+        owner = "nextcloud";
+        group = "nextcloud";
+        mode = "0400";
+        restartUnits = [
+          "nextcloud-admin-user.service"
+          "nextcloud-setup.service"
+        ];
+      };
+      nextcloud-admin-username = {
+        owner = "nextcloud";
+        group = "nextcloud";
+        mode = "0400";
+        restartUnits = [ "nextcloud-admin-user.service" ];
       };
       nextcloud-oidc-client-secret = {
         owner = "nextcloud";
@@ -122,6 +146,18 @@ in
       };
       paperless-admin-password = {
         restartUnits = [ "paperless-scheduler.service" ];
+      };
+      paperless-admin-username = {
+        owner = "paperless";
+        group = "paperless";
+        mode = "0400";
+        restartUnits = [
+          "paperless-consumer.service"
+          "paperless-oidc-superuser.service"
+          "paperless-scheduler.service"
+          "paperless-task-queue.service"
+          "paperless-web.service"
+        ];
       };
       paperless-oidc-client-secret = {
         owner = "paperless";
@@ -168,12 +204,19 @@ in
         mode = "0400";
         restartUnits = [ "syncthing.service" ];
       };
+      syncthing-gui-username = {
+        owner = "syncthing";
+        group = "syncthing";
+        mode = "0400";
+        restartUnits = [ "syncthing-gui-username.service" ];
+      };
       vaultwarden-environment = {
         restartUnits = [ "vaultwarden.service" ];
       };
     };
     templates."paperless-oidc-environment" = {
       content = ''
+        PAPERLESS_ADMIN_USER='${config.sops.placeholder."paperless-admin-username"}'
         PAPERLESS_SOCIALACCOUNT_PROVIDERS='${
           builtins.toJSON {
             openid_connect = {
@@ -255,6 +298,8 @@ in
       clientSecretFile = config.sops.secrets.memos-oidc-client-secret.path;
     };
     paperless.oidc = lib.mkIf secretsEnabled {
+      adminEmailFile = config.sops.secrets.authentik-bootstrap-email.path;
+      adminUsernameFile = config.sops.secrets.paperless-admin-username.path;
       enable = true;
       environmentFile = config.sops.templates."paperless-oidc-environment".path;
     };

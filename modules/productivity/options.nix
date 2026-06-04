@@ -231,16 +231,16 @@ in
 
     paperless = {
       oidc = {
-        adminEmails = mkOption {
-          type = types.listOf types.str;
-          default = [ "admin@jax22.com" ];
-          description = "Paperless user email addresses that should be promoted to Django staff and superuser after Authentik OIDC login.";
+        adminEmailFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Authentik admin email promoted to Paperless staff and superuser.";
         };
 
-        adminUsers = mkOption {
-          type = types.listOf types.str;
-          default = [ "smoke" ];
-          description = "Paperless usernames that should be promoted to Django staff and superuser for Authentik OIDC administration.";
+        adminUsernameFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Paperless admin username promoted to staff and superuser.";
         };
 
         enable = mkOption {
@@ -537,6 +537,14 @@ in
       {
         assertion = !cfg.paperless.oidc.enable || cfg.paperless.oidc.environmentFile != null;
         message = "fleet.productivity.stack.paperless.oidc.environmentFile must be set when Paperless OIDC is enabled.";
+      }
+      {
+        assertion = !cfg.paperless.oidc.enable || cfg.paperless.oidc.adminEmailFile != null;
+        message = "fleet.productivity.stack.paperless.oidc.adminEmailFile must be set when Paperless OIDC is enabled.";
+      }
+      {
+        assertion = !cfg.paperless.oidc.enable || cfg.paperless.oidc.adminUsernameFile != null;
+        message = "fleet.productivity.stack.paperless.oidc.adminUsernameFile must be set when Paperless OIDC is enabled.";
       }
       {
         assertion = !cfg.rustfs.oidc.enable || cfg.rustfs.oidc.environmentFile != null;

@@ -22,9 +22,9 @@ let
   oidcCfg = cfg.paperless.oidc;
   oidcAdminConfig = pkgs.writeText "paperless-oidc-admin-users.json" (
     builtins.toJSON {
-      emails = oidcCfg.adminEmails;
+      emailFile = oidcCfg.adminEmailFile;
       providerId = oidcCfg.providerId;
-      usernames = oidcCfg.adminUsers;
+      usernameFile = oidcCfg.adminUsernameFile;
     }
   );
   oidcSuperuserScript = pkgs.writeText "paperless-oidc-superusers.py" ''
@@ -40,9 +40,14 @@ let
     with open("${oidcAdminConfig}", encoding="utf-8") as config_file:
         admin_config = json.load(config_file)
 
-    admin_emails = set(admin_config["emails"])
+    def read_secret(path):
+        with open(path, encoding="utf-8") as secret_file:
+            return secret_file.readline().strip()
+
+
+    admin_emails = {read_secret(admin_config["emailFile"])} - {""}
     admin_provider_id = admin_config["providerId"]
-    admin_usernames = set(admin_config["usernames"])
+    admin_usernames = {read_secret(admin_config["usernameFile"])} - {""}
     oidc_provider_names = {"openid_connect", admin_provider_id}
     users = {}
 
@@ -118,7 +123,6 @@ in
       mediaDir = "${appdata}/paperless/media";
       passwordFile = secretPath "paperless-admin-password";
       settings = {
-        PAPERLESS_ADMIN_USER = "smoke";
         PAPERLESS_ALLOWED_HOSTS = concatStringsSep "," paperlessHostNames;
         PAPERLESS_CSRF_TRUSTED_ORIGINS = concatStringsSep "," (map paperlessOrigin paperlessHostNames);
         PAPERLESS_OCR_LANGUAGE = "eng";
