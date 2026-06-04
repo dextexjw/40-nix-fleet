@@ -79,8 +79,7 @@ access while `.h` is HTTP-only. Authentik runs as `authentik-server.service` and
 `authentik-worker.service`, with PostgreSQL and Redis local to `gateway-vm`.
 Persistent state lives under `/srv/appsdata/authentik`, including PostgreSQL,
 Redis, uploaded media, and discovered certificates. The bootstrap admin password,
-bootstrap/provisioning API token, secret key, and PostgreSQL password are SOPS
-secrets.
+bootstrap API token, secret key, and PostgreSQL password are SOPS secrets.
 
 Authentik is not attached as a Traefik forwardAuth proxy in front of fleet
 applications. Browser routes are ordinary Traefik routes unless the application

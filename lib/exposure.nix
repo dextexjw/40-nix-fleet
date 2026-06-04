@@ -251,6 +251,38 @@ let
       ]) httpsHostNames
     );
 
+  mkAuthentikOidcRows =
+    service:
+    let
+      auth = serviceAuth service;
+      serviceAuthConfig = service.auth or { };
+      oidc = serviceAuthConfig.oidc or { };
+      clientId = oidc.clientId or service.id;
+      redirectUris = oidc.redirectUris or [ ];
+      authHost = "auth.jax22.com";
+      requiredUnit = "authentik-provision.service";
+      discoveryCommand = "curl -fsS --resolve '${authHost}:443:127.0.0.1' https://${authHost}/application/o/${clientId}/.well-known/openid-configuration | grep -Fq '\"issuer\"'";
+      mkAuthorizeCommand =
+        redirectUri:
+        "tmp=$(mktemp); trap 'rm -f \"$tmp\"' EXIT; status=$(curl -sS -o \"$tmp\" -w '%{http_code}' --resolve '${authHost}:443:127.0.0.1' --get 'https://${authHost}/application/o/authorize/' --data-urlencode 'client_id=${clientId}' --data-urlencode 'redirect_uri=${redirectUri}' --data-urlencode 'response_type=code' --data-urlencode 'scope=openid profile email' --data-urlencode 'state=fleet-smoke' --data-urlencode 'nonce=fleet-smoke'); case \"$status\" in 2*|3*) ! grep -Eiq 'invalid(_| |-)?(client|redirect)' \"$tmp\" ;; *) echo \"unexpected authorize status $status\" >&2; exit 1 ;; esac";
+    in
+    optionals (auth.mode == "native-oidc") (
+      [
+        [
+          "http"
+          "${service.name} Authentik discovery"
+          discoveryCommand
+          requiredUnit
+        ]
+      ]
+      ++ map (redirectUri: [
+        "http"
+        "${service.name} Authentik authorize"
+        (mkAuthorizeCommand redirectUri)
+        requiredUnit
+      ]) redirectUris
+    );
+
   mkHomepageRows =
     service:
     let
@@ -406,6 +438,7 @@ in
       ++ concatMap (mkDnsRows gatewayHost) serviceEntries
       ++ concatMap mkHttpRows serviceEntries
       ++ concatMap mkHttpsRows serviceEntries
+      ++ concatMap mkAuthentikOidcRows serviceEntries
       ++ concatMap mkTcpRows serviceEntries
       ++ concatMap mkUdpRows serviceEntries
       ++ concatMap mkHomepageRows serviceEntries;

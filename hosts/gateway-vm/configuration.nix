@@ -18,6 +18,21 @@ let
   exposureCatalog = exposure.load {
     inherit hosts serviceDomain serviceDomains;
   };
+  authentikOidcApplications = builtins.filter (
+    app: app.mode == "native-oidc" && app.oidc ? clientSecretFile
+  ) exposureCatalog.authentikApplications;
+  authentikProvisionSecret = {
+    owner = "authentik";
+    group = "authentik";
+    mode = "0400";
+    restartUnits = [ "authentik-provision.service" ];
+  };
+  authentikOidcSecrets = lib.listToAttrs (
+    map (
+      app:
+      lib.nameValuePair (builtins.baseNameOf (toString app.oidc.clientSecretFile)) authentikProvisionSecret
+    ) authentikOidcApplications
+  );
   secretsFile = ../../secrets/secrets.yaml;
   secretsEnabled = builtins.pathExists secretsFile;
   technitium-dns-server-library_15_2_0 =
@@ -150,42 +165,7 @@ in
           "authentik-worker.service"
         ];
       };
-      beszel-oidc-client-secret = {
-        owner = "authentik";
-        group = "authentik";
-        mode = "0400";
-        restartUnits = [ "authentik-provision.service" ];
-      };
-      forgejo-oidc-client-secret = {
-        owner = "authentik";
-        group = "authentik";
-        mode = "0400";
-        restartUnits = [ "authentik-provision.service" ];
-      };
-      memos-oidc-client-secret = {
-        owner = "authentik";
-        group = "authentik";
-        mode = "0400";
-        restartUnits = [ "authentik-provision.service" ];
-      };
-      nextcloud-oidc-client-secret = {
-        owner = "authentik";
-        group = "authentik";
-        mode = "0400";
-        restartUnits = [ "authentik-provision.service" ];
-      };
-      paperless-oidc-client-secret = {
-        owner = "authentik";
-        group = "authentik";
-        mode = "0400";
-        restartUnits = [ "authentik-provision.service" ];
-      };
-      rustfs-oidc-client-secret = {
-        owner = "authentik";
-        group = "authentik";
-        mode = "0400";
-        restartUnits = [ "authentik-provision.service" ];
-      };
+    } // authentikOidcSecrets // {
       beszel-agent-key = {
         owner = "beszel-agent";
         group = "beszel-agent";
@@ -274,7 +254,6 @@ in
     domain = "auth.jax22.com";
     enable = true;
     postgresql.passwordFile = config.sops.secrets.authentik-postgresql-password.path;
-    provisioning.tokenFile = config.sops.secrets.authentik-secret-key.path;
     secretKeyFile = config.sops.secrets.authentik-secret-key.path;
   };
 
