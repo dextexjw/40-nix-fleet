@@ -119,15 +119,39 @@ in
       style = "row";
       services = [
         (mkService {
-          id = "gitea";
-          name = "Gitea";
-          port = 3000;
-          routeDescription = "Gitea Git repositories";
-          icon = "gitea.png";
-          homepageDescription = "Git repositories\n${backend 3000}";
+          id = "memos";
+          name = "Memos";
+          port = 5230;
+          routeDescription = "Memos personal notes";
+          icon = "memos.png";
+          homepageDescription = "Personal notes\n${backend 5230}";
+          authMode = "native-oidc";
+          authGroups = [ "productivity-users" ];
+          authOidc = {
+            clientId = "memos";
+            clientSecretFile = "/run/secrets/memos-oidc-client-secret";
+            launchUrl = "https://memos.jax22.com/";
+            redirectUris = [ "https://memos.jax22.com/auth/callback" ];
+          };
           smokeHttp = {
             discard = true;
             path = "/";
+          };
+        })
+        (mkService {
+          id = "paperless";
+          name = "Paperless";
+          port = 80;
+          routeDescription = "Paperless-ngx document archive";
+          icon = "paperless-ngx.png";
+          homepageDescription = "Document OCR and archive\n${backend 80}";
+          authMode = "native-oidc";
+          authGroups = [ "productivity-users" ];
+          authOidc = {
+            clientId = "paperless";
+            clientSecretFile = "/run/secrets/paperless-oidc-client-secret";
+            launchUrl = "https://paperless.jax22.com/";
+            redirectUris = [ "https://paperless.jax22.com/accounts/oidc/authentik/login/callback/" ];
           };
         })
         (mkService {
@@ -151,52 +175,48 @@ in
           };
         })
         (mkService {
-          id = "docs";
-          name = "Docs";
-          port = 80;
-          routeDescription = "Material for MkDocs knowledge base";
-          icon = "mkdocs.png";
-          homepageDescription = "Material for MkDocs\n${backend 80}";
+          id = "openspeedtest";
+          name = "OpenSpeedTest";
+          port = 8989;
+          routeDescription = "OpenSpeedTest browser speed test";
+          icon = "openspeedtest.png";
+          homepageDescription = "Browser speed test\n${backend 8989}";
+          smokeHttp = {
+            discard = true;
+            path = "/";
+          };
+        })
+        (mkRouteOnly {
+          id = "shlink";
+          name = "Shlink API";
+          port = 8088;
+          routeDescription = "Shlink short-link API and redirect service";
+          hostPrefix = "s";
+          smokeHttp.path = "/rest/health";
         })
         (mkService {
-          id = "paperless";
-          name = "Paperless";
-          port = 80;
-          routeDescription = "Paperless-ngx document archive";
-          icon = "paperless-ngx.png";
-          homepageDescription = "Document OCR and archive\n${backend 80}";
-          authMode = "native-oidc";
-          authGroups = [ "productivity-users" ];
-          authOidc = {
-            clientId = "paperless";
-            clientSecretFile = "/run/secrets/paperless-oidc-client-secret";
-            launchUrl = "https://paperless.jax22.com/";
-            redirectUris = [ "https://paperless.jax22.com/accounts/oidc/authentik/login/callback/" ];
+          id = "shlink-web";
+          name = "Shlink";
+          port = 8089;
+          routeDescription = "Shlink Web Client";
+          icon = "shlink.png";
+          homepageDescription = "Short-link web client\n${backend 8089}";
+          hostPrefix = "shlink";
+          smokeHttp = {
+            discard = true;
+            path = "/";
           };
         })
         (mkService {
-          id = "freshrss";
-          name = "FreshRSS";
-          port = 80;
-          routeDescription = "FreshRSS reader";
-          icon = "freshrss.png";
-          homepageDescription = "RSS reader\n${backend 80}";
-        })
-        (mkService {
-          id = "searxng";
-          name = "SearXNG";
-          port = 8087;
-          routeDescription = "SearXNG private metasearch";
-          icon = "searxng.png";
-          homepageDescription = "Private metasearch\n${backend 8087}";
-        })
-        (mkService {
-          id = "privatebin";
-          name = "PrivateBin";
-          port = 80;
-          routeDescription = "PrivateBin temporary text sharing";
-          icon = "privatebin.png";
-          homepageDescription = "Encrypted temporary text sharing\n${backend 80}";
+          id = "rustfs";
+          name = "RustFS";
+          port = 9000;
+          routeDescription = "RustFS S3-compatible object storage";
+          icon = "rustfs.png";
+          homepageDescription = "S3-compatible object storage\n${backend 9000}";
+          monitorPath = "/health";
+          authMode = "none";
+          smokeHttp.path = "/health";
         })
         (mkService {
           id = "vaultwarden";
@@ -207,12 +227,66 @@ in
           homepageDescription = "Password vault\n${backend 8222}";
         })
         (mkService {
+          id = "searxng";
+          name = "SearXNG";
+          port = 8087;
+          routeDescription = "SearXNG private metasearch";
+          icon = "searxng.png";
+          homepageDescription = "Private metasearch\n${backend 8087}";
+        })
+        (mkService {
           id = "syncthing";
           name = "Syncthing";
           port = 8384;
           routeDescription = "Syncthing file synchronization";
           icon = "syncthing.png";
           homepageDescription = "File synchronization\n${backend 8384}";
+        })
+        (mkService {
+          id = "ntfy";
+          name = "ntfy";
+          port = 2586;
+          routeDescription = "ntfy push notifications";
+          icon = "ntfy.png";
+          homepageDescription = "Push notifications\n${backend 2586}";
+          monitorPath = "/v1/health";
+          authMode = "none";
+        })
+        (mkService {
+          id = "gitea";
+          name = "Gitea";
+          port = 3000;
+          routeDescription = "Gitea Git repositories";
+          icon = "gitea.png";
+          homepageDescription = "Git repositories\n${backend 3000}";
+          smokeHttp = {
+            discard = true;
+            path = "/";
+          };
+        })
+        (mkService {
+          id = "docs";
+          name = "Docs";
+          port = 80;
+          routeDescription = "Material for MkDocs knowledge base";
+          icon = "mkdocs.png";
+          homepageDescription = "Material for MkDocs\n${backend 80}";
+        })
+        (mkService {
+          id = "freshrss";
+          name = "FreshRSS";
+          port = 80;
+          routeDescription = "FreshRSS reader";
+          icon = "freshrss.png";
+          homepageDescription = "RSS reader\n${backend 80}";
+        })
+        (mkService {
+          id = "privatebin";
+          name = "PrivateBin";
+          port = 80;
+          routeDescription = "PrivateBin temporary text sharing";
+          icon = "privatebin.png";
+          homepageDescription = "Encrypted temporary text sharing\n${backend 80}";
         })
         (mkService {
           id = "stirling-pdf";
@@ -248,18 +322,6 @@ in
           };
         })
         (mkService {
-          id = "openspeedtest";
-          name = "OpenSpeedTest";
-          port = 8989;
-          routeDescription = "OpenSpeedTest browser speed test";
-          icon = "openspeedtest.png";
-          homepageDescription = "Browser speed test\n${backend 8989}";
-          smokeHttp = {
-            discard = true;
-            path = "/";
-          };
-        })
-        (mkService {
           id = "invoiceplane";
           name = "InvoicePlane";
           port = 80;
@@ -272,25 +334,53 @@ in
           };
         })
         (mkService {
-          id = "memos";
-          name = "Memos";
-          port = 5230;
-          routeDescription = "Memos personal notes";
-          icon = "memos.png";
-          homepageDescription = "Personal notes\n${backend 5230}";
+          id = "rustfs-console";
+          name = "RustFS Console";
+          port = 9001;
+          routeDescription = "RustFS object storage console";
+          icon = "rustfs.png";
+          homepageDescription = "Object storage console\n${backend 9001}";
+          monitorPath = "/rustfs/console/health";
+          rootRedirectPath = "/rustfs/console/";
           authMode = "native-oidc";
-          authGroups = [ "productivity-users" ];
+          authGroups = [ "fleet-admins" ];
           authOidc = {
-            clientId = "memos";
-            clientSecretFile = "/run/secrets/memos-oidc-client-secret";
-            launchUrl = "https://memos.jax22.com/";
-            redirectUris = [ "https://memos.jax22.com/auth/callback" ];
+            clientId = "rustfs-console";
+            clientSecretFile = "/run/secrets/rustfs-oidc-client-secret";
+            launchUrl = "https://rustfs-console.jax22.com/";
+            redirectUris = [ "https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik" ];
           };
-          smokeHttp = {
-            discard = true;
-            path = "/";
-          };
+          smokeHttp.path = "/rustfs/console/health";
         })
+        {
+          id = "iperf3";
+          name = "iperf3";
+          docs.urls = builtins.concatMap (hostName: [
+            "iperf3 -c ${hostName} -p 5201"
+            "iperf3 -u -c ${hostName} -p 5201"
+          ]) (hostnames "iperf3");
+          homepage = {
+            description = "Network throughput test\niperf3 -c iperf3.${builtins.head serviceDomains} -p 5201";
+            href = "http://${builtins.head (hostnames "iperf3")}/";
+            icon = "mdi-speedometer";
+          };
+          smoke = {
+            dnsHosts = hostnames "iperf3";
+            requiredUnit = "traefik.service";
+          };
+          tcpRoute = {
+            description = "iperf3 TCP throughput test";
+            entryPoint = "iperf3-tcp";
+            port = 5201;
+            url = "${host.ip}:5201";
+          };
+          udpRoute = {
+            description = "iperf3 UDP throughput test";
+            entryPoint = "iperf3-udp";
+            port = 5201;
+            url = "${host.ip}:5201";
+          };
+        }
         {
           id = "rustdesk-signal";
           name = "RustDesk Signal";
@@ -352,91 +442,6 @@ in
             url = "${host.ip}:21119";
           };
         }
-        (mkRouteOnly {
-          id = "shlink";
-          name = "Shlink API";
-          port = 8088;
-          routeDescription = "Shlink short-link API and redirect service";
-          hostPrefix = "s";
-          smokeHttp.path = "/rest/health";
-        })
-        (mkService {
-          id = "shlink-web";
-          name = "Shlink";
-          port = 8089;
-          routeDescription = "Shlink Web Client";
-          icon = "shlink.png";
-          homepageDescription = "Short-link web client\n${backend 8089}";
-          hostPrefix = "shlink";
-          smokeHttp = {
-            discard = true;
-            path = "/";
-          };
-        })
-        (mkRouteOnly {
-          id = "garage";
-          name = "Garage API";
-          port = 3900;
-          routeDescription = "Garage standalone S3 API";
-        })
-        (mkService {
-          id = "rustfs-console";
-          name = "RustFS Console";
-          port = 9001;
-          routeDescription = "RustFS object storage console";
-          icon = "rustfs.png";
-          homepageDescription = "Object storage console\n${backend 9001}";
-          monitorPath = "/rustfs/console/health";
-          rootRedirectPath = "/rustfs/console/";
-          authMode = "native-oidc";
-          authGroups = [ "fleet-admins" ];
-          authOidc = {
-            clientId = "rustfs-console";
-            clientSecretFile = "/run/secrets/rustfs-oidc-client-secret";
-            launchUrl = "https://rustfs-console.jax22.com/";
-            redirectUris = [ "https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik" ];
-          };
-          smokeHttp.path = "/rustfs/console/health";
-        })
-        (mkService {
-          id = "ntfy";
-          name = "ntfy";
-          port = 2586;
-          routeDescription = "ntfy push notifications";
-          icon = "ntfy.png";
-          homepageDescription = "Push notifications\n${backend 2586}";
-          monitorPath = "/v1/health";
-          authMode = "none";
-        })
-        {
-          id = "iperf3";
-          name = "iperf3";
-          docs.urls = builtins.concatMap (hostName: [
-            "iperf3 -c ${hostName} -p 5201"
-            "iperf3 -u -c ${hostName} -p 5201"
-          ]) (hostnames "iperf3");
-          homepage = {
-            description = "Network throughput test\niperf3 -c iperf3.${builtins.head serviceDomains} -p 5201";
-            href = "http://${builtins.head (hostnames "iperf3")}/";
-            icon = "mdi-speedometer";
-          };
-          smoke = {
-            dnsHosts = hostnames "iperf3";
-            requiredUnit = "traefik.service";
-          };
-          tcpRoute = {
-            description = "iperf3 TCP throughput test";
-            entryPoint = "iperf3-tcp";
-            port = 5201;
-            url = "${host.ip}:5201";
-          };
-          udpRoute = {
-            description = "iperf3 UDP throughput test";
-            entryPoint = "iperf3-udp";
-            port = 5201;
-            url = "${host.ip}:5201";
-          };
-        }
         {
           id = "rustdesk";
           name = "RustDesk";
@@ -454,6 +459,12 @@ in
             requiredUnit = "traefik.service";
           };
         }
+        (mkRouteOnly {
+          id = "garage";
+          name = "Garage API";
+          port = 3900;
+          routeDescription = "Garage standalone S3 API";
+        })
         (mkService {
           id = "garage-web";
           name = "Garage";
@@ -461,17 +472,6 @@ in
           routeDescription = "Garage static website endpoint";
           icon = "garage.png";
           homepageDescription = "Static website endpoint\n${backend 3902}";
-        })
-        (mkService {
-          id = "rustfs";
-          name = "RustFS";
-          port = 9000;
-          routeDescription = "RustFS S3-compatible object storage";
-          icon = "rustfs.png";
-          homepageDescription = "S3-compatible object storage\n${backend 9000}";
-          monitorPath = "/health";
-          authMode = "none";
-          smokeHttp.path = "/health";
         })
       ];
     }

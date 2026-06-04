@@ -210,6 +210,7 @@ in
         description = "Declarative service directory for gateway-vm.";
         disableUpdateCheck = true;
         layout = cfg.layout;
+        statusStyle = "dot";
         target = cfg.linkTarget;
         title = head cfg.hosts;
       };
