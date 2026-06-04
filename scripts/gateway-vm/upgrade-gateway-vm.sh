@@ -77,7 +77,7 @@ phase_check_upgrade_readiness() {
     die "unable to decrypt $SECRETS; rekey it for your local/admin key"
   fi
 
-  for required_key in admin-password-hash authentik-bootstrap-password authentik-bootstrap-token authentik-postgresql-password authentik-secret-key beszel-oidc-client-secret forgejo-oidc-client-secret memos-oidc-client-secret paperless-oidc-client-secret rustfs-oidc-client-secret gluetun-control-api-key gluetun-openvpn-password gluetun-openvpn-username restic-password smb-credentials technitium-admin-username technitium-admin-password traefik-cloudflare-dns-api-token; do
+  for required_key in admin-password-hash authentik-bootstrap-password authentik-bootstrap-token authentik-postgresql-password authentik-secret-key beszel-oidc-client-secret forgejo-oidc-client-secret memos-oidc-client-secret nextcloud-oidc-client-secret paperless-oidc-client-secret rustfs-oidc-client-secret gluetun-control-api-key gluetun-openvpn-password gluetun-openvpn-username restic-password smb-credentials technitium-admin-username technitium-admin-password traefik-cloudflare-dns-api-token; do
     grep -q "^${required_key}:" <<<"$decrypted_secrets" || die "$SECRETS is missing $required_key"
   done
 

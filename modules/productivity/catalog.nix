@@ -237,6 +237,15 @@ in
           routeDescription = "Nextcloud private cloud files";
           icon = "nextcloud.png";
           homepageDescription = "Private cloud files\n${backend 80}";
+          authMode = "native-oidc";
+          authGroups = [ "productivity-users" ];
+          authOidc = {
+            clientId = "nextcloud";
+            clientSecretFile = "/run/secrets/nextcloud-oidc-client-secret";
+            launchUrl = "https://nextcloud.jax22.com/";
+            redirectUris = [ "https://nextcloud.jax22.com/apps/user_oidc/code" ];
+            subMode = "user_uuid";
+          };
         })
         (mkService {
           id = "openspeedtest";

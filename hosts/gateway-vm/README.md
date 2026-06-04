@@ -243,6 +243,7 @@ Required secrets:
 - `beszel-oidc-client-secret`
 - `forgejo-oidc-client-secret`
 - `memos-oidc-client-secret`
+- `nextcloud-oidc-client-secret`
 - `paperless-oidc-client-secret`
 - `rustfs-oidc-client-secret`
 - `gluetun-control-api-key`

@@ -168,6 +168,12 @@ in
         mode = "0400";
         restartUnits = [ "authentik-provision.service" ];
       };
+      nextcloud-oidc-client-secret = {
+        owner = "authentik";
+        group = "authentik";
+        mode = "0400";
+        restartUnits = [ "authentik-provision.service" ];
+      };
       paperless-oidc-client-secret = {
         owner = "authentik";
         group = "authentik";
@@ -493,7 +499,7 @@ in
 
         Auth model:
           Authentik is the fleet identity provider, but it is not attached as a Traefik forwardAuth proxy in front of application routes. Browser routes are ordinary Traefik routes unless the application has its own auth or a native SSO integration is configured. Role groups are fleet-admins, media-users, productivity-users, and monitoring-users; they are provisioned in Authentik for native app integrations.
-          Native OIDC applications are declared in the exposure catalog. Beszel uses the beszel client with monitoring-users. Memos uses the memos client with productivity-users and https://memos.jax22.com/auth/callback. Paperless uses the paperless client with productivity-users and https://paperless.jax22.com/accounts/oidc/authentik/login/callback/. RustFS Console uses the rustfs-console client with fleet-admins and https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik.
+          Native OIDC applications are declared in the exposure catalog. Beszel uses the beszel client with monitoring-users. Memos uses the memos client with productivity-users and https://memos.jax22.com/auth/callback. Paperless uses the paperless client with productivity-users and https://paperless.jax22.com/accounts/oidc/authentik/login/callback/. Nextcloud uses the nextcloud client with productivity-users and https://nextcloud.jax22.com/apps/user_oidc/code. RustFS Console uses the rustfs-console client with fleet-admins and https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik.
 
         Internal routes:
     ${exposureCatalog.routeUrlsText}
