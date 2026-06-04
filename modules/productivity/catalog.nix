@@ -157,6 +157,14 @@ in
           routeDescription = "Paperless-ngx document archive";
           icon = "paperless-ngx.png";
           homepageDescription = "Document OCR and archive\n${backend 80}";
+          authMode = "native-oidc";
+          authGroups = [ "productivity-users" ];
+          authOidc = {
+            clientId = "paperless";
+            clientSecretFile = "/run/secrets/paperless-oidc-client-secret";
+            launchUrl = "https://paperless.jax22.com/";
+            redirectUris = [ "https://paperless.jax22.com/accounts/oidc/authentik/login/callback/" ];
+          };
         })
         (mkService {
           id = "freshrss";

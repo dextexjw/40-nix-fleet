@@ -111,6 +111,17 @@ in
       paperless-admin-password = {
         restartUnits = [ "paperless-scheduler.service" ];
       };
+      paperless-oidc-client-secret = {
+        owner = "paperless";
+        group = "paperless";
+        mode = "0400";
+        restartUnits = [
+          "paperless-consumer.service"
+          "paperless-scheduler.service"
+          "paperless-task-queue.service"
+          "paperless-web.service"
+        ];
+      };
       restic-password = {
         restartUnits = [ "productivity-appdata-backup.service" ];
       };
@@ -148,6 +159,43 @@ in
       vaultwarden-environment = {
         restartUnits = [ "vaultwarden.service" ];
       };
+    };
+    templates."paperless-oidc-environment" = {
+      content = ''
+        PAPERLESS_SOCIALACCOUNT_PROVIDERS='${
+          builtins.toJSON {
+            openid_connect = {
+              OAUTH_PKCE_ENABLED = true;
+              APPS = [
+                {
+                  provider_id = "authentik";
+                  name = "Authentik";
+                  client_id = "paperless";
+                  secret = config.sops.placeholder."paperless-oidc-client-secret";
+                  settings = {
+                    server_url = "https://auth.jax22.com/application/o/paperless/.well-known/openid-configuration";
+                    fetch_userinfo = true;
+                  };
+                }
+              ];
+              SCOPE = [
+                "openid"
+                "profile"
+                "email"
+              ];
+            };
+          }
+        }'
+      '';
+      owner = "paperless";
+      group = "paperless";
+      mode = "0400";
+      restartUnits = [
+        "paperless-consumer.service"
+        "paperless-scheduler.service"
+        "paperless-task-queue.service"
+        "paperless-web.service"
+      ];
     };
     templates."rustfs-oidc-environment" = {
       content = ''
@@ -189,6 +237,10 @@ in
       enable = true;
       adminTokenFile = config.sops.secrets.memos-admin-pat.path;
       clientSecretFile = config.sops.secrets.memos-oidc-client-secret.path;
+    };
+    paperless.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      environmentFile = config.sops.templates."paperless-oidc-environment".path;
     };
     rustfs.oidc = lib.mkIf secretsEnabled {
       enable = true;

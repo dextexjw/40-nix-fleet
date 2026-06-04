@@ -180,6 +180,56 @@ in
       };
     };
 
+    paperless = {
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Configure Paperless-ngx Authentik OIDC login.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "paperless";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        displayName = mkOption {
+          type = types.str;
+          default = "Authentik";
+          description = "Paperless sign-in button label for the OIDC provider.";
+        };
+
+        environmentFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime env file containing PAPERLESS_SOCIALACCOUNT_PROVIDERS.";
+        };
+
+        providerId = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "Paperless django-allauth OIDC provider ID.";
+        };
+
+        scope = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "openid"
+            "profile"
+            "email"
+          ];
+          description = "OIDC scopes requested by Paperless.";
+        };
+
+        serverUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/paperless/.well-known/openid-configuration";
+          description = "Authentik OIDC discovery URL used by Paperless.";
+        };
+      };
+    };
+
     memos = {
       oidc = {
         enable = mkOption {
@@ -355,6 +405,10 @@ in
 
   config = {
     assertions = [
+      {
+        assertion = !cfg.paperless.oidc.enable || cfg.paperless.oidc.environmentFile != null;
+        message = "fleet.productivity.stack.paperless.oidc.environmentFile must be set when Paperless OIDC is enabled.";
+      }
       {
         assertion = !cfg.rustfs.oidc.enable || cfg.rustfs.oidc.environmentFile != null;
         message = "fleet.productivity.stack.rustfs.oidc.environmentFile must be set when RustFS OIDC is enabled.";

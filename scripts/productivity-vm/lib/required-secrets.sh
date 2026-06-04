@@ -8,6 +8,7 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   memos-oidc-client-secret
   nextcloud-admin-password
   paperless-admin-password
+  paperless-oidc-client-secret
   restic-password
   rustfs-environment
   rustfs-oidc-client-secret

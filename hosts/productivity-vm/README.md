@@ -114,6 +114,7 @@ Required productivity secrets:
 - `memos-oidc-client-secret`
 - `nextcloud-admin-password`
 - `paperless-admin-password`
+- `paperless-oidc-client-secret`
 - `rustfs-environment`
 - `rustfs-oidc-client-secret`
 - `searxng-environment`
@@ -127,6 +128,15 @@ the Memos identity provider through the Memos API using the SOPS-managed
 `memos-admin-pat`. The only allowed callback is
 `https://memos.jax22.com/auth/callback`; `http://memos.h` remains a non-SSO LAN
 alias. Local password auth and signup policy stay managed in Memos.
+
+Paperless uses native OIDC through django-allauth. Authentik provisions the
+`paperless` client and allows `productivity-users`; this host injects
+`PAPERLESS_SOCIALACCOUNT_PROVIDERS` from the encrypted
+`paperless-oidc-client-secret` through a runtime-only SOPS template owned by
+`paperless`. The only allowed callback is
+`https://paperless.jax22.com/accounts/oidc/authentik/login/callback/`.
+Authentik-backed Paperless accounts are created on first successful OIDC login.
+Local Paperless username/password login remains enabled for break-glass access.
 
 FreshRSS is not wired to native OIDC in this NixOS deployment yet. The upstream
 FreshRSS OIDC path is Apache `mod_auth_openidc` or the official Apache-based
@@ -289,6 +299,11 @@ Memos stores its SQLite database and local app state under `/srv/appsdata/memos`
 The pre-backup SQLite copy is `/srv/appsdata/memos-backups/latest.db`.
 `memos-oidc-config.service` declaratively keeps the Authentik OAuth2 provider
 visible on the Memos sign-in page without disabling existing local auth.
+
+Paperless uses Authentik native OIDC for `productivity-users`.
+`paperless-oidc-client-secret` is shared between Gateway Authentik provisioning
+and the Paperless runtime environment template. Local Paperless password login
+stays enabled for break-glass access.
 
 `rustfs-oidc-policy.service` declaratively keeps the RustFS
 `rustfs-console-admin` IAM policy available for Authentik-backed console

@@ -125,6 +125,11 @@ allow_missing_unit() {
     && ! colmena exec --on "$HOST" -- "systemctl cat '$unit' >/dev/null 2>&1" >/dev/null 2>&1
 }
 
+allow_missing_paperless_oidc_environment() {
+  (( ALLOW_MISSING_NEW_SERVICES )) \
+    && ! colmena exec --on "$HOST" -- "systemctl show paperless-web.service -p EnvironmentFiles --value | grep -Fq 'paperless-oidc-environment'" >/dev/null 2>&1
+}
+
 route_is_skipped() {
   local route="$1"
 
@@ -189,6 +194,14 @@ colmena exec --on "$HOST" -- env \
 
 printf 'Checking direct service listeners and nginx vhosts...\n'
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/ >/dev/null"
+if allow_missing_paperless_oidc_environment; then
+  printf 'Skipping Paperless OIDC provider checks because paperless-oidc-environment is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- "sh -lc 'env_file=\$(systemctl show paperless-web.service -p EnvironmentFiles --value | tr \" \" \"\\n\" | grep -F \"paperless-oidc-environment\" | head -n1); test -n \"\$env_file\"; sudo stat -c \"%U:%G %a\" \"\$env_file\" | grep -Fxq \"paperless:paperless 400\"; sudo grep -Fq \"PAPERLESS_SOCIALACCOUNT_PROVIDERS=\" \"\$env_file\"; sudo grep -Fq \"authentik\" \"\$env_file\"; sudo grep -Fq \"paperless\" \"\$env_file\"'"
+  colmena exec --on "$HOST" -- "sudo -u paperless paperless-manage shell -c 'from django.conf import settings; providers = settings.SOCIALACCOUNT_PROVIDERS; provider = providers[\"openid_connect\"]; app = provider[\"APPS\"][0]; assert \"allauth.socialaccount.providers.openid_connect\" in settings.INSTALLED_APPS; assert app[\"provider_id\"] == \"authentik\"; assert app[\"name\"] == \"Authentik\"; assert app[\"client_id\"] == \"paperless\"; assert app[\"settings\"][\"server_url\"] == \"https://auth.jax22.com/application/o/paperless/.well-known/openid-configuration\"; assert app[\"settings\"][\"fetch_userinfo\"] is True; assert provider[\"OAUTH_PKCE_ENABLED\"] is True; assert provider[\"SCOPE\"] == [\"openid\", \"profile\", \"email\"]; assert settings.SOCIALACCOUNT_AUTO_SIGNUP is True; assert settings.SOCIALACCOUNT_ALLOW_SIGNUPS is True'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: paperless.jax22.com' http://127.0.0.1/accounts/login/ | grep -Fq 'Authentik'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://paperless.jax22.com/accounts/login/ | grep -Fq 'Authentik'"
+fi
 if ! service_is_skipped forgejo; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3002/ >/dev/null"
 fi
