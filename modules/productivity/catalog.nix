@@ -268,6 +268,14 @@ in
           routeDescription = "Gitea Git repositories";
           icon = "gitea.png";
           homepageDescription = "Git repositories\n${backend 3000}";
+          authMode = "native-oidc";
+          authGroups = [ "productivity-users" ];
+          authOidc = {
+            clientId = "gitea";
+            clientSecretFile = "/run/secrets/gitea-oidc-client-secret";
+            launchUrl = "https://gitea.jax22.com/";
+            redirectUris = [ "https://gitea.jax22.com/user/oauth2/authentik/callback" ];
+          };
           smokeHttp = {
             discard = true;
             path = "/";
@@ -470,10 +478,10 @@ in
         (mkService {
           id = "garage-web";
           name = "Garage";
-          port = 3902;
+          port = 3900;
           routeDescription = "Garage static website endpoint";
           icon = "garage.png";
-          homepageDescription = "S3-compatible object storage\n${backend 3902}";
+          homepageDescription = "S3-compatible object storage\n${backend 3900}";
           hostPrefix = "s3.garage";
         })
       ];
