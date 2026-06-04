@@ -156,6 +156,12 @@ in
         mode = "0400";
         restartUnits = [ "authentik-provision.service" ];
       };
+      forgejo-oidc-client-secret = {
+        owner = "authentik";
+        group = "authentik";
+        mode = "0400";
+        restartUnits = [ "authentik-provision.service" ];
+      };
       memos-oidc-client-secret = {
         owner = "authentik";
         group = "authentik";

@@ -91,8 +91,10 @@ Native OIDC integrations are provisioned from the route catalog. Beszel uses
 the `beszel` client, allows `monitoring-users`, and uses
 `https://beszel.jax22.com/api/oauth2-redirect` as the callback. Memos uses the
 `memos` client, allows `productivity-users`, and uses
-`https://memos.jax22.com/auth/callback` as the callback. Paperless uses the
-`paperless` client, allows `productivity-users`, and uses
+`https://memos.jax22.com/auth/callback` as the callback. Forgejo uses the
+`forgejo` client, allows `productivity-users`, and uses
+`https://forgejo.jax22.com/user/oauth2/authentik/callback` as the callback.
+Paperless uses the `paperless` client, allows `productivity-users`, and uses
 `https://paperless.jax22.com/accounts/oidc/authentik/login/callback/` as the
 callback. RustFS Console uses
 the `rustfs-console` client, allows `fleet-admins`, and uses
@@ -239,6 +241,7 @@ Required secrets:
 - `authentik-postgresql-password`
 - `authentik-secret-key`
 - `beszel-oidc-client-secret`
+- `forgejo-oidc-client-secret`
 - `memos-oidc-client-secret`
 - `paperless-oidc-client-secret`
 - `rustfs-oidc-client-secret`

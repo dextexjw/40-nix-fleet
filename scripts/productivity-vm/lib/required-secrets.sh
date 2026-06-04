@@ -3,6 +3,7 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   beszel-agent-key
   beszel-agent-token
   checkmate-capture-environment
+  forgejo-oidc-client-secret
   freshrss-admin-password
   memos-admin-pat
   memos-oidc-client-secret

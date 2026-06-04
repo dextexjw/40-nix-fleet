@@ -105,6 +105,7 @@ Required shared secrets:
 Required productivity secrets:
 
 - `firefly-app-key`
+- `forgejo-oidc-client-secret`
 - `freshrss-admin-password`
 - `garage-admin-token`
 - `garage-metrics-token`
@@ -121,6 +122,13 @@ Required productivity secrets:
 - `shlink-environment`
 - `syncthing-gui-password`
 - `vaultwarden-environment`
+
+Forgejo uses native OIDC with Authentik. Authentik provisions the `forgejo`
+client and allows `productivity-users`; `forgejo-oidc-config.service`
+provisions the Forgejo `authentik` OpenID Connect authentication source using
+the SOPS-managed `forgejo-oidc-client-secret`. The only allowed callback is
+`https://forgejo.jax22.com/user/oauth2/authentik/callback`. Local Forgejo
+accounts and password login remain enabled for break-glass access.
 
 Memos uses native OAuth2 with Authentik. Authentik provisions the `memos`
 client and allows `productivity-users`; `memos-oidc-config.service` provisions
@@ -299,6 +307,11 @@ Memos stores its SQLite database and local app state under `/srv/appsdata/memos`
 The pre-backup SQLite copy is `/srv/appsdata/memos-backups/latest.db`.
 `memos-oidc-config.service` declaratively keeps the Authentik OAuth2 provider
 visible on the Memos sign-in page without disabling existing local auth.
+
+Forgejo uses Authentik native OIDC for `productivity-users`.
+`forgejo-oidc-client-secret` is shared between Gateway Authentik provisioning
+and `forgejo-oidc-config.service`. Local Forgejo password login stays enabled
+for break-glass access.
 
 Paperless uses Authentik native OIDC for `productivity-users`.
 `paperless-oidc-client-secret` is shared between Gateway Authentik provisioning

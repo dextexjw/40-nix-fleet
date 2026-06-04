@@ -69,6 +69,12 @@ in
         mode = "0400";
         restartUnits = [ "freshrss-config.service" ];
       };
+      forgejo-oidc-client-secret = {
+        owner = "forgejo";
+        group = "forgejo";
+        mode = "0400";
+        restartUnits = [ "forgejo-oidc-config.service" ];
+      };
       garage-admin-token = {
         owner = "garage";
         group = "garage";
@@ -233,6 +239,10 @@ in
     enable = true;
     secrets.enable = secretsEnabled;
     inherit serviceDomains;
+    forgejo.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      clientSecretFile = config.sops.secrets.forgejo-oidc-client-secret.path;
+    };
     memos.oidc = lib.mkIf secretsEnabled {
       enable = true;
       adminTokenFile = config.sops.secrets.memos-admin-pat.path;
