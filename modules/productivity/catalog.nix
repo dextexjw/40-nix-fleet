@@ -292,52 +292,6 @@ in
           };
         })
         {
-          id = "iperf3";
-          name = "iperf3";
-          docs.urls = builtins.concatMap (hostName: [
-            "iperf3 -c ${hostName} -p 5201"
-            "iperf3 -u -c ${hostName} -p 5201"
-          ]) (hostnames "iperf3");
-          homepage = {
-            description = "Network throughput test\niperf3 -c iperf3.${builtins.head serviceDomains} -p 5201";
-            href = "http://${builtins.head (hostnames "iperf3")}/";
-            icon = "mdi-speedometer";
-          };
-          smoke = {
-            dnsHosts = hostnames "iperf3";
-            requiredUnit = "traefik.service";
-          };
-          tcpRoute = {
-            description = "iperf3 TCP throughput test";
-            entryPoint = "iperf3-tcp";
-            port = 5201;
-            url = "${host.ip}:5201";
-          };
-          udpRoute = {
-            description = "iperf3 UDP throughput test";
-            entryPoint = "iperf3-udp";
-            port = 5201;
-            url = "${host.ip}:5201";
-          };
-        }
-        {
-          id = "rustdesk";
-          name = "RustDesk";
-          docs.urls = builtins.concatMap (hostName: [
-            "rustdesk server: ${hostName}"
-            "rustdesk key: /srv/appsdata/rustdesk/id_ed25519.pub"
-          ]) (hostnames "rustdesk");
-          homepage = {
-            description = "Remote desktop relay\nID server rustdesk.${builtins.head serviceDomains}";
-            href = "http://${builtins.head (hostnames "rustdesk")}/";
-            icon = "rustdesk.png";
-          };
-          smoke = {
-            dnsHosts = hostnames "rustdesk";
-            requiredUnit = "traefik.service";
-          };
-        }
-        {
           id = "rustdesk-signal";
           name = "RustDesk Signal";
           smoke.requiredUnit = "traefik.service";
@@ -426,25 +380,6 @@ in
           routeDescription = "Garage standalone S3 API";
         })
         (mkService {
-          id = "garage-web";
-          name = "Garage";
-          port = 3902;
-          routeDescription = "Garage static website endpoint";
-          icon = "garage.png";
-          homepageDescription = "Static website endpoint\n${backend 3902}";
-        })
-        (mkService {
-          id = "rustfs";
-          name = "RustFS";
-          port = 9000;
-          routeDescription = "RustFS S3-compatible object storage";
-          icon = "rustfs.png";
-          homepageDescription = "S3-compatible object storage\n${backend 9000}";
-          monitorPath = "/health";
-          authMode = "none";
-          smokeHttp.path = "/health";
-        })
-        (mkService {
           id = "rustfs-console";
           name = "RustFS Console";
           port = 9001;
@@ -472,6 +407,71 @@ in
           homepageDescription = "Push notifications\n${backend 2586}";
           monitorPath = "/v1/health";
           authMode = "none";
+        })
+        {
+          id = "iperf3";
+          name = "iperf3";
+          docs.urls = builtins.concatMap (hostName: [
+            "iperf3 -c ${hostName} -p 5201"
+            "iperf3 -u -c ${hostName} -p 5201"
+          ]) (hostnames "iperf3");
+          homepage = {
+            description = "Network throughput test\niperf3 -c iperf3.${builtins.head serviceDomains} -p 5201";
+            href = "http://${builtins.head (hostnames "iperf3")}/";
+            icon = "mdi-speedometer";
+          };
+          smoke = {
+            dnsHosts = hostnames "iperf3";
+            requiredUnit = "traefik.service";
+          };
+          tcpRoute = {
+            description = "iperf3 TCP throughput test";
+            entryPoint = "iperf3-tcp";
+            port = 5201;
+            url = "${host.ip}:5201";
+          };
+          udpRoute = {
+            description = "iperf3 UDP throughput test";
+            entryPoint = "iperf3-udp";
+            port = 5201;
+            url = "${host.ip}:5201";
+          };
+        }
+        {
+          id = "rustdesk";
+          name = "RustDesk";
+          docs.urls = builtins.concatMap (hostName: [
+            "rustdesk server: ${hostName}"
+            "rustdesk key: /srv/appsdata/rustdesk/id_ed25519.pub"
+          ]) (hostnames "rustdesk");
+          homepage = {
+            description = "Remote desktop relay\nID server rustdesk.${builtins.head serviceDomains}";
+            href = "http://${builtins.head (hostnames "rustdesk")}/";
+            icon = "rustdesk.png";
+          };
+          smoke = {
+            dnsHosts = hostnames "rustdesk";
+            requiredUnit = "traefik.service";
+          };
+        }
+        (mkService {
+          id = "garage-web";
+          name = "Garage";
+          port = 3902;
+          routeDescription = "Garage static website endpoint";
+          icon = "garage.png";
+          homepageDescription = "Static website endpoint\n${backend 3902}";
+        })
+        (mkService {
+          id = "rustfs";
+          name = "RustFS";
+          port = 9000;
+          routeDescription = "RustFS S3-compatible object storage";
+          icon = "rustfs.png";
+          homepageDescription = "S3-compatible object storage\n${backend 9000}";
+          monitorPath = "/health";
+          authMode = "none";
+          smokeHttp.path = "/health";
         })
       ];
     }
