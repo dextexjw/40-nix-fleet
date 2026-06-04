@@ -137,6 +137,12 @@ in
         and local Paperless password login remains enabled for break-glass
         access.
 
+        Nextcloud OIDC uses the encrypted nextcloud-oidc-client-secret shared
+        between gateway-vm Authentik provisioning and this host's
+        nextcloud-oidc-config.service. The service configures the native
+        user_oidc app for productivity-users while keeping local Nextcloud
+        username/password login enabled for break-glass access.
+
         RustFS OIDC uses the encrypted rustfs-oidc-client-secret shared between
         gateway-vm Authentik provisioning and this host's root-only generated
         RustFS environment file. Re-run rustfs-oidc-policy.service after RustFS

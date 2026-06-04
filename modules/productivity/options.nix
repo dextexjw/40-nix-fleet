@@ -336,6 +336,70 @@ in
       };
     };
 
+    nextcloud = {
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Configure Nextcloud Authentik OIDC login with the native user_oidc app.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "nextcloud";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        clientSecretFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Nextcloud OIDC client secret.";
+        };
+
+        discoveryUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/nextcloud/.well-known/openid-configuration";
+          description = "Authentik OIDC discovery URL used by Nextcloud.";
+        };
+
+        mapping = {
+          displayName = mkOption {
+            type = types.str;
+            default = "name";
+            description = "OIDC claim mapped to the Nextcloud display name.";
+          };
+
+          email = mkOption {
+            type = types.str;
+            default = "email";
+            description = "OIDC claim mapped to the Nextcloud email address.";
+          };
+
+          uid = mkOption {
+            type = types.str;
+            default = "sub";
+            description = "OIDC claim mapped to the Nextcloud OIDC user ID.";
+          };
+        };
+
+        providerId = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "Stable Nextcloud user_oidc provider identifier used in the login button.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "openid"
+            "email"
+            "profile"
+          ];
+          description = "OIDC scopes requested by Nextcloud.";
+        };
+      };
+    };
+
     rustfs = {
       oidc = {
         enable = mkOption {
@@ -405,6 +469,10 @@ in
 
   config = {
     assertions = [
+      {
+        assertion = !cfg.nextcloud.oidc.enable || cfg.nextcloud.oidc.clientSecretFile != null;
+        message = "fleet.productivity.stack.nextcloud.oidc.clientSecretFile must be set when Nextcloud OIDC is enabled.";
+      }
       {
         assertion = !cfg.paperless.oidc.enable || cfg.paperless.oidc.environmentFile != null;
         message = "fleet.productivity.stack.paperless.oidc.environmentFile must be set when Paperless OIDC is enabled.";

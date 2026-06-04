@@ -108,6 +108,12 @@ in
       nextcloud-admin-password = {
         restartUnits = [ "nextcloud-setup.service" ];
       };
+      nextcloud-oidc-client-secret = {
+        owner = "nextcloud";
+        group = "nextcloud";
+        mode = "0400";
+        restartUnits = [ "nextcloud-oidc-config.service" ];
+      };
       paperless-admin-password = {
         restartUnits = [ "paperless-scheduler.service" ];
       };
@@ -241,6 +247,10 @@ in
     paperless.oidc = lib.mkIf secretsEnabled {
       enable = true;
       environmentFile = config.sops.templates."paperless-oidc-environment".path;
+    };
+    nextcloud.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      clientSecretFile = config.sops.secrets.nextcloud-oidc-client-secret.path;
     };
     rustfs.oidc = lib.mkIf secretsEnabled {
       enable = true;

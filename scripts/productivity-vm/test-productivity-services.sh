@@ -130,6 +130,10 @@ allow_missing_paperless_oidc_environment() {
     && ! colmena exec --on "$HOST" -- "systemctl show paperless-web.service -p EnvironmentFiles --value | grep -Fq 'paperless-oidc-environment'" >/dev/null 2>&1
 }
 
+allow_missing_nextcloud_oidc_config() {
+  allow_missing_unit nextcloud-oidc-config.service
+}
+
 route_is_skipped() {
   local route="$1"
 
@@ -201,6 +205,19 @@ else
   colmena exec --on "$HOST" -- "sudo -u paperless paperless-manage shell -c 'from django.conf import settings; providers = settings.SOCIALACCOUNT_PROVIDERS; provider = providers[\"openid_connect\"]; app = provider[\"APPS\"][0]; assert \"allauth.socialaccount.providers.openid_connect\" in settings.INSTALLED_APPS; assert app[\"provider_id\"] == \"authentik\"; assert app[\"name\"] == \"Authentik\"; assert app[\"client_id\"] == \"paperless\"; assert app[\"settings\"][\"server_url\"] == \"https://auth.jax22.com/application/o/paperless/.well-known/openid-configuration\"; assert app[\"settings\"][\"fetch_userinfo\"] is True; assert provider[\"OAUTH_PKCE_ENABLED\"] is True; assert provider[\"SCOPE\"] == [\"openid\", \"profile\", \"email\"]; assert settings.SOCIALACCOUNT_AUTO_SIGNUP is True; assert settings.SOCIALACCOUNT_ALLOW_SIGNUPS is True'"
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: paperless.jax22.com' http://127.0.0.1/accounts/login/ | grep -Fq 'Authentik'"
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://paperless.jax22.com/accounts/login/ | grep -Fq 'Authentik'"
+fi
+if allow_missing_nextcloud_oidc_config; then
+  printf 'Skipping Nextcloud OIDC provider checks because nextcloud-oidc-config.service is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- "systemctl show nextcloud-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show nextcloud-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+  colmena exec --on "$HOST" -- "nextcloud-occ config:system:get allow_local_remote_servers | grep -Fxq 'true'"
+  colmena exec --on "$HOST" -- "nextcloud-occ config:system:get overwriteprotocol | grep -Fxq 'https'"
+  colmena exec --on "$HOST" -- "nextcloud-occ config:system:get overwrite.cli.url | grep -Fxq 'https://nextcloud.jax22.com'"
+  colmena exec --on "$HOST" -- "nextcloud-occ config:app:get user_oidc allow_multiple_user_backends | grep -Fxq '1'"
+  colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; nextcloud-occ user_oidc:provider authentik --output=json_pretty > \"\$tmp\"; grep -Fq \"\\\"identifier\\\": \\\"authentik\\\"\" \"\$tmp\"; grep -Fq \"\\\"clientId\\\": \\\"nextcloud\\\"\" \"\$tmp\"; grep -Fq \"\\\"discoveryEndpoint\\\": \\\"https://auth.jax22.com/application/o/nextcloud/.well-known/openid-configuration\\\"\" \"\$tmp\"; grep -Fq \"\\\"scope\\\": \\\"openid email profile\\\"\" \"\$tmp\"; grep -Fq \"\\\"mappingDisplayName\\\": \\\"name\\\"\" \"\$tmp\"; grep -Fq \"\\\"mappingEmail\\\": \\\"email\\\"\" \"\$tmp\"; grep -Fq \"\\\"mappingUid\\\": \\\"sub\\\"\" \"\$tmp\"; grep -Fq \"\\\"uniqueUid\\\": true\" \"\$tmp\"; grep -Fq \"\\\"groupProvisioning\\\": false\" \"\$tmp\"'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: nextcloud.jax22.com' http://127.0.0.1/login | grep -Fq 'id=\"initial-state-core-hideLoginForm\" value=\"ZmFsc2U=\"'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: nextcloud.jax22.com' http://127.0.0.1/login | grep -Fq 'W3sibmFtZSI6IkxvZ2luIHdpdGggYXV0aGVudGlrIiwiaHJlZiI6IlwvYXBwc1wvdXNlcl9vaWRjXC9sb2dpblwv'"
+  colmena exec --on "$HOST" -- "curl -sS --max-time 10 -o /dev/null -w '%{http_code} %{redirect_url}' -H 'Host: nextcloud.jax22.com' http://127.0.0.1/apps/user_oidc/login/1 | grep -Fq ' https://auth.jax22.com/application/o/authorize/'"
 fi
 if ! service_is_skipped forgejo; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3002/ >/dev/null"

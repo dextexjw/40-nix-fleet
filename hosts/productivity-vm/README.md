@@ -113,6 +113,7 @@ Required productivity secrets:
 - `memos-admin-pat`
 - `memos-oidc-client-secret`
 - `nextcloud-admin-password`
+- `nextcloud-oidc-client-secret`
 - `paperless-admin-password`
 - `paperless-oidc-client-secret`
 - `rustfs-environment`
@@ -137,6 +138,15 @@ Paperless uses native OIDC through django-allauth. Authentik provisions the
 `https://paperless.jax22.com/accounts/oidc/authentik/login/callback/`.
 Authentik-backed Paperless accounts are created on first successful OIDC login.
 Local Paperless username/password login remains enabled for break-glass access.
+
+Nextcloud uses the native `user_oidc` app. Authentik provisions the `nextcloud`
+client and allows `productivity-users`; `nextcloud-oidc-config.service`
+installs the Authentik provider with `nextcloud-occ` from the encrypted
+`nextcloud-oidc-client-secret`. The only allowed callback is
+`https://nextcloud.jax22.com/apps/user_oidc/code`. OIDC-managed users are kept
+separate from same-named local users by Nextcloud's unique OIDC user IDs, and
+`allow_multiple_user_backends=1` keeps local username/password login available
+for break-glass access.
 
 FreshRSS is not wired to native OIDC in this NixOS deployment yet. The upstream
 FreshRSS OIDC path is Apache `mod_auth_openidc` or the official Apache-based
@@ -304,6 +314,12 @@ Paperless uses Authentik native OIDC for `productivity-users`.
 `paperless-oidc-client-secret` is shared between Gateway Authentik provisioning
 and the Paperless runtime environment template. Local Paperless password login
 stays enabled for break-glass access.
+
+Nextcloud uses Authentik native OIDC for `productivity-users`.
+`nextcloud-oidc-client-secret` is shared between Gateway Authentik provisioning
+and `nextcloud-oidc-config.service`. The integration is additive: local
+Nextcloud accounts, including the `smoke` admin account from
+`nextcloud-admin-password`, remain valid for break-glass access.
 
 `rustfs-oidc-policy.service` declaratively keeps the RustFS
 `rustfs-console-admin` IAM policy available for Authentik-backed console
