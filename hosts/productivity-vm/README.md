@@ -136,6 +136,10 @@ Paperless uses native OIDC through django-allauth. Authentik provisions the
 `paperless`. The only allowed callback is
 `https://paperless.jax22.com/accounts/oidc/authentik/login/callback/`.
 Authentik-backed Paperless accounts are created on first successful OIDC login.
+`paperless-oidc-superuser.service` promotes the configured Authentik admin
+identity, username `smoke` or email `admin@jax22.com`, to Django staff and
+superuser. `paperless-oidc-superuser.timer` retries this after boot so the
+admin OIDC account is promoted after its first browser login.
 Local Paperless username/password login remains enabled for break-glass access.
 
 FreshRSS is not wired to native OIDC in this NixOS deployment yet. The upstream
@@ -302,8 +306,10 @@ visible on the Memos sign-in page without disabling existing local auth.
 
 Paperless uses Authentik native OIDC for `productivity-users`.
 `paperless-oidc-client-secret` is shared between Gateway Authentik provisioning
-and the Paperless runtime environment template. Local Paperless password login
-stays enabled for break-glass access.
+and the Paperless runtime environment template. `paperless-oidc-superuser`
+promotes the Authentik admin identity, username `smoke` or email
+`admin@jax22.com`, to Paperless staff and superuser. Local Paperless password
+login stays enabled for break-glass access.
 
 `rustfs-oidc-policy.service` declaratively keeps the RustFS
 `rustfs-console-admin` IAM policy available for Authentik-backed console

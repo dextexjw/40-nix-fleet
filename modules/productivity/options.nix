@@ -182,6 +182,18 @@ in
 
     paperless = {
       oidc = {
+        adminEmails = mkOption {
+          type = types.listOf types.str;
+          default = [ "admin@jax22.com" ];
+          description = "Paperless user email addresses that should be promoted to Django staff and superuser after Authentik OIDC login.";
+        };
+
+        adminUsers = mkOption {
+          type = types.listOf types.str;
+          default = [ "smoke" ];
+          description = "Paperless usernames that should be promoted to Django staff and superuser for Authentik OIDC administration.";
+        };
+
         enable = mkOption {
           type = types.bool;
           default = false;

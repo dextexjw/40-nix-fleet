@@ -134,8 +134,9 @@ in
         Paperless OIDC uses the encrypted paperless-oidc-client-secret shared
         between gateway-vm Authentik provisioning and this host's paperless-owned
         generated runtime environment file. Authentik allows productivity-users,
-        and local Paperless password login remains enabled for break-glass
-        access.
+        paperless-oidc-superuser promotes username smoke or email admin@jax22.com
+        to Paperless staff and superuser, and local Paperless password login
+        remains enabled for break-glass access.
 
         RustFS OIDC uses the encrypted rustfs-oidc-client-secret shared between
         gateway-vm Authentik provisioning and this host's root-only generated
