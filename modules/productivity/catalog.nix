@@ -137,6 +137,14 @@ in
           routeDescription = "Forgejo software forge";
           icon = "forgejo.png";
           homepageDescription = "Gitea community forge\n${backend 3002}";
+          authMode = "native-oidc";
+          authGroups = [ "productivity-users" ];
+          authOidc = {
+            clientId = "forgejo";
+            clientSecretFile = "/run/secrets/forgejo-oidc-client-secret";
+            launchUrl = "https://forgejo.jax22.com/";
+            redirectUris = [ "https://forgejo.jax22.com/user/oauth2/authentik/callback" ];
+          };
           smokeHttp = {
             discard = true;
             path = "/";

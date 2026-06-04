@@ -210,6 +210,14 @@ else
 fi
 if ! service_is_skipped forgejo; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3002/ >/dev/null"
+  if allow_missing_unit forgejo-oidc-config.service; then
+    printf 'Skipping Forgejo OIDC source checks because forgejo-oidc-config.service is not deployed yet.\n'
+  else
+    colmena exec --on "$HOST" -- "systemctl show forgejo-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show forgejo-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+    colmena exec --on "$HOST" -- "sudo -u postgres psql -d forgejo -tAc \"select count(*) from login_source where name = 'authentik' and type = 6 and is_active\" | tr -d '[:space:]' | grep -Fxq 1"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3002/user/login | grep -Fq '/user/oauth2/authentik'"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://forgejo.jax22.com/user/login | grep -Fq '/user/oauth2/authentik'"
+  fi
 fi
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8087/ >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8222/ >/dev/null"

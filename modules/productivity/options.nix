@@ -180,6 +180,55 @@ in
       };
     };
 
+    forgejo = {
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Provision the Forgejo Authentik OpenID Connect login source.";
+        };
+
+        authName = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "Forgejo authentication source name. This is part of the OAuth callback path.";
+        };
+
+        autoDiscoverUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/forgejo/.well-known/openid-configuration";
+          description = "Authentik OIDC discovery URL used by Forgejo.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "forgejo";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        clientSecretFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Forgejo OIDC client secret.";
+        };
+
+        iconUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/static/dist/assets/icons/icon.png";
+          description = "Icon URL shown on the Forgejo login button.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "email"
+            "profile"
+          ];
+          description = "Additional OIDC scopes requested by Forgejo. Forgejo adds openid implicitly.";
+        };
+      };
+    };
+
     paperless = {
       oidc = {
         adminEmails = mkOption {
