@@ -97,7 +97,7 @@ Paperless uses the `paperless` client, allows `productivity-users`, and uses
 `https://paperless.jax22.com/accounts/oidc/authentik/login/callback/` as the
 callback. RustFS Console uses
 the `rustfs-console` client, allows `fleet-admins`, and uses
-`https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik` as
+`https://rustfs.jax22.com/rustfs/admin/v3/oidc/callback/authentik` as
 the callback. Native OIDC providers use Authentik's self-signed signing key so
 the provider JWKS is populated for clients that validate discovery during
 startup.

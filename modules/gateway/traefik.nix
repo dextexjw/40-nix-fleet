@@ -528,6 +528,13 @@ in
         example = "jax22.com";
       };
 
+      extraSans = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "Additional subject alternative names to include in the managed default certificate.";
+        example = [ "s3.rustfs.jax22.com" ];
+      };
+
       resolver = mkOption {
         type = types.str;
         default = "letsencrypt";
@@ -722,7 +729,7 @@ in
           resolver = cfg.tls.resolver;
           domain = {
             main = cfg.tls.domain;
-            sans = [ "*.${cfg.tls.domain}" ];
+            sans = [ "*.${cfg.tls.domain}" ] ++ cfg.tls.extraSans;
           };
         };
       };

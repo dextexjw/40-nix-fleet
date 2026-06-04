@@ -59,9 +59,9 @@ HOST_ROUTES=(
   invoiceplane
   memos
   garage
-  garage-web
+  s3.garage
+  s3.rustfs
   rustfs
-  rustfs-console
   s
   shlink
   ntfy
@@ -150,7 +150,7 @@ route_is_skipped() {
     memos.*)
       service_is_skipped podman-memos
       ;;
-    rustfs.* | rustfs-console.*)
+    rustfs.* | s3.rustfs.*)
       service_is_skipped podman-rustfs
       ;;
     s.*)
@@ -319,7 +319,7 @@ for route_prefix in "${HOST_ROUTES[@]}"; do
       garage.*)
         colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; status=\$(curl -sS -o \"\$tmp\" -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:3900/); case \"\$status\" in 403) ;; *) echo \"unexpected Garage S3 anonymous status for $route: \$status\" >&2; cat \"\$tmp\" >&2; exit 1 ;; esac; grep -q AccessDenied \"\$tmp\" || { echo \"Garage S3 anonymous response did not contain AccessDenied\" >&2; cat \"\$tmp\" >&2; exit 1; }'"
         ;;
-      garage-web.*)
+      s3.garage.*)
         colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; if ! status=\$(curl -sS -o \"\$tmp\" -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:3902/); then echo \"Garage static web endpoint request failed for $route\" >&2; exit 1; fi; case \"\$status\" in 2*|3*|4*) exit 0 ;; *) echo \"unexpected Garage static web status for $route: \$status\" >&2; cat \"\$tmp\" >&2; exit 1 ;; esac'"
         ;;
       gitea.*)
@@ -340,10 +340,10 @@ for route_prefix in "${HOST_ROUTES[@]}"; do
       memos.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:5230/ >/dev/null"
         ;;
-      rustfs.*)
+      s3.rustfs.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9000/health >/dev/null"
         ;;
-      rustfs-console.*)
+      rustfs.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9001/rustfs/console/health >/dev/null"
         ;;
       s.*)

@@ -51,9 +51,9 @@ path backed up by Restic.
 | Shlink short links/API | `https://s.jax22.com` | `http://s.h` | `10.2.20.114:8088` |
 | Shlink Web Client | `https://shlink.jax22.com` | `http://shlink.h` | `10.2.20.114:8089` |
 | Garage S3 API | `https://garage.jax22.com` | `http://garage.h` | `10.2.20.114:3900` |
-| Garage static web | `https://garage-web.jax22.com` | `http://garage-web.h` | `10.2.20.114:3902` |
-| RustFS S3 API | `https://rustfs.jax22.com` | `http://rustfs.h` | `10.2.20.114:9000` |
-| RustFS console | `https://rustfs-console.jax22.com` | `http://rustfs-console.h` | `10.2.20.114:9001` |
+| Garage static web | `https://s3.garage.jax22.com` | `http://s3.garage.h` | `10.2.20.114:3902` |
+| RustFS S3 API | `https://s3.rustfs.jax22.com` | `http://s3.rustfs.h` | `10.2.20.114:9000` |
+| RustFS console | `https://rustfs.jax22.com` | `http://rustfs.h` | `10.2.20.114:9001` |
 | ntfy | `https://ntfy.jax22.com` | `http://ntfy.h` | `10.2.20.114:2586` |
 
 Traefik routes and Homepage cards are declared on `gateway-vm`.
@@ -283,18 +283,18 @@ Destructive restore outline:
 
 Garage is standalone S3 in this pass. It does not back Nextcloud primary
 storage. `garage.jax22.com` is the authenticated S3 API, so anonymous browser
-requests to `/` should return AccessDenied. `garage-web.jax22.com` is the
+requests to `/` should return AccessDenied. `s3.garage.jax22.com` is the
 static website endpoint; buckets must still be created and enabled for website
 hosting with the upstream Garage CLI before serving content. Bucket
 virtual-host style is canonical on `jax22.com`; `.h` is only retained as a
 named endpoint alias.
 
 RustFS is separate S3-compatible storage. It does not share Garage buckets or
-credentials. `rustfs.jax22.com` is the S3 API and `rustfs-console.jax22.com` is
+credentials. `s3.rustfs.jax22.com` is the S3 API and `rustfs.jax22.com` is
 the console. RustFS virtual-host style is canonical on `jax22.com`; `.h` is only
 retained as a named endpoint alias. The console uses Authentik native OIDC for
 `fleet-admins` only. Authentik owns the `rustfs-console` client and only allows
-`https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik` as
+`https://rustfs.jax22.com/rustfs/admin/v3/oidc/callback/authentik` as
 the callback. `rustfs-oidc-policy.service` ensures the
 `rustfs-console-admin` RustFS IAM policy exists for OIDC console sessions; the
 S3 API remains access-key based through `rustfs-environment`. Authentik native

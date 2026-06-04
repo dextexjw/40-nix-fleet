@@ -15,7 +15,7 @@ let
     forgejo = "forgejo";
     freshrss = "freshrss";
     garage = "garage";
-    garageWeb = "garage-web";
+    garageWeb = "s3.garage";
     gitea = "gitea";
     invoiceplane = "invoiceplane";
     iperf3 = "iperf3";
@@ -26,8 +26,8 @@ let
     paperless = "paperless";
     privatebin = "privatebin";
     rustdesk = "rustdesk";
-    rustfs = "rustfs";
-    rustfsConsole = "rustfs-console";
+    rustfs = "s3.rustfs";
+    rustfsConsole = "rustfs";
     searxng = "searxng";
     shlink = "s";
     shlinkWeb = "shlink";
@@ -501,7 +501,7 @@ in
 
         redirectUri = mkOption {
           type = types.str;
-          default = "https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik";
+          default = "https://rustfs.jax22.com/rustfs/admin/v3/oidc/callback/authentik";
           description = "Strict RustFS OIDC callback URL registered in Authentik.";
         };
 

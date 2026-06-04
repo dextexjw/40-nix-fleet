@@ -208,15 +208,24 @@ in
           };
         })
         (mkService {
-          id = "rustfs";
-          name = "RustFS";
-          port = 9000;
-          routeDescription = "RustFS S3-compatible object storage";
+          id = "rustfs-console";
+          name = "RustFS Console";
+          port = 9001;
+          routeDescription = "RustFS object storage console";
           icon = "rustfs.png";
-          homepageDescription = "S3-compatible object storage\n${backend 9000}";
-          monitorPath = "/health";
-          authMode = "none";
-          smokeHttp.path = "/health";
+          homepageDescription = "Object storage console\n${backend 9001}";
+          hostPrefix = "rustfs";
+          monitorPath = "/rustfs/console/health";
+          rootRedirectPath = "/rustfs/console/";
+          authMode = "native-oidc";
+          authGroups = [ "fleet-admins" ];
+          authOidc = {
+            clientId = "rustfs-console";
+            clientSecretFile = "/run/secrets/rustfs-oidc-client-secret";
+            launchUrl = "https://rustfs.jax22.com/";
+            redirectUris = [ "https://rustfs.jax22.com/rustfs/admin/v3/oidc/callback/authentik" ];
+          };
+          smokeHttp.path = "/rustfs/console/health";
         })
         (mkService {
           id = "vaultwarden";
@@ -334,23 +343,16 @@ in
           };
         })
         (mkService {
-          id = "rustfs-console";
-          name = "RustFS Console";
-          port = 9001;
-          routeDescription = "RustFS object storage console";
+          id = "rustfs";
+          name = "RustFS";
+          port = 9000;
+          routeDescription = "RustFS S3-compatible object storage";
           icon = "rustfs.png";
-          homepageDescription = "Object storage console\n${backend 9001}";
-          monitorPath = "/rustfs/console/health";
-          rootRedirectPath = "/rustfs/console/";
-          authMode = "native-oidc";
-          authGroups = [ "fleet-admins" ];
-          authOidc = {
-            clientId = "rustfs-console";
-            clientSecretFile = "/run/secrets/rustfs-oidc-client-secret";
-            launchUrl = "https://rustfs-console.jax22.com/";
-            redirectUris = [ "https://rustfs-console.jax22.com/rustfs/admin/v3/oidc/callback/authentik" ];
-          };
-          smokeHttp.path = "/rustfs/console/health";
+          homepageDescription = "S3-compatible object storage\n${backend 9000}";
+          hostPrefix = "s3.rustfs";
+          monitorPath = "/health";
+          authMode = "none";
+          smokeHttp.path = "/health";
         })
         {
           id = "iperf3";
@@ -471,7 +473,8 @@ in
           port = 3902;
           routeDescription = "Garage static website endpoint";
           icon = "garage.png";
-          homepageDescription = "Static website endpoint\n${backend 3902}";
+          homepageDescription = "S3-compatible object storage\n${backend 3902}";
+          hostPrefix = "s3.garage";
         })
       ];
     }
