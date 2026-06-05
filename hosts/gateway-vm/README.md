@@ -149,7 +149,7 @@ Future Authentik integrations should follow this pattern:
 Traefik writes JSON access logs to the `traefik.service` journal. Prometheus
 metrics are exposed on the existing dashboard entrypoint at
 `http://10.2.20.112:8080/metrics`. Public `jax22.com` service names also get
-HTTPS routers on port 443 backed by a single Let’s Encrypt wildcard certificate
+HTTPS routers on port 443 backed by Let’s Encrypt wildcard certificates
 issued through Cloudflare DNS-01. The `.h` aliases remain HTTP-only. HTTP is not
 redirected to HTTPS in this pass. ACME account and certificate state lives in
 `/srv/appsdata/traefik/acme.json`, bind-mounted to `/var/lib/traefik/acme.json`,
@@ -191,9 +191,9 @@ The netboot.xyz container runs on `productivity-vm` as
 
 Technitium serves the `jax22.com` and `.h` service zones. Wildcard DNS resolves
 `*.jax22.com` and `*.h` to `gateway-vm` at `10.2.20.112`, where Traefik routes
-known hostnames to their backends. Traefik uses Cloudflare DNS-01 only for the
-public `jax22.com` wildcard certificate; `.h` cannot be issued by Let’s Encrypt
-and remains HTTP-only.
+known hostnames to their backends. Traefik uses Cloudflare DNS-01 for the
+public `jax22.com`, `gateway.jax22.com`, and `media.jax22.com` wildcard
+certificates; `.h` cannot be issued by Let’s Encrypt and remains HTTP-only.
 VM hostnames stay under `home.arpa` and are managed outside this Gateway
 service zone. Clients must use `10.2.20.112` as DNS, or the LAN DNS/DHCP server
 must forward/delegate `jax22.com` and `.h` to `10.2.20.112` on DNS port 53, for

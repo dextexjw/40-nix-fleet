@@ -47,6 +47,15 @@ let
   tlsDomain = cfg.tls.domain;
   isTlsHost = host: host == tlsDomain || hasSuffix ".${tlsDomain}" host;
   tlsHosts = hosts: filter isTlsHost hosts;
+  tlsConfig = {
+    certResolver = cfg.tls.resolver;
+    domains = [
+      {
+        main = cfg.tls.domain;
+        sans = [ "*.${cfg.tls.domain}" ] ++ cfg.tls.extraSans;
+      }
+    ];
+  };
 
   routeProtectedHosts =
     route:
@@ -98,7 +107,7 @@ let
         entryPoints = [ "websecure" ];
         rule = mkRule (tlsHosts route.hosts);
         service = mkName name;
-        tls = { };
+        tls = tlsConfig;
       }
       // optionalAttrs (routeProtectedHosts route != [ ]) {
         middlewares = [ cfg.authentik.middlewareName ];
@@ -113,7 +122,7 @@ let
       priority = 100;
       rule = "(${mkRule (tlsHosts route.hosts)}) && Path(`/`)";
       service = mkName name;
-      tls = { };
+      tls = tlsConfig;
     };
 
   mkService =
@@ -204,7 +213,7 @@ let
             entryPoints = [ "websecure" ];
             rule = "(${mkRule (tlsHosts dashboardHosts)}) && (${dashboardRule})";
             service = "api@internal";
-            tls = { };
+            tls = tlsConfig;
           }
           // optionalAttrs (dashboardProtectedHosts != [ ]) {
             middlewares = [ cfg.authentik.middlewareName ];
@@ -236,7 +245,7 @@ let
       priority = 1000;
       rule = "(${mkRule allForwardAuthHosts}) && PathPrefix(`/outpost.goauthentik.io/`)";
       service = "authentik-outpost";
-      tls = { };
+      tls = tlsConfig;
     };
   };
 

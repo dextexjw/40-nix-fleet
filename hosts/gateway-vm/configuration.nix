@@ -420,6 +420,8 @@ in
       enable = true;
       domain = "jax22.com";
       extraSans = [
+        "*.gateway.jax22.com"
+        "*.media.jax22.com"
         "s3.garage.jax22.com"
         "s3.rustfs.jax22.com"
       ];
@@ -555,7 +557,7 @@ in
           systemctl is-active gateway-state-backup.timer
           curl --resolve homepage.jax22.com:443:127.0.0.1 https://homepage.jax22.com/
           curl --resolve traefik.jax22.com:443:127.0.0.1 https://traefik.jax22.com/dashboard/
-          curl -H 'Host: gluetun.${serviceDomain}' http://127.0.0.1/api/health
+          curl -H 'Host: gluetun.gateway.${serviceDomain}' http://127.0.0.1/api/health
           curl -H 'Host: homepage.${serviceDomain}' http://127.0.0.1/
           curl -H 'Host: homepage.h' http://127.0.0.1/
           curl -H 'Host: netbootxyz.${serviceDomain}' http://127.0.0.1/
