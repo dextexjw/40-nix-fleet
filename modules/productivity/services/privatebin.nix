@@ -13,24 +13,24 @@ let
     inherit config lib pkgs;
   };
   inherit (productivityLib) cfg appdata serviceHosts;
- in
+in
 {
   config = mkIf cfg.enable {
-services.privatebin = {
-  enable = true;
-  dataDir = "${appdata}/privatebin";
-  enableNginx = true;
-  virtualHost = serviceHosts.privatebin;
-  settings = {
-    main = {
-      name = "Fleet PrivateBin";
-      discussion = false;
-      fileupload = false;
-      qrcode = true;
-      sizelimit = 10485760;
+    services.privatebin = {
+      enable = true;
+      dataDir = "${appdata}/privatebin";
+      enableNginx = true;
+      virtualHost = serviceHosts.privatebin;
+      settings = {
+        main = {
+          name = "Fleet PrivateBin";
+          discussion = false;
+          fileupload = false;
+          qrcode = true;
+          sizelimit = 10485760;
+        };
+        expire.default = "1week";
+      };
     };
-    expire.default = "1week";
-  };
-};
   };
 }

@@ -1,4 +1,9 @@
-{ hosts, serviceDomain, serviceDomains ? [ serviceDomain ], ... }:
+{
+  hosts,
+  serviceDomain,
+  serviceDomains ? [ serviceDomain ],
+  ...
+}:
 
 import ../../modules/productivity/catalog.nix {
   host = hosts.productivity-vm;

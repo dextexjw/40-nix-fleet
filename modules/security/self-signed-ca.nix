@@ -26,9 +26,12 @@ in
 
     domains = mkOption {
       type = types.listOf types.str;
-      default = [];
+      default = [ ];
       description = "List of domains to generate certificates for";
-      example = [ "jenkins.local" "grafana.local" ];
+      example = [
+        "jenkins.local"
+        "grafana.local"
+      ];
     };
 
     validityDays = mkOption {
@@ -85,43 +88,43 @@ in
 
         # Generate certificates for each domain
         ${concatMapStringsSep "\n" (domain: ''
-          DOMAIN_DIR="$CERTS_DIR/${domain}"
-          mkdir -p "$DOMAIN_DIR"
+                    DOMAIN_DIR="$CERTS_DIR/${domain}"
+                    mkdir -p "$DOMAIN_DIR"
 
-          # Generate domain private key
-          if [[ ! -f "$DOMAIN_DIR/key.pem" ]]; then
-            echo "Generating private key for ${domain}..."
-            ${pkgs.openssl}/bin/openssl genrsa -out "$DOMAIN_DIR/key.pem" 2048
-            chmod 600 "$DOMAIN_DIR/key.pem"
-          fi
+                    # Generate domain private key
+                    if [[ ! -f "$DOMAIN_DIR/key.pem" ]]; then
+                      echo "Generating private key for ${domain}..."
+                      ${pkgs.openssl}/bin/openssl genrsa -out "$DOMAIN_DIR/key.pem" 2048
+                      chmod 600 "$DOMAIN_DIR/key.pem"
+                    fi
 
-          # Generate certificate signing request
-          if [[ ! -f "$DOMAIN_DIR/cert.pem" ]]; then
-            echo "Generating certificate for ${domain}..."
-            ${pkgs.openssl}/bin/openssl req -new -key "$DOMAIN_DIR/key.pem" \
-              -out "$DOMAIN_DIR/csr.pem" \
-              -subj "/C=US/ST=Internal/L=Fleet/O=Fleet Services/CN=${domain}"
+                    # Generate certificate signing request
+                    if [[ ! -f "$DOMAIN_DIR/cert.pem" ]]; then
+                      echo "Generating certificate for ${domain}..."
+                      ${pkgs.openssl}/bin/openssl req -new -key "$DOMAIN_DIR/key.pem" \
+                        -out "$DOMAIN_DIR/csr.pem" \
+                        -subj "/C=US/ST=Internal/L=Fleet/O=Fleet Services/CN=${domain}"
 
-            # Sign the certificate with our CA
-            ${pkgs.openssl}/bin/openssl x509 -req -in "$DOMAIN_DIR/csr.pem" \
-              -CA "$CA_DIR/ca-cert.pem" -CAkey "$CA_DIR/ca-key.pem" \
-              -CAcreateserial -out "$DOMAIN_DIR/cert.pem" \
-              -days ${toString cfg.validityDays} \
-              -extensions v3_req -extfile <(cat <<EOF
-[v3_req]
-keyUsage = keyEncipherment, dataEncipherment
-extendedKeyUsage = serverAuth
-subjectAltName = DNS:${domain}
-EOF
-            )
+                      # Sign the certificate with our CA
+                      ${pkgs.openssl}/bin/openssl x509 -req -in "$DOMAIN_DIR/csr.pem" \
+                        -CA "$CA_DIR/ca-cert.pem" -CAkey "$CA_DIR/ca-key.pem" \
+                        -CAcreateserial -out "$DOMAIN_DIR/cert.pem" \
+                        -days ${toString cfg.validityDays} \
+                        -extensions v3_req -extfile <(cat <<EOF
+          [v3_req]
+          keyUsage = keyEncipherment, dataEncipherment
+          extendedKeyUsage = serverAuth
+          subjectAltName = DNS:${domain}
+          EOF
+                      )
 
-            # Clean up CSR
-            rm "$DOMAIN_DIR/csr.pem"
-            chmod 644 "$DOMAIN_DIR/cert.pem"
-          fi
+                      # Clean up CSR
+                      rm "$DOMAIN_DIR/csr.pem"
+                      chmod 644 "$DOMAIN_DIR/cert.pem"
+                    fi
 
-          # Set ownership for nginx
-          chown -R nginx:nginx "$DOMAIN_DIR"
+                    # Set ownership for nginx
+                    chown -R nginx:nginx "$DOMAIN_DIR"
         '') cfg.domains}
 
         echo "Fleet CA setup complete!"
@@ -175,6 +178,6 @@ EOF
       group = "nginx";
     };
 
-    users.groups.nginx = {};
+    users.groups.nginx = { };
   };
 }

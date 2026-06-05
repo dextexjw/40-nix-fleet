@@ -13,20 +13,20 @@ let
     inherit config lib pkgs;
   };
   inherit (mediaLib) cfg appdata mediaRoot;
- in
+in
 {
   config = mkIf cfg.enable {
-services.bazarr = {
-  enable = true;
-  user = "bazarr";
-  group = "media";
-  dataDir = "${appdata}/bazarr";
-  listenPort = cfg.ports.bazarr;
-};
+    services.bazarr = {
+      enable = true;
+      user = "bazarr";
+      group = "media";
+      dataDir = "${appdata}/bazarr";
+      listenPort = cfg.ports.bazarr;
+    };
 
-systemd.services = {
-  bazarr.requires = [ "${utils.escapeSystemdPath mediaRoot}.mount" ];
-  bazarr.after = [ "${utils.escapeSystemdPath mediaRoot}.mount" ];
-};
+    systemd.services = {
+      bazarr.requires = [ "${utils.escapeSystemdPath mediaRoot}.mount" ];
+      bazarr.after = [ "${utils.escapeSystemdPath mediaRoot}.mount" ];
+    };
   };
 }

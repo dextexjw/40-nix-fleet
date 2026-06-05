@@ -17,16 +17,10 @@ let
   mkLocalZoneRecordCommands =
     zone:
     let
-      records = mapAttrsToList (
-        name: address: {
-          address = address;
-          domain =
-            if name == "@" then
-              zone.domain
-            else
-              "${name}.${zone.domain}";
-        }
-      ) zone.aRecords;
+      records = mapAttrsToList (name: address: {
+        address = address;
+        domain = if name == "@" then zone.domain else "${name}.${zone.domain}";
+      }) zone.aRecords;
     in
     concatMapStringsSep "\n" (record: ''
       api_expect_ok "add ${record.domain} A record" "$base/api/zones/records/add" \
@@ -44,15 +38,9 @@ let
     ${mkLocalZoneRecordCommands zone}
   '') localZones;
   adminPasswordFileArg =
-    if cfg.adminPasswordFile == null then
-      "''"
-    else
-      escapeShellArg cfg.adminPasswordFile;
+    if cfg.adminPasswordFile == null then "''" else escapeShellArg cfg.adminPasswordFile;
   adminUsernameFileArg =
-    if cfg.adminUsernameFile == null then
-      "''"
-    else
-      escapeShellArg cfg.adminUsernameFile;
+    if cfg.adminUsernameFile == null then "''" else escapeShellArg cfg.adminUsernameFile;
   bool = value: if value then "true" else "false";
   certificatePath = "/var/lib/technitium-dns-server/tls/${cfg.tlsCertificateDomain}.pfx";
   sanList = concatStringsSep "," cfg.tlsSubjectAltNames;
@@ -207,16 +195,15 @@ in
     };
 
     systemd.services.technitium-dns-server = {
-      environment =
-        {
-          DNS_SERVER_DOMAIN = cfg.serverDomain;
-          DNS_SERVER_RECURSION = "AllowOnlyForPrivateNetworks";
-          DNS_SERVER_WEB_SERVICE_HTTP_PORT = toString cfg.webPort;
-          DNS_SERVER_WEB_SERVICE_LOCAL_ADDRESSES = cfg.webServiceLocalAddresses;
-        }
-        // optionalAttrs (cfg.adminPasswordFile != null) {
-          DNS_SERVER_ADMIN_PASSWORD_FILE = "%d/technitium-admin-password";
-        };
+      environment = {
+        DNS_SERVER_DOMAIN = cfg.serverDomain;
+        DNS_SERVER_RECURSION = "AllowOnlyForPrivateNetworks";
+        DNS_SERVER_WEB_SERVICE_HTTP_PORT = toString cfg.webPort;
+        DNS_SERVER_WEB_SERVICE_LOCAL_ADDRESSES = cfg.webServiceLocalAddresses;
+      }
+      // optionalAttrs (cfg.adminPasswordFile != null) {
+        DNS_SERVER_ADMIN_PASSWORD_FILE = "%d/technitium-admin-password";
+      };
 
       preStart = mkIf cfg.configureEncryptedDns ''
         set -euo pipefail
@@ -248,14 +235,13 @@ in
         fi
       '';
 
-      serviceConfig =
-        {
-          LogsDirectory = "technitium/dns";
-          LogsDirectoryMode = "0750";
-        }
-        // optionalAttrs (cfg.adminPasswordFile != null) {
-          LoadCredential = [ "technitium-admin-password:${cfg.adminPasswordFile}" ];
-        };
+      serviceConfig = {
+        LogsDirectory = "technitium/dns";
+        LogsDirectoryMode = "0750";
+      }
+      // optionalAttrs (cfg.adminPasswordFile != null) {
+        LoadCredential = [ "technitium-admin-password:${cfg.adminPasswordFile}" ];
+      };
     };
 
     systemd.services.technitium-dns-configure = mkIf cfg.configureEncryptedDns {

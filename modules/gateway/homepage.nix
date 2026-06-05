@@ -31,9 +31,11 @@ let
   mkHomepageService = service: {
     ${service.name} = {
       inherit (service) description href;
-    } // optionalAttrs (service.icon != null) {
+    }
+    // optionalAttrs (service.icon != null) {
       inherit (service) icon;
-    } // optionalAttrs (service.siteMonitor != null) {
+    }
+    // optionalAttrs (service.siteMonitor != null) {
       inherit (service) siteMonitor;
     };
   };

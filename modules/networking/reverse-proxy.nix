@@ -56,36 +56,38 @@ in
     };
 
     routes = mkOption {
-      type = types.attrsOf (types.submodule {
-        options = {
-          target = mkOption {
-            type = types.str;
-            description = "Target host IP or hostname";
-          };
+      type = types.attrsOf (
+        types.submodule {
+          options = {
+            target = mkOption {
+              type = types.str;
+              description = "Target host IP or hostname";
+            };
 
-          port = mkOption {
-            type = types.port;
-            description = "Target port";
-          };
+            port = mkOption {
+              type = types.port;
+              description = "Target port";
+            };
 
-          description = mkOption {
-            type = types.str;
-            default = "";
-            description = "Description of this route";
-          };
+            description = mkOption {
+              type = types.str;
+              default = "";
+              description = "Description of this route";
+            };
 
-          extraConfig = mkOption {
-            type = types.lines;
-            default = "";
-            description = "Additional nginx configuration for this route";
-            example = ''
-              client_max_body_size 100M;
-              proxy_read_timeout 300;
-            '';
+            extraConfig = mkOption {
+              type = types.lines;
+              default = "";
+              description = "Additional nginx configuration for this route";
+              example = ''
+                client_max_body_size 100M;
+                proxy_read_timeout 300;
+              '';
+            };
           };
-        };
-      });
-      default = {};
+        }
+      );
+      default = { };
       description = "Hostname to backend mapping";
       example = {
         "jenkins.home.arpa" = {

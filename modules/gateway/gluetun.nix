@@ -13,8 +13,7 @@ let
   controlAuthConfigFile = "${controlAuthConfigDir}/config.toml";
   controlWebUiEnvFile = "${controlAuthConfigDir}/webui.env";
   inputPorts =
-    optional cfg.httpProxy.enable cfg.httpProxy.port
-    ++ optional cfg.webUi.enable cfg.webUi.port;
+    optional cfg.httpProxy.enable cfg.httpProxy.port ++ optional cfg.webUi.enable cfg.webUi.port;
 in
 {
   # ============================================================================
@@ -201,9 +200,11 @@ in
         VPN_PORT_FORWARDING = if cfg.vpnPortForwarding then "on" else "off";
         VPN_SERVICE_PROVIDER = cfg.provider;
         VPN_TYPE = cfg.vpnType;
-      } // optionalAttrs (inputPorts != [ ]) {
+      }
+      // optionalAttrs (inputPorts != [ ]) {
         FIREWALL_INPUT_PORTS = concatMapStringsSep "," toString inputPorts;
-      } // optionalAttrs cfg.controlServer.enable {
+      }
+      // optionalAttrs cfg.controlServer.enable {
         HTTP_CONTROL_SERVER_ADDRESS = ":${toString cfg.controlServer.port}";
         HTTP_CONTROL_SERVER_AUTH_CONFIG_FILEPATH = "/run/gluetun-control-server/config.toml";
       };
@@ -230,7 +231,8 @@ in
         "${cfg.stateDir}:/gluetun"
         "${cfg.openvpnUsernameFile}:/run/secrets/openvpn_user:ro"
         "${cfg.openvpnPasswordFile}:/run/secrets/openvpn_password:ro"
-      ] ++ optionals cfg.controlServer.enable [
+      ]
+      ++ optionals cfg.controlServer.enable [
         "${controlAuthConfigFile}:/run/gluetun-control-server/config.toml:ro"
       ];
     };
@@ -274,41 +276,41 @@ in
         Type = "oneshot";
       };
       script = ''
-        set -euo pipefail
+                set -euo pipefail
 
-        install -d -m 0700 -o root -g root '${controlAuthConfigDir}'
+                install -d -m 0700 -o root -g root '${controlAuthConfigDir}'
 
-        api_key="$(tr -d '\r\n' < '${cfg.controlServer.apiKeyFile}')"
-        if [ -z "$api_key" ]; then
-          echo '${cfg.controlServer.apiKeyFile} is empty; refusing to generate Gluetun control auth config' >&2
-          exit 1
-        fi
+                api_key="$(tr -d '\r\n' < '${cfg.controlServer.apiKeyFile}')"
+                if [ -z "$api_key" ]; then
+                  echo '${cfg.controlServer.apiKeyFile} is empty; refusing to generate Gluetun control auth config' >&2
+                  exit 1
+                fi
 
-        tmp="$(mktemp '${controlAuthConfigDir}/config.toml.XXXXXX')"
-        chmod 0400 "$tmp"
-        cat >"$tmp" <<EOF
-[[roles]]
-name = "gluetun-webui"
-routes = [
-  "GET /v1/dns/status",
-  "GET /v1/portforward",
-  "GET /v1/publicip/ip",
-  "GET /v1/vpn/settings",
-  "GET /v1/vpn/status",
-  "PUT /v1/vpn/status"
-]
-auth = "apikey"
-apikey = "$api_key"
-EOF
+                tmp="$(mktemp '${controlAuthConfigDir}/config.toml.XXXXXX')"
+                chmod 0400 "$tmp"
+                cat >"$tmp" <<EOF
+        [[roles]]
+        name = "gluetun-webui"
+        routes = [
+          "GET /v1/dns/status",
+          "GET /v1/portforward",
+          "GET /v1/publicip/ip",
+          "GET /v1/vpn/settings",
+          "GET /v1/vpn/status",
+          "PUT /v1/vpn/status"
+        ]
+        auth = "apikey"
+        apikey = "$api_key"
+        EOF
 
-        install -m 0400 -o root -g root "$tmp" '${controlAuthConfigFile}'
-        rm -f "$tmp"
+                install -m 0400 -o root -g root "$tmp" '${controlAuthConfigFile}'
+                rm -f "$tmp"
 
-        env_tmp="$(mktemp '${controlAuthConfigDir}/webui.env.XXXXXX')"
-        chmod 0400 "$env_tmp"
-        printf 'GLUETUN_API_KEY=%s\n' "$api_key" >"$env_tmp"
-        install -m 0400 -o root -g root "$env_tmp" '${controlWebUiEnvFile}'
-        rm -f "$env_tmp"
+                env_tmp="$(mktemp '${controlAuthConfigDir}/webui.env.XXXXXX')"
+                chmod 0400 "$env_tmp"
+                printf 'GLUETUN_API_KEY=%s\n' "$api_key" >"$env_tmp"
+                install -m 0400 -o root -g root "$env_tmp" '${controlWebUiEnvFile}'
+                rm -f "$env_tmp"
       '';
     };
 

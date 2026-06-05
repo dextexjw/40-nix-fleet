@@ -5,6 +5,9 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="gateway-vm"
 SECRETS="$ROOT/secrets/secrets.yaml"
 
+# shellcheck source=scripts/lib/required-secrets.sh
+source "$ROOT/scripts/lib/required-secrets.sh"
+
 die() {
   printf 'error: %s\n' "$*" >&2
   exit 1
@@ -34,9 +37,7 @@ if ! decrypted_secrets="$(sops --decrypt "$SECRETS")"; then
   die "unable to decrypt $SECRETS; rekey it for your local key before bootstrap checks"
 fi
 
-for required_key in admin-password-hash authentik-bootstrap-email authentik-bootstrap-password authentik-bootstrap-token authentik-bootstrap-username authentik-postgresql-password authentik-secret-key beszel-oidc-client-secret forgejo-oidc-client-secret gitea-oidc-client-secret memos-oidc-client-secret nextcloud-oidc-client-secret paperless-oidc-client-secret rustfs-oidc-client-secret gluetun-control-api-key gluetun-openvpn-password gluetun-openvpn-username restic-password smb-credentials technitium-admin-username technitium-admin-password traefik-cloudflare-dns-api-token; do
-  grep -q "^${required_key}:" <<<"$decrypted_secrets" || die "$SECRETS is missing $required_key"
-done
+check_required_secrets_for_host "$HOST" "$decrypted_secrets" "$SECRETS"
 
 if grep -q 'CHANGE_ME' <<<"$decrypted_secrets"; then
   die "$SECRETS still contains CHANGE_ME placeholders"

@@ -118,8 +118,7 @@ in
   # HOST IDENTIFICATION
   # ============================================================================
 
-  networking.hostName = "gateway-vm";
-  networking.domain = host.domain;
+  fleet.host.name = "gateway-vm";
   users.motd = "gateway-vm: Authentik SSO, Traefik ingress, Homepage, Technitium DNS, Gluetun VPN proxy, NetBird, and Tailscale";
 
   # ============================================================================
@@ -448,36 +447,7 @@ in
   # NETWORKING & FIREWALL
   # ============================================================================
 
-  networking.networkmanager.enable = lib.mkForce false;
-  networking.useDHCP = lib.mkForce false;
-  systemd.network = {
-    enable = true;
-    networks."10-lan" = {
-      matchConfig.Name = [
-        "en*"
-        "eth*"
-      ];
-      networkConfig = {
-        Address = "${host.ip}/24";
-        DNS = host.nameservers;
-        Domains = [
-          host.domain
-          "~${host.domain}"
-        ];
-        Gateway = host.gateway;
-      };
-    };
-  };
-
   networking.firewall.allowedTCPPorts = [ ];
-
-  # ============================================================================
-  # BOOTLOADER
-  # ============================================================================
-
-  boot.loader.grub.enable = true;
-  boot.loader.grub.device = host.vm.disk;
-  boot.loader.grub.useOSProber = true;
 
   # ============================================================================
   # SYSTEM
@@ -608,7 +578,4 @@ in
           Keep auth keys, DNS API tokens, and service secrets in encrypted secrets only; do not write them into Nix
           files, generated configs, recovery notes, logs, or chat.
   '';
-
-  time.timeZone = host.timezone;
-  system.stateVersion = "25.11";
 }

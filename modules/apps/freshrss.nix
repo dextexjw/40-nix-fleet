@@ -79,7 +79,8 @@ in
     # --------------------------------------------------------------------------
 
     virtualisation.oci-containers.containers.freshrss = {
-      image = "lscr.io/linuxserver/freshrss:latest";
+      image = "lscr.io/linuxserver/freshrss@sha256:dba370a489b60d76c8d21b7a0d6eb8f39bcd47f71e891839e9b572e638a126f3";
+      pull = "missing";
 
       ports = [
         "${toString cfg.port}:80"
@@ -95,9 +96,6 @@ in
         "${cfg.dataDir}:/config"
       ];
 
-      extraOptions = [
-        "--pull=always"
-      ];
     };
 
     # --------------------------------------------------------------------------

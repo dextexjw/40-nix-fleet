@@ -1,4 +1,9 @@
-{ hosts, serviceDomain, serviceDomains ? [ serviceDomain ], ... }:
+{
+  hosts,
+  serviceDomain,
+  serviceDomains ? [ serviceDomain ],
+  ...
+}:
 
 import ../../modules/media/catalog.nix {
   host = hosts.media-vm;

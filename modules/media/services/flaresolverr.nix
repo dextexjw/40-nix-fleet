@@ -13,12 +13,12 @@ let
     inherit config lib pkgs;
   };
   inherit (mediaLib) cfg;
- in
+in
 {
   config = mkIf cfg.enable {
-services.flaresolverr = {
-  enable = true;
-  port = 8191;
-};
+    services.flaresolverr = {
+      enable = true;
+      port = 8191;
+    };
   };
 }

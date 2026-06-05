@@ -6,6 +6,9 @@ HOST="media-vm"
 HOST_IP="10.2.20.113"
 REMOTE_USER="smoke"
 SECRETS="$ROOT/secrets/secrets.yaml"
+
+# shellcheck source=scripts/lib/required-secrets.sh
+source "$ROOT/scripts/lib/required-secrets.sh"
 KEY_SERVICES=(
   jellyfin
   audiobookshelf
@@ -94,9 +97,7 @@ phase_check_upgrade_readiness() {
     die "$SECRETS still contains CHANGE_ME placeholders"
   fi
 
-  for required_key in admin-password-hash media-gluetun-control-api-key media-gluetun-openvpn-password media-gluetun-openvpn-username qbittorrent-webui-password qbittorrent-webui-username restic-password smb-credentials; do
-    grep -q "^$required_key:" <<<"$decrypted_secrets" || die "$SECRETS is missing required key: $required_key"
-  done
+  check_required_secrets_for_host "$HOST" "$decrypted_secrets" "$SECRETS"
 
   confirm_ssh_access
 

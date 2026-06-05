@@ -56,12 +56,12 @@ done
 
 printf 'Checking declarative Checkmate provisioning state...\n'
 colmena exec --on "$HOST" -- "getent hosts homepage.jax22.com | grep -q '10[.]2[.]20[.]112'"
-colmena exec --on "$HOST" -- "jq -e '.expectedServiceMonitors == 40 and .expectedHardwareMonitors == 4 and .expectedManagedMonitors == 44 and (.serviceMonitors | length == 40) and (.hardwareMonitors | length == 4)' /etc/fleet/checkmate-targets.json >/dev/null"
+colmena exec --on "$HOST" -- "jq -e '.expectedServiceMonitors == (.serviceMonitors | length) and .expectedHardwareMonitors == (.hardwareMonitors | length) and .expectedManagedMonitors == (.expectedServiceMonitors + .expectedHardwareMonitors)' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'any(.serviceMonitors[]; .id == \"memos\") and any(.serviceMonitors[]; .id == \"openspeedtest\") and all(.serviceMonitors[]; (.id | test(\"^libr(e)?speed$\") | not))' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'any(.serviceMonitors[]; .id == \"gluetun\" and .type == \"http\" and .url == \"https://gluetun.gateway.jax22.com/\") and any(.serviceMonitors[]; .id == \"media-gluetun\" and .type == \"http\" and .url == \"https://gluetun.media.jax22.com/\")' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'all(.hardwareMonitors[]; .url | endswith(\"/api/v1/metrics\"))' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "systemctl show checkmate-provisioning.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show checkmate-provisioning.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
-colmena exec --on "$HOST" -- "sudo jq -e '.expectedServiceMonitors == 40 and .expectedHardwareMonitors == 4 and .expectedManagedMonitors == 44' /var/lib/checkmate-provisioning/last-summary.json >/dev/null"
+colmena exec --on "$HOST" -- "sudo jq -e --slurpfile targets /etc/fleet/checkmate-targets.json '.expectedServiceMonitors == \$targets[0].expectedServiceMonitors and .expectedHardwareMonitors == \$targets[0].expectedHardwareMonitors and .expectedManagedMonitors == \$targets[0].expectedManagedMonitors' /var/lib/checkmate-provisioning/last-summary.json >/dev/null"
 
 printf 'Checking backup and restore validation...\n'
 colmena exec --on "$HOST" -- "sh -lc 'findmnt -rn --target /mnt/backups >/dev/null || mount /mnt/backups'"

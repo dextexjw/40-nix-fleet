@@ -78,6 +78,7 @@ With `direnv`, `.envrc` loads the same flake shell automatically.
 Useful local checks:
 
 ```sh
+scripts/check.sh
 nix flake check
 colmena build --on media-vm
 colmena apply --on media-vm dry-activate
@@ -92,6 +93,10 @@ colmena apply --on monitoring-vm dry-activate
 ```sh
 scripts/media-vm/check.sh
 ```
+
+`scripts/check.sh` is the repo-wide hygiene gate. It checks shell syntax,
+required-secret manifests, Nix formatting, and `nix flake check`; ShellCheck,
+Statix, and Deadnix run as advisory checks from the dev shell.
 
 ## Deployments
 
@@ -203,6 +208,8 @@ backup, restore, or recovery behavior changes.
 ## Safety Notes
 
 - Host disks are declared in `hosts.nix`; installer or partitioning commands against those disks are destructive.
+- App stack backups use `/mnt/backups`; Gateway state backup intentionally uses
+  `/mnt/backup` until that live path is migrated.
 - Keep secret values encrypted before committing.
 - Do not paste decrypted secrets into commits, issues, chat, logs, or shell history.
 - The base firewall opens SSH and service modules open their own required ports.

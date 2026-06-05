@@ -5,6 +5,9 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="media-vm"
 SECRETS="$ROOT/secrets/secrets.yaml"
 
+# shellcheck source=scripts/lib/required-secrets.sh
+source "$ROOT/scripts/lib/required-secrets.sh"
+
 die() {
   printf 'error: %s\n' "$*" >&2
   exit 1
@@ -38,9 +41,7 @@ if grep -q 'CHANGE_ME' <<<"$decrypted_secrets"; then
   die "$SECRETS still contains CHANGE_ME placeholders"
 fi
 
-for required_key in admin-password-hash media-gluetun-control-api-key media-gluetun-openvpn-password media-gluetun-openvpn-username qbittorrent-webui-password qbittorrent-webui-username restic-password smb-credentials; do
-  grep -q "^$required_key:" <<<"$decrypted_secrets" || die "$SECRETS is missing required key: $required_key"
-done
+check_required_secrets_for_host "$HOST" "$decrypted_secrets" "$SECRETS"
 
 nix flake check
 colmena build --on "$HOST"

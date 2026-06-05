@@ -11,7 +11,9 @@ let
   appdata = cfg.appdataRoot;
   gluetunCfg = cfg.gluetun;
   mediaRoot = cfg.mediaRoot;
-  mediaGluetunRouteUrls = map (serviceDomain: "http://gluetun.media.${serviceDomain}") cfg.serviceDomains;
+  mediaGluetunRouteUrls = map (
+    serviceDomain: "http://gluetun.media.${serviceDomain}"
+  ) cfg.serviceDomains;
   smbCredentialsFile =
     if cfg.secrets.enable then
       config.sops.secrets.smb-credentials.path
@@ -59,10 +61,7 @@ let
   gluetunControlWebUiEnvFile = "${gluetunControlAuthConfigDir}/webui.env";
   systemdMountOptions = filter (
     option:
-    option != "_netdev"
-    && option != "noauto"
-    && option != "nofail"
-    && !(hasPrefix "x-systemd." option)
+    option != "_netdev" && option != "noauto" && option != "nofail" && !(hasPrefix "x-systemd." option)
   ) cfg.smb.mountOptions;
   gluetunInputPorts =
     optional gluetunCfg.qbittorrentWebUi.enable cfg.ports.qbittorrent
@@ -89,7 +88,9 @@ let
   sabnzbdConfigScript = pkgs.writeShellScript "configure-sabnzbd" ''
     set -euo pipefail
 
-    exec ${pkgs.python3.withPackages (pythonPackages: [ pythonPackages.configobj ])}/bin/python3 - <<'PY'
+    exec ${
+      pkgs.python3.withPackages (pythonPackages: [ pythonPackages.configobj ])
+    }/bin/python3 - <<'PY'
     import os
     import pathlib
     import pwd

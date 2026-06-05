@@ -8,6 +8,16 @@ let
   hosts = import ../../hosts.nix;
   host = hosts.productivity-vm;
   serviceDomains = (import ../../lib/service-domains.nix).all;
+  serviceDomain = builtins.head serviceDomains;
+  exposure = import ../../lib/exposure.nix {
+    inherit lib;
+    root = ../..;
+  };
+  exposureCatalog = exposure.load {
+    inherit hosts serviceDomain serviceDomains;
+  };
+  routeServices = builtins.filter (service: service ? route) exposureCatalog.serviceEntries;
+  routeHosts = lib.unique (lib.concatMap (service: service.route.hosts) routeServices);
   secretsFile = ../../secrets/secrets.yaml;
   secretsEnabled = builtins.pathExists secretsFile;
 in
@@ -27,9 +37,10 @@ in
   # HOST IDENTIFICATION
   # ============================================================================
 
-  networking.hostName = "productivity-vm";
-  networking.domain = host.domain;
+  fleet.host.name = "productivity-vm";
   users.motd = "productivity-vm: Git, docs, paperless, RSS, search, vault, files, S3, netboot.xyz, notifications, and appdata backups";
+
+  networking.hosts.${hosts.gateway-vm.ip} = routeHosts;
 
   # ============================================================================
   # SECRETS
@@ -333,40 +344,4 @@ in
   services.stirling-pdf.enable = lib.mkForce false;
   systemd.services.stirling-pdf.enable = lib.mkForce false;
 
-  # ============================================================================
-  # NETWORKING & FIREWALL
-  # ============================================================================
-
-  networking.networkmanager.enable = lib.mkForce false;
-  networking.useDHCP = lib.mkForce false;
-  systemd.network = {
-    enable = true;
-    networks."10-lan" = {
-      matchConfig.Name = [
-        "en*"
-        "eth*"
-      ];
-      networkConfig = {
-        Address = "${host.ip}/24";
-        DNS = host.nameservers;
-        Domains = host.domain;
-        Gateway = host.gateway;
-      };
-    };
-  };
-
-  # ============================================================================
-  # BOOTLOADER
-  # ============================================================================
-
-  boot.loader.grub.enable = true;
-  boot.loader.grub.device = host.vm.disk;
-  boot.loader.grub.useOSProber = true;
-
-  # ============================================================================
-  # SYSTEM
-  # ============================================================================
-
-  time.timeZone = host.timezone;
-  system.stateVersion = "25.11";
 }

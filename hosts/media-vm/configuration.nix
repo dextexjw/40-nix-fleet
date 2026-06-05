@@ -28,8 +28,7 @@ in
   # HOST IDENTIFICATION
   # ============================================================================
 
-  networking.hostName = "media-vm";
-  networking.domain = host.domain;
+  fleet.host.name = "media-vm";
   users.motd = "media-vm: Jellyfin, Audiobookshelf, Kavita, ARR stack, downloads, and appdata backups";
 
   # ============================================================================
@@ -116,43 +115,4 @@ in
     inherit serviceDomains;
   };
 
-  # ============================================================================
-  # NETWORKING & FIREWALL
-  # ============================================================================
-
-  networking.networkmanager.enable = lib.mkForce false;
-  networking.useDHCP = lib.mkForce false;
-  systemd.network = {
-    enable = true;
-    networks."10-lan" = {
-      matchConfig.Name = [
-        "en*"
-        "eth*"
-      ];
-      networkConfig = {
-        Address = "${host.ip}/24";
-        DNS = host.nameservers;
-        Domains = [
-          host.domain
-          "~${host.domain}"
-        ];
-        Gateway = host.gateway;
-      };
-    };
-  };
-
-  # ============================================================================
-  # BOOTLOADER
-  # ============================================================================
-
-  boot.loader.grub.enable = true;
-  boot.loader.grub.device = host.vm.disk;
-  boot.loader.grub.useOSProber = true;
-
-  # ============================================================================
-  # SYSTEM
-  # ============================================================================
-
-  time.timeZone = host.timezone;
-  system.stateVersion = "25.11";
 }

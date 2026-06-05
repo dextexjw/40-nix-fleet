@@ -137,7 +137,12 @@ in
         "productivity-memos-sqlite-backup.service"
         "productivity-postgresql-dump.service"
       ];
-      requires = [ "${utils.escapeSystemdPath cfg.smb.backupMount}.mount" ];
+      requires = [
+        "productivity-mariadb-dump.service"
+        "productivity-memos-sqlite-backup.service"
+        "productivity-postgresql-dump.service"
+        "${utils.escapeSystemdPath cfg.smb.backupMount}.mount"
+      ];
       path = [
         pkgs.coreutils
         pkgs.restic

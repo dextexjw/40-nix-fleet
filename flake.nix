@@ -88,10 +88,13 @@
         buildInputs = [
           colmena.packages.${system}.colmena
           pkgs.age
+          pkgs.deadnix
           pkgs.nixfmt
           pkgs.restic
+          pkgs.shellcheck
           pkgs.sops
           pkgs.ssh-to-age
+          pkgs.statix
         ];
       };
 

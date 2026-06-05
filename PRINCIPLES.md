@@ -67,8 +67,10 @@ MediaVM's appdata model is the fleet default for stateful services.
   under `/srv/appsdata/<service_name>`.
 - Back up `/srv/appsdata` as the single Restic source for app and service
   state.
-- Mount the backup SMB share at `/mnt/backup` using the shared
-  `smb-credentials` secret and the fleet SMB mount pattern.
+- Mount the backup SMB share at `/mnt/backups` using the shared
+  `smb-credentials` secret and the fleet SMB mount pattern. `gateway-vm`
+  currently uses `/mnt/backup` for its established Gateway state backup path;
+  keep that exception explicit until it is intentionally migrated.
 - Use the existing `restic-password` secret for Restic repositories; do not
   introduce service-specific Restic passwords unless there is a documented
   recovery reason.

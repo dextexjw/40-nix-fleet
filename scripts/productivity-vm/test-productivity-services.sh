@@ -84,6 +84,9 @@ declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
   [rustdesk-relay]=1
   [rustdesk-signal]=1
 )
+declare -A DISABLED_SERVICE=(
+  [stirling-pdf]=1
+)
 declare -A SKIPPED_SERVICE=()
 
 die() {
@@ -114,6 +117,12 @@ service_unit_exists() {
   local service="$1"
 
   colmena exec --on "$HOST" -- "systemctl cat '$service.service' >/dev/null 2>&1" >/dev/null 2>&1
+}
+
+service_unit_is_loaded() {
+  local service="$1"
+
+  colmena exec --on "$HOST" -- "systemctl show '$service.service' -p LoadState --value | grep -Fxq loaded" >/dev/null 2>&1
 }
 
 service_is_skipped() {
@@ -166,6 +175,9 @@ route_is_skipped() {
     shlink.*)
       service_is_skipped podman-shlink-web
       ;;
+    stirling-pdf.*)
+      service_is_skipped stirling-pdf
+      ;;
     *)
       return 1
       ;;
@@ -178,6 +190,12 @@ cd "$ROOT"
 
 printf 'Checking key productivity services...\n'
 for service in "${KEY_SERVICES[@]}"; do
+  if [[ "${DISABLED_SERVICE[$service]:-0}" == 1 ]] && ! service_unit_is_loaded "$service"; then
+    printf 'Skipping %s.service because it is disabled in the host configuration.\n' "$service"
+    SKIPPED_SERVICE[$service]=1
+    continue
+  fi
+
   if (( ALLOW_MISSING_NEW_SERVICES )) \
     && [[ "${OPTIONAL_FIRST_DEPLOY_SERVICE[$service]:-0}" == 1 ]] \
     && ! service_unit_exists "$service"; then
@@ -267,7 +285,9 @@ fi
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8087/ >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8222/ >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8384/ >/dev/null"
-colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 http://127.0.0.1:8086/); case \"\$status\" in 2*|3*|401) exit 0 ;; *) echo \"unexpected Stirling PDF status: \$status\" >&2; exit 1 ;; esac'"
+if ! service_is_skipped stirling-pdf; then
+  colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 http://127.0.0.1:8086/); case \"\$status\" in 2*|3*|401) exit 0 ;; *) echo \"unexpected Stirling PDF status: \$status\" >&2; exit 1 ;; esac'"
+fi
 if ! service_is_skipped podman-openspeedtest; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8989/ >/dev/null"
 fi
