@@ -19,6 +19,7 @@ let
     AUTHENTIK_DISABLE_STARTUP_ANALYTICS = "true";
     AUTHENTIK_DISABLE_UPDATE_CHECK = "true";
     AUTHENTIK_ERROR_REPORTING__ENABLED = "false";
+    AUTHENTIK_HTTP_TIMEOUT = toString cfg.runtime.httpTimeout;
     AUTHENTIK_LISTEN__HTTP = "${cfg.listenAddress}:${toString cfg.httpPort}";
     AUTHENTIK_LISTEN__HTTPS = "${cfg.listenAddress}:9443";
     AUTHENTIK_LISTEN__METRICS = "${cfg.listenAddress}:${toString cfg.metricsPort}";
@@ -29,6 +30,10 @@ let
     AUTHENTIK_POSTGRESQL__USER = "authentik";
     AUTHENTIK_POSTGRESQL__CONN_MAX_AGE = "0";
     AUTHENTIK_STORAGE__FILE__PATH = "${cfg.stateDir}/media";
+    AUTHENTIK_WEB__THREADS = toString cfg.runtime.webThreads;
+    AUTHENTIK_WEB__WORKERS = toString cfg.runtime.webWorkers;
+    AUTHENTIK_WORKER__PROCESSES = toString cfg.runtime.workerProcesses;
+    AUTHENTIK_WORKER__THREADS = toString cfg.runtime.workerThreads;
   };
 
   authentikWrapper = pkgs.writeShellScript "fleet-authentik" ''
@@ -321,6 +326,38 @@ in
         type = types.bool;
         default = true;
         description = "Run the idempotent Authentik provisioning unit after Authentik starts.";
+      };
+    };
+
+    runtime = {
+      httpTimeout = mkOption {
+        type = types.ints.positive;
+        default = 90;
+        description = "HTTP and Gunicorn worker timeout in seconds.";
+      };
+
+      webThreads = mkOption {
+        type = types.ints.positive;
+        default = 2;
+        description = "Gunicorn threads per Authentik web worker.";
+      };
+
+      webWorkers = mkOption {
+        type = types.ints.positive;
+        default = 2;
+        description = "Gunicorn worker processes for the Authentik web server.";
+      };
+
+      workerProcesses = mkOption {
+        type = types.ints.positive;
+        default = 1;
+        description = "Authentik background worker processes.";
+      };
+
+      workerThreads = mkOption {
+        type = types.ints.positive;
+        default = 1;
+        description = "Threads per Authentik background worker process.";
       };
     };
   };

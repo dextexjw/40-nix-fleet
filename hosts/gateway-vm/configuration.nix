@@ -282,6 +282,13 @@ in
     domain = "auth.jax22.com";
     enable = true;
     postgresql.passwordFile = config.sops.secrets.authentik-postgresql-password.path;
+    runtime = {
+      httpTimeout = 90;
+      webThreads = 2;
+      webWorkers = 2;
+      workerProcesses = 1;
+      workerThreads = 1;
+    };
     secretKeyFile = config.sops.secrets.authentik-secret-key.path;
   };
 
@@ -481,6 +488,11 @@ in
   # ============================================================================
 
   environment.etc."fleet/gateway-exposure-smoke.tsv".text = exposureCatalog.smokeTsv;
+
+  zramSwap = {
+    enable = true;
+    memoryPercent = 50;
+  };
 
   environment.etc."fleet/gateway-vm.md".text = ''
         gateway-vm service model
