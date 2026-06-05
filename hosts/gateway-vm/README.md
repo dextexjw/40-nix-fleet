@@ -48,8 +48,8 @@ Service access:
 - Technitium admin HTTP: `http://10.2.20.112:5380`
 - Technitium HTTPS and DNS-over-HTTPS: `https://10.2.20.112:53443`
 - Gluetun HTTP proxy: `http://10.2.20.112:8888`
-- Gluetun WebUI: `https://gluetun.jax22.com/` through Traefik, `http://gluetun.h/` as an alias; backend only on `127.0.0.1:3000`
-- MediaVM Gluetun WebUI: `https://media-gluetun.jax22.com/` through Traefik, `http://media-gluetun.h/` as an alias; backend on `10.2.20.113:3001`
+- Gluetun WebUI: `https://gluetun.gateway.jax22.com/` through Traefik, `http://gluetun.gateway.h/` as an alias; backend only on `127.0.0.1:3000`
+- MediaVM Gluetun WebUI: `https://gluetun.media.jax22.com/` through Traefik, `http://gluetun.media.h/` as an alias; backend on `10.2.20.113:3001`
 - Checkmate: `https://checkmate.jax22.com/` through Traefik, `http://checkmate.h/` as an alias; backend on `10.2.20.115:52345`
 - Beszel: `https://beszel.jax22.com/` through Traefik, `http://beszel.h/` as an alias; backend on `10.2.20.115:8090`
 - netboot.xyz WebUI: `https://netbootxyz.jax22.com/` through Traefik, `http://netbootxyz.h/` as an alias; backend on `10.2.20.114:3001`
@@ -170,7 +170,8 @@ SOPS-managed API key and is only consumed by the WebUI sidecar inside Gluetun's
 container network namespace.
 
 The Gluetun WebUI runs as `podman-gluetun-webui.service` and is available on
-the LAN through Traefik at `https://gluetun.jax22.com/` and `http://gluetun.h/`.
+the LAN through Traefik at `https://gluetun.gateway.jax22.com/` and
+`http://gluetun.gateway.h/`.
 It has no native UI login, so
 the direct backend listener stays bound to `127.0.0.1:3000` and is not opened
 on the LAN as a separate port.
@@ -178,7 +179,7 @@ on the LAN as a separate port.
 The MediaVM Gluetun WebUI runs on `media-vm` as
 `podman-media-gluetun-webui.service`, shares the `media-gluetun` network
 namespace used by qBittorrent and SABnzbd, and is available through Gateway Traefik at
-`https://media-gluetun.jax22.com/` and `http://media-gluetun.h/`. Gateway only
+`https://gluetun.media.jax22.com/` and `http://gluetun.media.h/`. Gateway only
 routes to its MediaVM LAN backend on `10.2.20.113:3001`; the VPN container and
 downloader kill switch still live on `media-vm`.
 
@@ -204,10 +205,10 @@ If a browser shows `DNS_PROBE_FINISHED_NXDOMAIN` for a service name, confirm
 whether the client is asking Gateway DNS:
 
 ```sh
-dig gluetun.jax22.com
-dig @10.2.20.112 gluetun.jax22.com
-dig gluetun.h
-dig @10.2.20.112 gluetun.h
+dig gluetun.gateway.jax22.com
+dig @10.2.20.112 gluetun.gateway.jax22.com
+dig gluetun.gateway.h
+dig @10.2.20.112 gluetun.gateway.h
 ```
 
 The first command must query `10.2.20.112`, or the LAN DNS server must have a

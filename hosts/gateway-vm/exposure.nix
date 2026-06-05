@@ -156,12 +156,12 @@ in
           name = "Gluetun";
           route = {
             description = "Gluetun WebUI";
-            hosts = hostnames "gluetun";
+            hosts = hostnames "gluetun.gateway";
             url = "http://127.0.0.1:3000";
           };
           homepage = {
             description = "HTTP: 8888 - SOCKS v5: 8388";
-            href = "${routeUrl (hostname "gluetun")}/";
+            href = "${routeUrl (hostname "gluetun.gateway")}/";
             icon = "gluetun.png";
             siteMonitor = "http://127.0.0.1:3000/api/health";
           };

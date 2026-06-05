@@ -186,18 +186,6 @@ in
             path = "/";
           };
         })
-        (mkService {
-          id = "netbootxyz";
-          name = "Netboot.xyz";
-          port = 3001;
-          routeDescription = "netboot.xyz web configuration UI";
-          icon = "netboot.png";
-          homepageDescription = "TFTP ${host.ip}:69/udp";
-          smokeHttp = {
-            discard = true;
-            path = "/";
-          };
-        })
         (mkRouteOnly {
           id = "shlink";
           name = "Shlink API";
@@ -363,6 +351,33 @@ in
           };
         })
         (mkService {
+          id = "netbootxyz";
+          name = "Netboot.xyz";
+          port = 3001;
+          routeDescription = "Web configuration UI";
+          icon = "netboot.png";
+          homepageDescription = "${backend 3001}\nTFTP ${host.ip}:69/udp";
+          smokeHttp = {
+            discard = true;
+            path = "/";
+          };
+        })
+        (mkService {
+          id = "garage-web";
+          name = "Garage";
+          port = 3900;
+          routeDescription = "Garage static website endpoint";
+          icon = "garage.png";
+          homepageDescription = "S3-compatible object storage\n${backend 3900}";
+          hostPrefix = "s3.garage";
+        })
+        {
+          id = "garage";
+          name = "Garage API";
+          port = 3900;
+          routeDescription = "Garage standalone S3 API";
+        }
+        (mkService {
           id = "rustfs";
           name = "RustFS";
           port = 9000;
@@ -383,7 +398,6 @@ in
           ]) (hostnames "iperf3");
           homepage = {
             description = "Network throughput test\niperf3 -c iperf3.${builtins.head serviceDomains} -p 5201";
-            href = "http://${builtins.head (hostnames "iperf3")}/";
             icon = "mdi-speedometer";
           };
           smoke = {
@@ -473,7 +487,6 @@ in
           ]) (hostnames "rustdesk");
           homepage = {
             description = "Remote desktop relay\nID server rustdesk.${builtins.head serviceDomains}";
-            href = "http://${builtins.head (hostnames "rustdesk")}/";
             icon = "rustdesk.png";
           };
           smoke = {
@@ -481,21 +494,6 @@ in
             requiredUnit = "traefik.service";
           };
         }
-        (mkRouteOnly {
-          id = "garage";
-          name = "Garage API";
-          port = 3900;
-          routeDescription = "Garage standalone S3 API";
-        })
-        (mkService {
-          id = "garage-web";
-          name = "Garage";
-          port = 3900;
-          routeDescription = "Garage static website endpoint";
-          icon = "garage.png";
-          homepageDescription = "S3-compatible object storage\n${backend 3900}";
-          hostPrefix = "s3.garage";
-        })
       ];
     }
   ];

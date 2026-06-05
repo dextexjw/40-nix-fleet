@@ -57,13 +57,13 @@ and HTTP-only `.h` aliases:
 - `prowlarr.jax22.com`, `prowlarr.h`
 - `bazarr.jax22.com`, `bazarr.h`
 - `qbittorrent.jax22.com`, `qbittorrent.h`
-- `media-gluetun.jax22.com`, `media-gluetun.h`
+- `gluetun.media.jax22.com`, `gluetun.media.h`
 - `sabnzbd.jax22.com`, `sabnzbd.h`
 - `seerr.jax22.com`, `seerr.h`
 
 MediaVM Gluetun WebUI is available directly at `10.2.20.113:3001` and through
-Gateway Traefik at `https://media-gluetun.jax22.com/` and
-`http://media-gluetun.h/`. The Gateway Homepage card monitors
+Gateway Traefik at `https://gluetun.media.jax22.com/` and
+`http://gluetun.media.h/`. The Gateway Homepage card monitors
 `http://10.2.20.113:3001/api/health`.
 
 qBittorrent and SABnzbd have no host-published ports of their own.

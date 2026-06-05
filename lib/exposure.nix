@@ -128,7 +128,7 @@ let
     {
       inherit (service) name;
       description = homepage.description or (if route == null then "" else route.description);
-      inherit (homepage) href;
+      href = homepage.href or "";
       icon = homepage.icon or null;
       siteMonitor = homepage.siteMonitor or null;
     };
@@ -289,16 +289,15 @@ let
       homepage = service.homepage or null;
       smoke = service.smoke or { };
       requiredUnit = smoke.requiredUnit or "";
+      homepageHref = homepage.href or null;
     in
     optionals (homepage != null) (
-      [
-        [
-          "homepage"
-          "${service.name} href"
-          "/etc/homepage-dashboard/services.yaml"
-          homepage.href
-          requiredUnit
-        ]
+      optional (homepageHref != null) [
+        "homepage"
+        "${service.name} href"
+        "/etc/homepage-dashboard/services.yaml"
+        homepageHref
+        requiredUnit
       ]
       ++ optional ((homepage.siteMonitor or null) != null) [
         "homepage"

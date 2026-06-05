@@ -137,6 +137,7 @@ in
         (mkService {
           id = "media-gluetun";
           name = "Media Gluetun";
+          hostPrefix = "gluetun.media";
           port = 3001;
           routeDescription = "MediaVM Gluetun WebUI for download clients";
           icon = "gluetun.png";

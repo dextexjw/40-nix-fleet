@@ -508,7 +508,7 @@ in
           Homepage: homepage-dashboard.service, declarative service directory, LAN access on ${host.ip}:8082, https://homepage.jax22.com, and http://homepage.h
           Technitium: technitium-dns-server.service, version 15.2.0, state /srv/appsdata/technitium-dns-server, admin HTTP on ${host.ip}:5380, https://technitium.jax22.com, and http://technitium.h
           Gluetun: podman-gluetun.service, PIA OpenVPN container, state /srv/appsdata/gluetun, unauthenticated LAN HTTP proxy on ${host.ip}:8888, authenticated control API internal to the container namespace
-          Gluetun WebUI: podman-gluetun-webui.service, LAN access through Traefik at https://gluetun.jax22.com and http://gluetun.h, backend only on 127.0.0.1:3000
+          Gluetun WebUI: podman-gluetun-webui.service, LAN access through Traefik at https://gluetun.gateway.jax22.com and http://gluetun.gateway.h, backend only on 127.0.0.1:3000
           netboot.xyz route: Gateway Traefik routes https://netbootxyz.jax22.com and http://netbootxyz.h to productivity-vm at ${hosts.productivity-vm.ip}:3001; direct assets and TFTP live on productivity-vm
           NetBird: disabled for now, state preserved at /srv/appsdata/netbird
           Tailscale: tailscaled.service, state /srv/appsdata/tailscale

@@ -11,7 +11,7 @@ let
   appdata = cfg.appdataRoot;
   gluetunCfg = cfg.gluetun;
   mediaRoot = cfg.mediaRoot;
-  mediaGluetunRouteUrls = map (serviceDomain: "http://media-gluetun.${serviceDomain}") cfg.serviceDomains;
+  mediaGluetunRouteUrls = map (serviceDomain: "http://gluetun.media.${serviceDomain}") cfg.serviceDomains;
   smbCredentialsFile =
     if cfg.secrets.enable then
       config.sops.secrets.smb-credentials.path
