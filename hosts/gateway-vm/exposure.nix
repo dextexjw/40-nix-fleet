@@ -165,6 +165,7 @@ in
             icon = "gluetun.png";
             siteMonitor = "http://127.0.0.1:3000/api/health";
           };
+          checkmate.url = "https://gluetun.gateway.jax22.com/";
           smoke.http.path = "/api/health";
         }
         {

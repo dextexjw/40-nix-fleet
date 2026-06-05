@@ -41,6 +41,11 @@ let
       smokeHttp = if service ? smoke && service.smoke ? http then service.smoke.http else null;
       primaryHost = builtins.head service.route.hosts;
       backend = parseBackend service;
+      checkmateUrl =
+        if service ? checkmate && service.checkmate ? url then
+          service.checkmate.url
+        else
+          "${routeScheme primaryHost}://${primaryHost}${smokeHttp.path or "/"}";
     in
     {
       description = service.route.description;
@@ -54,7 +59,7 @@ let
         {
           port = null;
           type = "http";
-          url = "${routeScheme primaryHost}://${primaryHost}${smokeHttp.path or "/"}";
+          url = checkmateUrl;
         }
       else
         {

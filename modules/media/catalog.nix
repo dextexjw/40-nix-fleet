@@ -60,6 +60,7 @@ let
           smoke.http = smokeHttp;
         }
     );
+  withCheckmateUrl = url: service: service // { checkmate.url = url; };
 in
 {
   groups = [
@@ -134,7 +135,7 @@ in
           routeDescription = "qBittorrent downloads";
           icon = "qbittorrent.png";
         })
-        (mkService {
+        (withCheckmateUrl "https://gluetun.media.jax22.com/" (mkService {
           id = "media-gluetun";
           name = "Media Gluetun";
           hostPrefix = "gluetun.media";
@@ -144,7 +145,7 @@ in
           homepageDescription = "media VPN @ ${backend 3001}";
           monitorPath = "/api/health";
           smokeHttp.path = "/api/health";
-        })
+        }))
         (mkService {
           id = "sabnzbd";
           name = "SABnzbd";
