@@ -51,9 +51,9 @@ path backed up by Restic.
 | Shlink short links/API | `https://s.jax22.com` | `http://s.h` | `10.2.20.114:8088` |
 | Shlink Web Client | `https://shlink.jax22.com` | `http://shlink.h` | `10.2.20.114:8089` |
 | Garage S3 API | `https://garage.jax22.com` | `http://garage.h` | `10.2.20.114:3900` |
-| Garage static web | `https://garage-web.jax22.com` | `http://garage-web.h` | `10.2.20.114:3902` |
-| RustFS S3 API | `https://rustfs.jax22.com` | `http://rustfs.h` | `10.2.20.114:9000` |
-| RustFS console | `https://rustfs-console.jax22.com` | `http://rustfs-console.h` | `10.2.20.114:9001` |
+| Garage static web | `https://s3.garage.jax22.com` | `http://s3.garage.h` | `10.2.20.114:3902` |
+| RustFS S3 API | `https://s3.rustfs.jax22.com` | `http://s3.rustfs.h` | `10.2.20.114:9000` |
+| RustFS console | `https://rustfs.jax22.com` | `http://rustfs.h` | `10.2.20.114:9001` |
 | ntfy | `https://ntfy.jax22.com` | `http://ntfy.h` | `10.2.20.114:2586` |
 
 Traefik routes and Homepage cards are declared on `gateway-vm`.
@@ -104,23 +104,79 @@ Required shared secrets:
 
 Required productivity secrets:
 
+- `authentik-bootstrap-email`
 - `firefly-app-key`
+- `forgejo-oidc-client-secret`
+- `gitea-oidc-client-secret`
 - `freshrss-admin-password`
+- `freshrss-admin-username`
 - `garage-admin-token`
 - `garage-metrics-token`
 - `garage-rpc-secret`
 - `invoiceplane-db-password`
+- `memos-admin-pat`
+- `memos-oidc-client-secret`
 - `nextcloud-admin-password`
+- `nextcloud-admin-username`
+- `nextcloud-oidc-client-secret`
 - `paperless-admin-password`
+- `paperless-admin-username`
+- `paperless-oidc-client-secret`
 - `rustfs-environment`
+- `rustfs-oidc-client-secret`
 - `searxng-environment`
 - `shlink-environment`
 - `syncthing-gui-password`
+- `syncthing-gui-username`
 - `vaultwarden-environment`
 
-Memos introduces no SOPS secret in this repo. Initial admin setup and signup
-policy are managed in the app and must not be written into Nix, docs, logs, or
-chat.
+Gitea uses native OIDC with Authentik. Authentik provisions the `gitea`
+client and allows `productivity-users`; `gitea-oidc-config.service` provisions
+the Gitea `authentik` OpenID Connect authentication source using the
+SOPS-managed `gitea-oidc-client-secret`. The only allowed callback is
+`https://gitea.jax22.com/user/oauth2/authentik/callback`. Local Gitea accounts
+and password login remain enabled for break-glass access.
+
+Forgejo uses native OIDC with Authentik. Authentik provisions the `forgejo`
+client and allows `productivity-users`; `forgejo-oidc-config.service`
+provisions the Forgejo `authentik` OpenID Connect authentication source using
+the SOPS-managed `forgejo-oidc-client-secret`. The only allowed callback is
+`https://forgejo.jax22.com/user/oauth2/authentik/callback`. Local Forgejo
+accounts and password login remain enabled for break-glass access.
+
+Memos uses native OAuth2 with Authentik. Authentik provisions the `memos`
+client and allows `productivity-users`; `memos-oidc-config.service` provisions
+the Memos identity provider through the Memos API using the SOPS-managed
+`memos-admin-pat`. The only allowed callback is
+`https://memos.jax22.com/auth/callback`; `http://memos.h` remains a non-SSO LAN
+alias. Local password auth and signup policy stay managed in Memos.
+
+Paperless uses native OIDC through django-allauth. Authentik provisions the
+`paperless` client and allows `productivity-users`; this host injects
+`PAPERLESS_SOCIALACCOUNT_PROVIDERS` from the encrypted
+`paperless-oidc-client-secret` through a runtime-only SOPS template owned by
+`paperless`. The only allowed callback is
+`https://paperless.jax22.com/accounts/oidc/authentik/login/callback/`.
+Authentik-backed Paperless accounts are created on first successful OIDC login.
+`paperless-oidc-superuser.service` promotes the SOPS-backed admin identity from
+`paperless-admin-username` or `authentik-bootstrap-email` to Django staff and
+superuser. `paperless-oidc-superuser.timer` retries this after boot so the
+admin OIDC account is promoted after its first browser login.
+Local Paperless username/password login remains enabled for break-glass access.
+
+Nextcloud uses the native `user_oidc` app. Authentik provisions the `nextcloud`
+client and allows `productivity-users`; `nextcloud-oidc-config.service`
+installs the Authentik provider with `nextcloud-occ` from the encrypted
+`nextcloud-oidc-client-secret`. The only allowed callback is
+`https://nextcloud.jax22.com/apps/user_oidc/code`. OIDC-managed users are kept
+separate from same-named local users by Nextcloud's unique OIDC user IDs, and
+`allow_multiple_user_backends=1` keeps local username/password login available
+for break-glass access.
+
+FreshRSS is not wired to native OIDC in this NixOS deployment yet. The upstream
+FreshRSS OIDC path is Apache `mod_auth_openidc` or the official Apache-based
+image; this host currently uses the NixOS FreshRSS module with nginx/PHP-FPM and
+form auth, so enabling FreshRSS SSO needs a serving-model change first.
 
 Normal edit flow:
 
@@ -235,16 +291,23 @@ Destructive restore outline:
 
 Garage is standalone S3 in this pass. It does not back Nextcloud primary
 storage. `garage.jax22.com` is the authenticated S3 API, so anonymous browser
-requests to `/` should return AccessDenied. `garage-web.jax22.com` is the
+requests to `/` should return AccessDenied. `s3.garage.jax22.com` is the
 static website endpoint; buckets must still be created and enabled for website
 hosting with the upstream Garage CLI before serving content. Bucket
 virtual-host style is canonical on `jax22.com`; `.h` is only retained as a
 named endpoint alias.
 
 RustFS is separate S3-compatible storage. It does not share Garage buckets or
-credentials. `rustfs.jax22.com` is the S3 API and `rustfs-console.jax22.com` is
+credentials. `s3.rustfs.jax22.com` is the S3 API and `rustfs.jax22.com` is
 the console. RustFS virtual-host style is canonical on `jax22.com`; `.h` is only
-retained as a named endpoint alias.
+retained as a named endpoint alias. The console uses Authentik native OIDC for
+`fleet-admins` only. Authentik owns the `rustfs-console` client and only allows
+`https://rustfs.jax22.com/rustfs/admin/v3/oidc/callback/authentik` as
+the callback. `rustfs-oidc-policy.service` ensures the
+`rustfs-console-admin` RustFS IAM policy exists for OIDC console sessions; the
+S3 API remains access-key based through `rustfs-environment`. Authentik native
+OIDC provisioning attaches the self-signed signing key so RustFS can validate
+JWKS during startup discovery.
 
 InvoicePlane uses MariaDB database `invoiceplane` and persistent runtime state
 under `/srv/appsdata/invoiceplane`. Complete initial setup at
@@ -269,3 +332,34 @@ configuration is browser-readable.
 
 Memos stores its SQLite database and local app state under `/srv/appsdata/memos`.
 The pre-backup SQLite copy is `/srv/appsdata/memos-backups/latest.db`.
+`memos-oidc-config.service` declaratively keeps the Authentik OAuth2 provider
+visible on the Memos sign-in page without disabling existing local auth.
+
+Gitea uses Authentik native OIDC for `productivity-users`.
+`gitea-oidc-client-secret` is shared between Gateway Authentik provisioning and
+`gitea-oidc-config.service`. Local Gitea password login stays enabled for
+break-glass access.
+
+Forgejo uses Authentik native OIDC for `productivity-users`.
+`forgejo-oidc-client-secret` is shared between Gateway Authentik provisioning
+and `forgejo-oidc-config.service`. Local Forgejo password login stays enabled
+for break-glass access.
+
+Paperless uses Authentik native OIDC for `productivity-users`.
+`paperless-oidc-client-secret` is shared between Gateway Authentik provisioning
+and the Paperless runtime environment template. `paperless-oidc-superuser`
+promotes the SOPS-backed admin identity from `paperless-admin-username` or
+`authentik-bootstrap-email` to Paperless staff and superuser. Local Paperless
+password login stays enabled for break-glass access.
+
+Nextcloud uses Authentik native OIDC for `productivity-users`.
+`nextcloud-oidc-client-secret` is shared between Gateway Authentik provisioning
+and `nextcloud-oidc-config.service`. The integration is additive: local
+Nextcloud accounts, including the admin account from
+`nextcloud-admin-username` and `nextcloud-admin-password`, remain valid for
+break-glass access.
+
+`rustfs-oidc-policy.service` declaratively keeps the RustFS
+`rustfs-console-admin` IAM policy available for Authentik-backed console
+sessions. Re-run it after restoring RustFS appdata or rotating
+`rustfs-environment` / `rustfs-oidc-client-secret`.

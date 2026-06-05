@@ -59,9 +59,9 @@ HOST_ROUTES=(
   invoiceplane
   memos
   garage
-  garage-web
+  s3.garage
+  s3.rustfs
   rustfs
-  rustfs-console
   s
   shlink
   ntfy
@@ -118,6 +118,22 @@ service_is_skipped() {
   [[ "${SKIPPED_SERVICE[$service]:-0}" == 1 ]]
 }
 
+allow_missing_unit() {
+  local unit="$1"
+
+  (( ALLOW_MISSING_NEW_SERVICES )) \
+    && ! colmena exec --on "$HOST" -- "systemctl cat '$unit' >/dev/null 2>&1" >/dev/null 2>&1
+}
+
+allow_missing_paperless_oidc_environment() {
+  (( ALLOW_MISSING_NEW_SERVICES )) \
+    && ! colmena exec --on "$HOST" -- "systemctl show paperless-web.service -p EnvironmentFiles --value | grep -Fq 'paperless-oidc-environment'" >/dev/null 2>&1
+}
+
+allow_missing_nextcloud_oidc_config() {
+  allow_missing_unit nextcloud-oidc-config.service
+}
+
 route_is_skipped() {
   local route="$1"
 
@@ -134,7 +150,7 @@ route_is_skipped() {
     memos.*)
       service_is_skipped podman-memos
       ;;
-    rustfs.* | rustfs-console.*)
+    rustfs.* | s3.rustfs.*)
       service_is_skipped podman-rustfs
       ;;
     s.*)
@@ -182,8 +198,64 @@ colmena exec --on "$HOST" -- env \
 
 printf 'Checking direct service listeners and nginx vhosts...\n'
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/ >/dev/null"
+if allow_missing_unit gitea-oidc-config.service; then
+  printf 'Skipping Gitea OIDC source checks because gitea-oidc-config.service is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- "systemctl show gitea-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show gitea-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+  colmena exec --on "$HOST" -- "sudo -u postgres psql -d gitea -tAc \"select count(*) from login_source where name = 'authentik' and type = 6 and is_active\" | tr -d '[:space:]' | grep -Fxq 1"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq '/user/oauth2/authentik'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq 'name=\"user_name\"'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq 'name=\"password\"'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://gitea.jax22.com/user/login | grep -Fq '/user/oauth2/authentik'"
+fi
+if allow_missing_paperless_oidc_environment; then
+  printf 'Skipping Paperless OIDC provider checks because paperless-oidc-environment is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- "sh -lc 'env_file=\$(systemctl show paperless-web.service -p EnvironmentFiles --value | tr \" \" \"\\n\" | grep -F \"paperless-oidc-environment\" | head -n1); test -n \"\$env_file\"; sudo stat -c \"%U:%G %a\" \"\$env_file\" | grep -Fxq \"paperless:paperless 400\"; sudo grep -Fq \"PAPERLESS_ADMIN_USER=\" \"\$env_file\"; sudo grep -Fq \"PAPERLESS_SOCIALACCOUNT_PROVIDERS=\" \"\$env_file\"; sudo grep -Fq \"authentik\" \"\$env_file\"; sudo grep -Fq \"paperless\" \"\$env_file\"'"
+  if allow_missing_unit paperless-oidc-superuser.service || allow_missing_unit paperless-oidc-superuser.timer; then
+    printf 'Skipping Paperless OIDC superuser unit checks because paperless-oidc-superuser is not deployed yet.\n'
+  else
+    colmena exec --on "$HOST" -- systemctl is-enabled --quiet paperless-oidc-superuser.timer
+    colmena exec --on "$HOST" -- systemctl start paperless-oidc-superuser.service
+  fi
+  colmena exec --on "$HOST" -- "sudo -u paperless sh -lc 'set -a; . /run/secrets/rendered/paperless-oidc-environment; set +a; paperless-manage shell -c '\''from pathlib import Path; from django.conf import settings; from django.contrib.auth.models import User; providers = settings.SOCIALACCOUNT_PROVIDERS; provider = providers[\"openid_connect\"]; app = provider[\"APPS\"][0]; admin_user = Path(\"/run/secrets/paperless-admin-username\").read_text(encoding=\"utf-8\").strip(); admin = User.objects.get(username=admin_user); assert \"allauth.socialaccount.providers.openid_connect\" in settings.INSTALLED_APPS; assert app[\"provider_id\"] == \"authentik\"; assert app[\"name\"] == \"Authentik\"; assert app[\"client_id\"] == \"paperless\"; assert app[\"settings\"][\"server_url\"] == \"https://auth.jax22.com/application/o/paperless/.well-known/openid-configuration\"; assert app[\"settings\"][\"fetch_userinfo\"] is True; assert provider[\"OAUTH_PKCE_ENABLED\"] is True; assert provider[\"SCOPE\"] == [\"openid\", \"profile\", \"email\"]; assert settings.SOCIALACCOUNT_AUTO_SIGNUP is True; assert settings.SOCIALACCOUNT_ALLOW_SIGNUPS is True; assert admin.is_staff is True; assert admin.is_superuser is True'\'''"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: paperless.jax22.com' http://127.0.0.1/accounts/login/ | grep -Fq 'Authentik'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://paperless.jax22.com/accounts/login/ | grep -Fq 'Authentik'"
+fi
+if allow_missing_unit nextcloud-admin-user.service; then
+  printf 'Skipping Nextcloud admin user checks because nextcloud-admin-user.service is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- "systemctl show nextcloud-admin-user.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show nextcloud-admin-user.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+  colmena exec --on "$HOST" -- "sudo -u nextcloud sh -lc 'IFS= read -r admin_user < /run/secrets/nextcloud-admin-username; test -n \"\$admin_user\"; nextcloud-occ user:info \"\$admin_user\" | grep -Fxq \"    - admin\"'"
+fi
+if allow_missing_unit syncthing-gui-username.service; then
+  printf 'Skipping Syncthing GUI username checks because syncthing-gui-username.service is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- "systemctl show syncthing-gui-username.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show syncthing-gui-username.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+fi
+if allow_missing_nextcloud_oidc_config; then
+  printf 'Skipping Nextcloud OIDC provider checks because nextcloud-oidc-config.service is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- "systemctl show nextcloud-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show nextcloud-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+  colmena exec --on "$HOST" -- "nextcloud-occ config:system:get allow_local_remote_servers | grep -Fxq 'true'"
+  colmena exec --on "$HOST" -- "nextcloud-occ config:system:get overwriteprotocol | grep -Fxq 'https'"
+  colmena exec --on "$HOST" -- "nextcloud-occ config:system:get overwrite.cli.url | grep -Fxq 'https://nextcloud.jax22.com'"
+  colmena exec --on "$HOST" -- "nextcloud-occ config:app:get user_oidc allow_multiple_user_backends | grep -Fxq '1'"
+  colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; nextcloud-occ user_oidc:provider authentik --output=json_pretty > \"\$tmp\"; grep -Fq \"\\\"identifier\\\": \\\"authentik\\\"\" \"\$tmp\"; grep -Fq \"\\\"clientId\\\": \\\"nextcloud\\\"\" \"\$tmp\"; grep -Fq \"\\\"discoveryEndpoint\\\": \\\"https://auth.jax22.com/application/o/nextcloud/.well-known/openid-configuration\\\"\" \"\$tmp\"; grep -Fq \"\\\"scope\\\": \\\"openid email profile\\\"\" \"\$tmp\"; grep -Fq \"\\\"mappingDisplayName\\\": \\\"name\\\"\" \"\$tmp\"; grep -Fq \"\\\"mappingEmail\\\": \\\"email\\\"\" \"\$tmp\"; grep -Fq \"\\\"mappingUid\\\": \\\"sub\\\"\" \"\$tmp\"; grep -Fq \"\\\"uniqueUid\\\": true\" \"\$tmp\"; grep -Fq \"\\\"groupProvisioning\\\": false\" \"\$tmp\"'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: nextcloud.jax22.com' http://127.0.0.1/login | grep -Fq 'id=\"initial-state-core-hideLoginForm\" value=\"ZmFsc2U=\"'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: nextcloud.jax22.com' http://127.0.0.1/login | grep -Fq 'W3sibmFtZSI6IkxvZ2luIHdpdGggYXV0aGVudGlrIiwiaHJlZiI6IlwvYXBwc1wvdXNlcl9vaWRjXC9sb2dpblwv'"
+  colmena exec --on "$HOST" -- "curl -sS --max-time 10 -o /dev/null -w '%{http_code} %{redirect_url}' -H 'Host: nextcloud.jax22.com' http://127.0.0.1/apps/user_oidc/login/1 | grep -Fq ' https://auth.jax22.com/application/o/authorize/'"
+fi
 if ! service_is_skipped forgejo; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3002/ >/dev/null"
+  if allow_missing_unit forgejo-oidc-config.service; then
+    printf 'Skipping Forgejo OIDC source checks because forgejo-oidc-config.service is not deployed yet.\n'
+  else
+    colmena exec --on "$HOST" -- "systemctl show forgejo-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show forgejo-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+    colmena exec --on "$HOST" -- "sudo -u postgres psql -d forgejo -tAc \"select count(*) from login_source where name = 'authentik' and type = 6 and is_active\" | tr -d '[:space:]' | grep -Fxq 1"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3002/user/login | grep -Fq '/user/oauth2/authentik'"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://forgejo.jax22.com/user/login | grep -Fq '/user/oauth2/authentik'"
+  fi
 fi
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8087/ >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8222/ >/dev/null"
@@ -200,6 +272,13 @@ if ! service_is_skipped iperf3; then
 fi
 if ! service_is_skipped podman-memos; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:5230/ >/dev/null"
+  if allow_missing_unit memos-oidc-config.service; then
+    printf 'Skipping Memos OIDC provider checks because memos-oidc-config.service is not deployed yet.\n'
+  else
+    colmena exec --on "$HOST" -- "systemctl show memos-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show memos-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:5230/api/v1/identity-providers | grep -Fq 'identity-providers/authentik'"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://memos.jax22.com/ >/dev/null"
+  fi
   colmena exec --on "$HOST" -- "sh -lc 'if [ -s /srv/appsdata/memos/memos_prod.db ]; then test -s /srv/appsdata/memos-backups/latest.db; fi'"
 fi
 if ! service_is_skipped rustdesk-signal && ! service_is_skipped rustdesk-relay; then
@@ -212,6 +291,14 @@ fi
 if ! service_is_skipped podman-rustfs; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9000/health >/dev/null"
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9001/rustfs/console/health >/dev/null"
+  if allow_missing_unit rustfs-oidc-policy.service; then
+    printf 'Skipping RustFS OIDC policy checks because rustfs-oidc-policy.service is not deployed yet.\n'
+  else
+    colmena exec --on "$HOST" -- systemctl start rustfs-oidc-policy.service
+    colmena exec --on "$HOST" -- "systemctl show rustfs-oidc-policy.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show rustfs-oidc-policy.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9000/rustfs/admin/v3/oidc/providers | grep -Eq '\"provider_id\"[[:space:]]*:[[:space:]]*\"authentik\"'"
+    colmena exec --on "$HOST" -- "sh -lc 'set -euo pipefail; set -a; . /run/secrets/rustfs-environment; set +a; export MC_CONFIG_DIR=\$(mktemp -d); export HOME=\"\$MC_CONFIG_DIR\"; mc alias set rustfs http://127.0.0.1:9000 \"\$RUSTFS_ACCESS_KEY\" \"\$RUSTFS_SECRET_KEY\" --api S3v4 >/dev/null; mc admin policy info rustfs rustfs-console-admin >/dev/null; rm -rf \"\$MC_CONFIG_DIR\"'"
+  fi
 fi
 if ! service_is_skipped podman-shlink; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8088/rest/health >/dev/null"
@@ -242,7 +329,7 @@ for route_prefix in "${HOST_ROUTES[@]}"; do
       garage.*)
         colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; status=\$(curl -sS -o \"\$tmp\" -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:3900/); case \"\$status\" in 403) ;; *) echo \"unexpected Garage S3 anonymous status for $route: \$status\" >&2; cat \"\$tmp\" >&2; exit 1 ;; esac; grep -q AccessDenied \"\$tmp\" || { echo \"Garage S3 anonymous response did not contain AccessDenied\" >&2; cat \"\$tmp\" >&2; exit 1; }'"
         ;;
-      garage-web.*)
+      s3.garage.*)
         colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; if ! status=\$(curl -sS -o \"\$tmp\" -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:3902/); then echo \"Garage static web endpoint request failed for $route\" >&2; exit 1; fi; case \"\$status\" in 2*|3*|4*) exit 0 ;; *) echo \"unexpected Garage static web status for $route: \$status\" >&2; cat \"\$tmp\" >&2; exit 1 ;; esac'"
         ;;
       gitea.*)
@@ -263,10 +350,10 @@ for route_prefix in "${HOST_ROUTES[@]}"; do
       memos.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:5230/ >/dev/null"
         ;;
-      rustfs.*)
+      s3.rustfs.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9000/health >/dev/null"
         ;;
-      rustfs-console.*)
+      rustfs.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9001/rustfs/console/health >/dev/null"
         ;;
       s.*)

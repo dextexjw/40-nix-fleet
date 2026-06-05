@@ -122,6 +122,15 @@ in
         mode = "0400";
         restartUnits = [ "beszel-agent.service" ];
       };
+      beszel-oidc-client-secret = {
+        owner = "beszel-hub";
+        group = "beszel-hub";
+        mode = "0400";
+        restartUnits = [
+          "beszel-hub-oidc-config.service"
+          "beszel-hub.service"
+        ];
+      };
       checkmate-capture-environment = {
         restartUnits = [ "checkmate-capture.service" ];
       };
@@ -155,6 +164,10 @@ in
   # ============================================================================
 
   fleet.monitoring.stack = {
+    beszel.oidc = {
+      clientSecretFile = config.sops.secrets.beszel-oidc-client-secret.path;
+      enable = true;
+    };
     enable = true;
     secrets.enable = secretsEnabled;
     inherit serviceDomains;

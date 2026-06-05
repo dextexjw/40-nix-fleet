@@ -30,7 +30,7 @@ path backed up by Restic.
 | Service | Canonical route | Alias | Backend |
 | --- | --- | --- | --- |
 | Checkmate | `https://checkmate.jax22.com` | `http://checkmate.h` | `10.2.20.115:52345` |
-| Beszel | `http://beszel.jax22.com` | `http://beszel.h` | `10.2.20.115:8090` |
+| Beszel | `https://beszel.jax22.com` | `http://beszel.h` | `10.2.20.115:8090` |
 | Checkmate Capture | direct agent API only | none | `10.2.20.115:59232` |
 | Beszel Agent | direct agent API only | none | `10.2.20.115:45876` |
 
@@ -64,6 +64,7 @@ Required monitoring secrets:
 - `checkmate-provisioning-credentials`, containing `CHECKMATE_EMAIL=...` and `CHECKMATE_PASSWORD=...`
 - `beszel-agent-key`, containing the Beszel Hub public key
 - `beszel-agent-token`, reserved for Beszel universal-token registration
+- `beszel-oidc-client-secret`, shared with Authentik for Beszel native OIDC
 
 `checkmate-provisioning-credentials` must reference an existing Checkmate admin
 or superadmin account. The bootstrap, deploy, and upgrade wrappers reject
@@ -73,6 +74,13 @@ Beszel agents run in listener mode by default with the hub public key from
 `beszel-agent-key`. Set `fleet.monitoring.agents.beszel.hubUrl` and
 `fleet.monitoring.agents.beszel.tokenFile` only after a hub-owned universal
 token is generated.
+
+Beszel Hub uses Authentik as a native OIDC provider. Authentik provisions the
+provider and application on `gateway-vm`; `beszel-hub-oidc-config.service`
+patches Beszel's PocketBase `users` collection before the hub starts. The
+redirect URI is `https://beszel.jax22.com/api/oauth2-redirect`. Local password
+login remains enabled unless
+`fleet.monitoring.stack.beszel.oidc.disablePasswordAuth` is set.
 
 Normal edit flow:
 
@@ -158,8 +166,8 @@ into `/etc/fleet/checkmate-targets.json`.
 - Target file: `/etc/fleet/checkmate-targets.json`
 - Last run summary: `/var/lib/checkmate-provisioning/last-summary.json`
 - Managed identity: `fleet-declared` plus `fleet-service:<id>` or `fleet-host:<host>`
-- Expected managed monitors: `43`
-- Service route monitors: `39`
+- Expected managed monitors: `44`
+- Service route monitors: `40`
 - Host hardware monitors: `4`
 
 Service HTTP monitors use the real routed `https://*.jax22.com` hostnames.
@@ -173,7 +181,9 @@ stale managed monitors. It never deletes stale monitors, preserving Checkmate
 history.
 
 Beszel provisioning is intentionally out of scope. Beszel Hub and agents still
-run normally, but Beszel systems are not managed by this provisioning service.
+run normally, but Beszel systems are not managed by the Checkmate provisioning
+service. OIDC provider configuration is handled separately by
+`beszel-hub-oidc-config.service`.
 
 ## Backups and Restore
 

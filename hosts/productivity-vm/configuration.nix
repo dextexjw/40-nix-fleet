@@ -42,6 +42,12 @@ in
       admin-password-hash = {
         neededForUsers = true;
       };
+      authentik-bootstrap-email = {
+        owner = "paperless";
+        group = "paperless";
+        mode = "0400";
+        restartUnits = [ "paperless-oidc-superuser.service" ];
+      };
       beszel-agent-key = {
         owner = "beszel-agent";
         group = "beszel-agent";
@@ -63,11 +69,29 @@ in
         mode = "0400";
         restartUnits = [ "phpfpm-firefly-iii.service" ];
       };
+      freshrss-admin-username = {
+        owner = "freshrss";
+        group = "freshrss";
+        mode = "0400";
+        restartUnits = [ "freshrss-config.service" ];
+      };
       freshrss-admin-password = {
         owner = "freshrss";
         group = "freshrss";
         mode = "0400";
         restartUnits = [ "freshrss-config.service" ];
+      };
+      forgejo-oidc-client-secret = {
+        owner = "forgejo";
+        group = "forgejo";
+        mode = "0400";
+        restartUnits = [ "forgejo-oidc-config.service" ];
+      };
+      gitea-oidc-client-secret = {
+        owner = "gitea";
+        group = "gitea";
+        mode = "0400";
+        restartUnits = [ "gitea-oidc-config.service" ];
       };
       garage-admin-token = {
         owner = "garage";
@@ -93,17 +117,79 @@ in
           "phpfpm-invoiceplane.service"
         ];
       };
+      memos-admin-pat = {
+        owner = "memos";
+        group = "memos";
+        mode = "0400";
+        restartUnits = [ "memos-oidc-config.service" ];
+      };
+      memos-oidc-client-secret = {
+        owner = "memos";
+        group = "memos";
+        mode = "0400";
+        restartUnits = [ "memos-oidc-config.service" ];
+      };
       nextcloud-admin-password = {
-        restartUnits = [ "nextcloud-setup.service" ];
+        owner = "nextcloud";
+        group = "nextcloud";
+        mode = "0400";
+        restartUnits = [
+          "nextcloud-admin-user.service"
+          "nextcloud-setup.service"
+        ];
+      };
+      nextcloud-admin-username = {
+        owner = "nextcloud";
+        group = "nextcloud";
+        mode = "0400";
+        restartUnits = [ "nextcloud-admin-user.service" ];
+      };
+      nextcloud-oidc-client-secret = {
+        owner = "nextcloud";
+        group = "nextcloud";
+        mode = "0400";
+        restartUnits = [ "nextcloud-oidc-config.service" ];
       };
       paperless-admin-password = {
         restartUnits = [ "paperless-scheduler.service" ];
+      };
+      paperless-admin-username = {
+        owner = "paperless";
+        group = "paperless";
+        mode = "0400";
+        restartUnits = [
+          "paperless-consumer.service"
+          "paperless-oidc-superuser.service"
+          "paperless-scheduler.service"
+          "paperless-task-queue.service"
+          "paperless-web.service"
+        ];
+      };
+      paperless-oidc-client-secret = {
+        owner = "paperless";
+        group = "paperless";
+        mode = "0400";
+        restartUnits = [
+          "paperless-consumer.service"
+          "paperless-scheduler.service"
+          "paperless-task-queue.service"
+          "paperless-web.service"
+        ];
       };
       restic-password = {
         restartUnits = [ "productivity-appdata-backup.service" ];
       };
       rustfs-environment = {
         restartUnits = [ "podman-rustfs.service" ];
+      };
+      rustfs-oidc-client-secret = {
+        owner = "root";
+        group = "root";
+        mode = "0400";
+        restartUnits = [
+          "podman-rustfs.service"
+          "rustfs-oidc-policy.service"
+        ];
       };
       searxng-environment = {
         restartUnits = [
@@ -124,9 +210,67 @@ in
         mode = "0400";
         restartUnits = [ "syncthing.service" ];
       };
+      syncthing-gui-username = {
+        owner = "syncthing";
+        group = "syncthing";
+        mode = "0400";
+        restartUnits = [ "syncthing-gui-username.service" ];
+      };
       vaultwarden-environment = {
         restartUnits = [ "vaultwarden.service" ];
       };
+    };
+    templates."paperless-oidc-environment" = {
+      content = ''
+        PAPERLESS_ADMIN_USER='${config.sops.placeholder."paperless-admin-username"}'
+        PAPERLESS_SOCIALACCOUNT_PROVIDERS='${
+          builtins.toJSON {
+            openid_connect = {
+              OAUTH_PKCE_ENABLED = true;
+              APPS = [
+                {
+                  provider_id = "authentik";
+                  name = "Authentik";
+                  client_id = "paperless";
+                  secret = config.sops.placeholder."paperless-oidc-client-secret";
+                  settings = {
+                    server_url = "https://auth.jax22.com/application/o/paperless/.well-known/openid-configuration";
+                    fetch_userinfo = true;
+                  };
+                }
+              ];
+              SCOPE = [
+                "openid"
+                "profile"
+                "email"
+              ];
+            };
+          }
+        }'
+      '';
+      owner = "paperless";
+      group = "paperless";
+      mode = "0400";
+      restartUnits = [
+        "paperless-consumer.service"
+        "paperless-scheduler.service"
+        "paperless-task-queue.service"
+        "paperless-web.service"
+      ];
+    };
+    templates."rustfs-oidc-environment" = {
+      content = ''
+        RUSTFS_IDENTITY_OPENID_CLIENT_SECRET_authentik=${
+          config.sops.placeholder."rustfs-oidc-client-secret"
+        }
+      '';
+      owner = "root";
+      group = "root";
+      mode = "0400";
+      restartUnits = [
+        "podman-rustfs.service"
+        "rustfs-oidc-policy.service"
+      ];
     };
   };
 
@@ -150,6 +294,33 @@ in
     enable = true;
     secrets.enable = secretsEnabled;
     inherit serviceDomains;
+    forgejo.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      clientSecretFile = config.sops.secrets.forgejo-oidc-client-secret.path;
+    };
+    gitea.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      clientSecretFile = config.sops.secrets.gitea-oidc-client-secret.path;
+    };
+    memos.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      adminTokenFile = config.sops.secrets.memos-admin-pat.path;
+      clientSecretFile = config.sops.secrets.memos-oidc-client-secret.path;
+    };
+    paperless.oidc = lib.mkIf secretsEnabled {
+      adminEmailFile = config.sops.secrets.authentik-bootstrap-email.path;
+      adminUsernameFile = config.sops.secrets.paperless-admin-username.path;
+      enable = true;
+      environmentFile = config.sops.templates."paperless-oidc-environment".path;
+    };
+    nextcloud.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      clientSecretFile = config.sops.secrets.nextcloud-oidc-client-secret.path;
+    };
+    rustfs.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      environmentFile = config.sops.templates."rustfs-oidc-environment".path;
+    };
     smb.backupDevice = "//nas.home.arpa/backups";
   };
 

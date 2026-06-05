@@ -1,6 +1,6 @@
 # gateway-vm
 
-`gateway-vm` runs Traefik ingress, Homepage, Technitium DNS, Gluetun,
+`gateway-vm` runs Authentik SSO, Traefik ingress, Homepage, Technitium DNS, Gluetun,
 netboot.xyz, NetBird, and Tailscale.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
@@ -24,6 +24,7 @@ State paths:
 
 - `/srv/appsdata/gluetun`
 - `/srv/appsdata/netbootxyz`
+- `/srv/appsdata/authentik`
 - `/srv/appsdata/technitium-dns-server`
 - `/srv/appsdata/traefik`
 - `/srv/appsdata/netbird`
@@ -41,6 +42,7 @@ Service access:
 - Traefik HTTPS ingress: `https://10.2.20.112` for `jax22.com` routes with Let’s Encrypt DNS-01 certificates
 - Traefik dashboard: `http://10.2.20.112:8080/dashboard/`
 - Traefik Prometheus metrics: `http://10.2.20.112:8080/metrics`
+- Authentik: `https://auth.jax22.com/` through Traefik and `http://auth.h/` as an unprotected LAN alias; backend only on `127.0.0.1:9000`
 - Homepage: `https://homepage.jax22.com/` through Traefik, `http://homepage.h/` as an alias, and `http://10.2.20.112:8082/` directly
 - DNS: `10.2.20.112:53` over TCP and UDP
 - DNS-over-TLS: `10.2.20.112:853`
@@ -70,6 +72,81 @@ through Traefik. A bottom `Links` bookmark section uses a compact three-column
 layout with icons and service names for external references such as TorrentPeek,
 GitHub, NixOS Search, Homepage docs, Traefik docs, and Technitium GitHub. It
 does not use service API widgets or mutable UI configuration in this pass.
+
+Authentik is the fleet identity provider. The canonical public URL is
+`https://auth.jax22.com/`; `http://auth.h/` stays unprotected for LAN break-glass
+access while `.h` is HTTP-only. Authentik runs as `authentik-server.service` and
+`authentik-worker.service`, with PostgreSQL and Redis local to `gateway-vm`.
+Persistent state lives under `/srv/appsdata/authentik`, including PostgreSQL,
+Redis, uploaded media, and discovered certificates. The bootstrap admin password,
+bootstrap API token, secret key, and PostgreSQL password are SOPS secrets.
+
+Authentik is not attached as a Traefik forwardAuth proxy in front of fleet
+applications. Browser routes are ordinary Traefik routes unless the application
+has its own auth or a native SSO integration is configured. Role groups are
+`fleet-admins`, `media-users`, `productivity-users`, and `monitoring-users`;
+they are provisioned in Authentik for native app integrations.
+Native OIDC integrations are provisioned from the route catalog. Beszel uses
+the `beszel` client, allows `monitoring-users`, and uses
+`https://beszel.jax22.com/api/oauth2-redirect` as the callback. Memos uses the
+`memos` client, allows `productivity-users`, and uses
+`https://memos.jax22.com/auth/callback` as the callback. Forgejo uses the
+`forgejo` client, allows `productivity-users`, and uses
+`https://forgejo.jax22.com/user/oauth2/authentik/callback` as the callback.
+Gitea uses the `gitea` client, allows `productivity-users`, and uses
+`https://gitea.jax22.com/user/oauth2/authentik/callback` as the callback.
+Paperless uses the `paperless` client, allows `productivity-users`, and uses
+`https://paperless.jax22.com/accounts/oidc/authentik/login/callback/` as the
+callback. RustFS Console uses
+the `rustfs-console` client, allows `fleet-admins`, and uses
+`https://rustfs.jax22.com/rustfs/admin/v3/oidc/callback/authentik` as
+the callback. Native OIDC providers use Authentik's self-signed signing key so
+the provider JWKS is populated for clients that validate discovery during
+startup.
+
+Future Authentik integrations should follow this pattern:
+
+1. Prefer native OIDC. Do not put Authentik forwardAuth in front of ordinary
+   browser routes unless the target app has no usable native SSO path and the
+   proxy-only behavior is deliberately designed.
+2. Declare the integration in the service exposure catalog, not manually in
+   Authentik. For catalog helpers such as `mkService`, set `authMode`,
+   `authGroups`, and `authOidc`; for hand-written entries, set the equivalent
+   `auth` attribute:
+
+   ```nix
+   authMode = "native-oidc";
+   authGroups = [ "productivity-users" ];
+   authOidc = {
+     clientId = "service-name";
+     clientSecretFile = "/run/secrets/service-name-oidc-client-secret";
+     launchUrl = "https://service-name.jax22.com/";
+     redirectUris = [ "https://service-name.jax22.com/oidc/callback" ];
+   };
+   ```
+
+3. Use exact callback URLs. `redirectUris` are provisioned as strict Authentik
+   redirect URIs; include only callbacks the app actually uses.
+4. Add one encrypted SOPS client-secret key per app. Gateway derives its
+   Authentik-owned SOPS secret declarations from the catalog
+   `clientSecretFile`; the app host must also expose the same secret to the app
+   service user or app-specific OIDC config unit.
+5. Configure the app side declaratively before service start. Use the same
+   `clientId`, client secret, and Authentik discovery URL:
+   `https://auth.jax22.com/application/o/<clientId>/.well-known/openid-configuration`.
+   Keep local or break-glass login enabled until an interactive OIDC login is
+   confirmed.
+6. Let `authentik-provision.service` on `gateway-vm` create or update the
+   Authentik provider, application, redirect URIs, OAuth scopes, signing key, and
+   group bindings from `exposureCatalog.authentikApplications`. Native OIDC
+   declarations without `clientSecretFile` or `redirectUris` fail Nix evaluation.
+7. Update the app host README, readiness checks, and smoke tests. Gateway smoke
+   checks are generated for Authentik discovery and authorize URLs from the
+   catalog; the app host smoke test must still verify that the app sees the
+   configured provider and that direct and routed health checks pass.
+8. Deploy in order: create or confirm a fresh backup, dry/switch `gateway-vm`,
+   dry/switch the app host, then run `scripts/gateway-vm/test-gateway-services.sh`
+   and the app host smoke script.
 
 Traefik writes JSON access logs to the `traefik.service` journal. Prometheus
 metrics are exposed on the existing dashboard entrypoint at
@@ -183,6 +260,19 @@ for the subnet.
 Required secrets:
 
 - `admin-password-hash`
+- `authentik-bootstrap-email`
+- `authentik-bootstrap-password`
+- `authentik-bootstrap-token`
+- `authentik-bootstrap-username`
+- `authentik-postgresql-password`
+- `authentik-secret-key`
+- `beszel-oidc-client-secret`
+- `forgejo-oidc-client-secret`
+- `gitea-oidc-client-secret`
+- `memos-oidc-client-secret`
+- `nextcloud-oidc-client-secret`
+- `paperless-oidc-client-secret`
+- `rustfs-oidc-client-secret`
 - `gluetun-control-api-key`
 - `gluetun-openvpn-username`
 - `gluetun-openvpn-password`

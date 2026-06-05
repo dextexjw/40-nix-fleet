@@ -6,11 +6,15 @@ HOST_IP="10.2.20.112"
 REMOTE_USER="smoke"
 EXPOSURE_SMOKE_FILE="/etc/fleet/gateway-exposure-smoke.tsv"
 EXTERNAL_TCP_PORTS=(22 53 80 443 853 5201 5380 8080 8082 8888 21115 21116 21117 21118 21119 53443)
-LOCAL_TCP_PORTS=(3000)
+LOCAL_TCP_PORTS=(3000 5432 6379 9000 9300)
 UDP_PORTS=(53 69 5201 21116 41641)
 KEY_UNITS=(
   traefik.service
+  authentik-server.service
+  authentik-worker.service
   homepage-dashboard.service
+  postgresql.service
+  redis-authentik.service
   technitium-dns-server.service
   podman-gluetun.service
   podman-gluetun-webui.service
@@ -46,6 +50,7 @@ wait_for_remote() {
 
 ssh_gateway_vm() {
   ssh \
+    -n \
     -o BatchMode=yes \
     -o CheckHostIP=no \
     -o ConnectTimeout=5 \
@@ -208,6 +213,8 @@ run_exposure_smoke_checks
 printf 'Checking Gateway-local direct HTTP endpoints...\n'
 wait_for_remote "Traefik dashboard route failed" "curl -fsS http://127.0.0.1:8080/dashboard/ >/dev/null"
 wait_for_remote "Traefik metrics endpoint failed" "tmp=\$(mktemp); trap 'rm -f \"\$tmp\"' EXIT; curl -fsS -o \"\$tmp\" http://127.0.0.1:8080/metrics && grep -q '^traefik_' \"\$tmp\""
+wait_for_remote "Authentik readiness endpoint failed" "curl -fsS http://127.0.0.1:9000/-/health/ready/ >/dev/null"
+wait_for_remote "Authentik provisioning did not complete successfully" "systemctl show authentik-provision.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show authentik-provision.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
 wait_for_remote "Homepage direct endpoint failed" "curl -fsS http://${HOST_IP}:8082/ >/dev/null"
 
 printf 'Checking Traefik ACME storage...\n'

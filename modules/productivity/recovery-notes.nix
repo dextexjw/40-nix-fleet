@@ -97,7 +97,12 @@ in
         share Garage buckets or credentials. ${serviceHosts.rustfs} is the S3 API
         and ${serviceHosts.rustfsConsole} is the RustFS console. RustFS
         virtual-host style remains canonical on ${serviceHosts.rustfs}; the .h
-        name is only a routed named endpoint.
+        name is only a routed named endpoint. The console uses Authentik native
+        OIDC for fleet-admins only. rustfs-oidc-policy.service keeps the
+        rustfs-console-admin IAM policy present for OIDC console sessions; the
+        S3 API remains access-key based through rustfs-environment. Authentik
+        native OIDC provisioning attaches the self-signed signing key so RustFS
+        can validate JWKS during startup discovery.
 
         InvoicePlane uses MariaDB database invoiceplane and persistent runtime state
         under ${appdata}/invoiceplane. Initial setup is completed through
@@ -121,9 +126,36 @@ in
         Memos stores its SQLite database and local app state under
         ${appdata}/memos. The pre-backup copy
         ${appdata}/memos-backups/latest.db is created with SQLite's backup
-        command before Restic runs. Memos introduces no SOPS secret in this repo;
-        initial admin setup and signup policy are managed in the app and must not
-        be written into Nix, docs, logs, or chat.
+        command before Restic runs. memos-oidc-config.service provisions the
+        Authentik OAuth2 provider with the encrypted memos-admin-pat and
+        memos-oidc-client-secret secrets. Local password auth and signup policy
+        remain managed in Memos.
+
+        Gitea OIDC uses the encrypted gitea-oidc-client-secret shared between
+        gateway-vm Authentik provisioning and gitea-oidc-config.service.
+        Authentik allows productivity-users, and local Gitea username/password
+        login remains enabled for break-glass access.
+
+        Paperless OIDC uses the encrypted paperless-oidc-client-secret shared
+        between gateway-vm Authentik provisioning and this host's paperless-owned
+        generated runtime environment file. Authentik allows productivity-users,
+        paperless-oidc-superuser promotes the SOPS-backed identity from
+        paperless-admin-username or authentik-bootstrap-email to Paperless staff
+        and superuser, and local Paperless password login remains enabled for
+        break-glass access.
+
+        Nextcloud OIDC uses the encrypted nextcloud-oidc-client-secret shared
+        between gateway-vm Authentik provisioning and this host's
+        nextcloud-oidc-config.service. The service configures the native
+        user_oidc app for productivity-users while keeping local Nextcloud
+        username/password login enabled for break-glass access. The local admin
+        identity is sourced from nextcloud-admin-username and
+        nextcloud-admin-password.
+
+        RustFS OIDC uses the encrypted rustfs-oidc-client-secret shared between
+        gateway-vm Authentik provisioning and this host's root-only generated
+        RustFS environment file. Re-run rustfs-oidc-policy.service after RustFS
+        appdata restores or RustFS root credential rotation.
     '';
   };
 }

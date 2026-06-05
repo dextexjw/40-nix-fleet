@@ -15,7 +15,7 @@ let
     forgejo = "forgejo";
     freshrss = "freshrss";
     garage = "garage";
-    garageWeb = "garage-web";
+    garageWeb = "s3.garage";
     gitea = "gitea";
     invoiceplane = "invoiceplane";
     iperf3 = "iperf3";
@@ -26,8 +26,8 @@ let
     paperless = "paperless";
     privatebin = "privatebin";
     rustdesk = "rustdesk";
-    rustfs = "rustfs";
-    rustfsConsole = "rustfs-console";
+    rustfs = "s3.rustfs";
+    rustfsConsole = "rustfs";
     searxng = "searxng";
     shlink = "s";
     shlinkWeb = "shlink";
@@ -179,10 +179,426 @@ in
         description = "Temporary target used by productivity-appdata-restore-check.service.";
       };
     };
+
+    gitea = {
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Provision the Gitea Authentik OpenID Connect login source.";
+        };
+
+        authName = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "Gitea authentication source name. This is part of the OAuth callback path.";
+        };
+
+        autoDiscoverUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/gitea/.well-known/openid-configuration";
+          description = "Authentik OIDC discovery URL used by Gitea.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "gitea";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        clientSecretFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Gitea OIDC client secret.";
+        };
+
+        iconUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/static/dist/assets/icons/icon.png";
+          description = "Icon URL shown on the Gitea login button.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "email"
+            "profile"
+          ];
+          description = "Additional OIDC scopes requested by Gitea. Gitea adds openid implicitly.";
+        };
+      };
+    };
+
+    forgejo = {
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Provision the Forgejo Authentik OpenID Connect login source.";
+        };
+
+        authName = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "Forgejo authentication source name. This is part of the OAuth callback path.";
+        };
+
+        autoDiscoverUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/forgejo/.well-known/openid-configuration";
+          description = "Authentik OIDC discovery URL used by Forgejo.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "forgejo";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        clientSecretFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Forgejo OIDC client secret.";
+        };
+
+        iconUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/static/dist/assets/icons/icon.png";
+          description = "Icon URL shown on the Forgejo login button.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "email"
+            "profile"
+          ];
+          description = "Additional OIDC scopes requested by Forgejo. Forgejo adds openid implicitly.";
+        };
+      };
+    };
+
+    paperless = {
+      oidc = {
+        adminEmailFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Authentik admin email promoted to Paperless staff and superuser.";
+        };
+
+        adminUsernameFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Paperless admin username promoted to staff and superuser.";
+        };
+
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Configure Paperless-ngx Authentik OIDC login.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "paperless";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        displayName = mkOption {
+          type = types.str;
+          default = "Authentik";
+          description = "Paperless sign-in button label for the OIDC provider.";
+        };
+
+        environmentFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime env file containing PAPERLESS_SOCIALACCOUNT_PROVIDERS.";
+        };
+
+        providerId = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "Paperless django-allauth OIDC provider ID.";
+        };
+
+        scope = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "openid"
+            "profile"
+            "email"
+          ];
+          description = "OIDC scopes requested by Paperless.";
+        };
+
+        serverUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/paperless/.well-known/openid-configuration";
+          description = "Authentik OIDC discovery URL used by Paperless.";
+        };
+      };
+    };
+
+    memos = {
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Provision the Memos Authentik OAuth2 identity provider.";
+        };
+
+        adminTokenFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing a Memos admin personal access token.";
+        };
+
+        apiBaseUrl = mkOption {
+          type = types.str;
+          default = "http://127.0.0.1:${toString cfg.ports.memos}";
+          description = "Local Memos API base URL used by the OIDC provisioning unit.";
+        };
+
+        authUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/authorize/";
+          description = "Authentik OAuth2 authorization endpoint.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "memos";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        clientSecretFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Memos OIDC client secret.";
+        };
+
+        displayName = mkOption {
+          type = types.str;
+          default = "Authentik";
+          description = "Memos sign-in button label for the identity provider.";
+        };
+
+        fieldMapping = {
+          avatarUrl = mkOption {
+            type = types.str;
+            default = "picture";
+            description = "OAuth2 userinfo field mapped to the Memos avatar URL.";
+          };
+
+          displayName = mkOption {
+            type = types.str;
+            default = "name";
+            description = "OAuth2 userinfo field mapped to the Memos display name.";
+          };
+
+          email = mkOption {
+            type = types.str;
+            default = "email";
+            description = "OAuth2 userinfo field mapped to the Memos email.";
+          };
+
+          identifier = mkOption {
+            type = types.str;
+            default = "sub";
+            description = "OAuth2 userinfo field mapped to the Memos external identity.";
+          };
+        };
+
+        identifierFilter = mkOption {
+          type = types.str;
+          default = "";
+          description = "Optional Memos identifier allow-list regex.";
+        };
+
+        providerUid = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "Stable Memos identity provider UID.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "openid"
+            "profile"
+            "email"
+          ];
+          description = "OAuth2 scopes requested by Memos.";
+        };
+
+        tokenUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/token/";
+          description = "Authentik OAuth2 token endpoint.";
+        };
+
+        userInfoUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/userinfo/";
+          description = "Authentik OAuth2 userinfo endpoint.";
+        };
+      };
+    };
+
+    nextcloud = {
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Configure Nextcloud Authentik OIDC login with the native user_oidc app.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "nextcloud";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        clientSecretFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Nextcloud OIDC client secret.";
+        };
+
+        discoveryUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/nextcloud/.well-known/openid-configuration";
+          description = "Authentik OIDC discovery URL used by Nextcloud.";
+        };
+
+        mapping = {
+          displayName = mkOption {
+            type = types.str;
+            default = "name";
+            description = "OIDC claim mapped to the Nextcloud display name.";
+          };
+
+          email = mkOption {
+            type = types.str;
+            default = "email";
+            description = "OIDC claim mapped to the Nextcloud email address.";
+          };
+
+          uid = mkOption {
+            type = types.str;
+            default = "sub";
+            description = "OIDC claim mapped to the Nextcloud OIDC user ID.";
+          };
+        };
+
+        providerId = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "Stable Nextcloud user_oidc provider identifier used in the login button.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "openid"
+            "email"
+            "profile"
+          ];
+          description = "OIDC scopes requested by Nextcloud.";
+        };
+      };
+    };
+
+    rustfs = {
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Configure RustFS console Authentik OIDC login.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "rustfs-console";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        configUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/rustfs-console/.well-known/openid-configuration";
+          description = "Authentik OIDC discovery URL used by RustFS.";
+        };
+
+        displayName = mkOption {
+          type = types.str;
+          default = "Authentik";
+          description = "RustFS console OIDC provider label.";
+        };
+
+        environmentFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime env file containing RUSTFS_IDENTITY_OPENID_CLIENT_SECRET_authentik.";
+        };
+
+        providerId = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "RustFS OIDC provider ID.";
+        };
+
+        redirectUri = mkOption {
+          type = types.str;
+          default = "https://rustfs.jax22.com/rustfs/admin/v3/oidc/callback/authentik";
+          description = "Strict RustFS OIDC callback URL registered in Authentik.";
+        };
+
+        rolePolicy = mkOption {
+          type = types.str;
+          default = "rustfs-console-admin";
+          description = "RustFS IAM policy assigned to OIDC console sessions.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "openid"
+            "profile"
+            "email"
+          ];
+          description = "OIDC scopes requested by RustFS.";
+        };
+      };
+    };
   };
 
   # ============================================================================
   # MODULE IMPLEMENTATION
   # ============================================================================
 
+  config = {
+    assertions = [
+      {
+        assertion = !cfg.nextcloud.oidc.enable || cfg.nextcloud.oidc.clientSecretFile != null;
+        message = "fleet.productivity.stack.nextcloud.oidc.clientSecretFile must be set when Nextcloud OIDC is enabled.";
+      }
+      {
+        assertion = !cfg.paperless.oidc.enable || cfg.paperless.oidc.environmentFile != null;
+        message = "fleet.productivity.stack.paperless.oidc.environmentFile must be set when Paperless OIDC is enabled.";
+      }
+      {
+        assertion = !cfg.paperless.oidc.enable || cfg.paperless.oidc.adminEmailFile != null;
+        message = "fleet.productivity.stack.paperless.oidc.adminEmailFile must be set when Paperless OIDC is enabled.";
+      }
+      {
+        assertion = !cfg.paperless.oidc.enable || cfg.paperless.oidc.adminUsernameFile != null;
+        message = "fleet.productivity.stack.paperless.oidc.adminUsernameFile must be set when Paperless OIDC is enabled.";
+      }
+      {
+        assertion = !cfg.rustfs.oidc.enable || cfg.rustfs.oidc.environmentFile != null;
+        message = "fleet.productivity.stack.rustfs.oidc.environmentFile must be set when RustFS OIDC is enabled.";
+      }
+    ];
+  };
 }

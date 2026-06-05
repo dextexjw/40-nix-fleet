@@ -30,6 +30,78 @@ let
     name: if cfg.secrets.enable then config.sops.secrets.${name}.path else "/run/secrets/${name}";
   resticPasswordFile = secretPath "restic-password";
   smbCredentialsFile = secretPath "smb-credentials";
+  beszelOidcIssuerUrl = removeSuffix "/" cfg.beszel.oidc.issuerUrl;
+  beszelOidcProviderBaseUrl = removeSuffix "/" cfg.beszel.oidc.providerBaseUrl;
+  beszelOidcConfig = pkgs.writeText "beszel-oidc-config.json" (
+    builtins.toJSON {
+      authURL = "${beszelOidcProviderBaseUrl}/authorize/";
+      clientId = cfg.beszel.oidc.clientId;
+      displayName = cfg.beszel.oidc.displayName;
+      extra = {
+        issuers = [ "${beszelOidcIssuerUrl}/" ];
+        jwksURL = "${beszelOidcIssuerUrl}/jwks/";
+      };
+      name = cfg.beszel.oidc.providerName;
+      pkce = cfg.beszel.oidc.pkce;
+      tokenURL = "${beszelOidcProviderBaseUrl}/token/";
+      userInfoURL = "${beszelOidcProviderBaseUrl}/userinfo/";
+    }
+  );
+  beszelOidcProvision = pkgs.writeShellScript "beszel-oidc-provision" ''
+    set -euo pipefail
+
+    ${lib.getExe' cfg.beszel.package "beszel-hub"} migrate up
+
+    ${lib.getExe pkgs.python3} - <<'PY'
+    import json
+    import sqlite3
+    from pathlib import Path
+
+    db_path = Path("${cfg.beszel.dataDir}") / "beszel_data" / "data.db"
+    secret_path = Path("${cfg.beszel.oidc.clientSecretFile}")
+    with open("${beszelOidcConfig}", "r", encoding="utf-8") as config_file:
+        provider = json.load(config_file)
+
+    client_secret = secret_path.read_text(encoding="utf-8").strip()
+    if not client_secret:
+        raise SystemExit("Beszel OIDC client secret is empty")
+
+    provider["clientSecret"] = client_secret
+
+    with sqlite3.connect(db_path) as db:
+        row = db.execute(
+            "select options from _collections where name = ?",
+            ("users",),
+        ).fetchone()
+        if row is None:
+            raise SystemExit("Beszel users collection was not found")
+
+        options = json.loads(row[0])
+        oauth2 = options.setdefault("oauth2", {})
+        oauth2["enabled"] = True
+        oauth2.setdefault(
+            "mappedFields",
+            {
+                "id": "",
+                "name": "name",
+                "username": "",
+                "avatarURL": "avatar",
+            },
+        )
+        providers = [
+            existing
+            for existing in (oauth2.get("providers") or [])
+            if existing.get("name") != provider["name"]
+        ]
+        providers.append(provider)
+        oauth2["providers"] = providers
+
+        db.execute(
+            "update _collections set options = json(?), updated = strftime('%Y-%m-%d %H:%M:%fZ') where name = ?",
+            (json.dumps(options, separators=(",", ":")), "users"),
+        )
+    PY
+  '';
   systemdMountOptions = filter (
     option:
     option != "_netdev" && option != "noauto" && option != "nofail" && !(hasPrefix "x-systemd." option)
@@ -170,6 +242,88 @@ in
         description = "Browser-facing Checkmate URL used for client API and CORS settings.";
       };
     };
+
+    beszel = {
+      package = mkOption {
+        type = types.package;
+        default = pkgs.beszel;
+        defaultText = literalExpression "pkgs.beszel";
+        description = "Beszel package used for hub service and OIDC provisioning migrations.";
+      };
+
+      dataDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/beszel-hub";
+        description = "Beszel Hub data directory.";
+      };
+
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Configure Beszel Hub's PocketBase OAuth2 provider for Authentik OIDC.";
+        };
+
+        allowUserCreation = mkOption {
+          type = types.bool;
+          default = true;
+          description = "Allow Beszel users to be created from OAuth2 logins.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "beszel";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        clientSecretFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Beszel OIDC client secret.";
+        };
+
+        disablePasswordAuth = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Disable Beszel password login after OIDC is configured.";
+        };
+
+        displayName = mkOption {
+          type = types.str;
+          default = "Authentik";
+          description = "OAuth login button label.";
+        };
+
+        issuerUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/beszel";
+          description = "Authentik per-application OAuth2 issuer URL without trailing slash.";
+        };
+
+        providerBaseUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o";
+          description = "Authentik OAuth2 endpoint base URL used for authorize, token, and userinfo.";
+        };
+
+        pkce = mkOption {
+          type = types.bool;
+          default = true;
+          description = "Enable PKCE for Beszel's OIDC provider config.";
+        };
+
+        providerName = mkOption {
+          type = types.enum [
+            "oidc"
+            "oidc2"
+            "oidc3"
+          ];
+          default = "oidc";
+          description = "PocketBase OIDC provider slot used by Beszel.";
+        };
+
+      };
+    };
   };
 
   # ============================================================================
@@ -177,6 +331,13 @@ in
   # ============================================================================
 
   config = mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = !cfg.beszel.oidc.enable || cfg.beszel.oidc.clientSecretFile != null;
+        message = "fleet.monitoring.stack.beszel.oidc.clientSecretFile must be set when Beszel OIDC is enabled.";
+      }
+    ];
+
     boot.supportedFilesystems.cifs = true;
     environment.systemPackages = [ pkgs.restic ];
 
@@ -190,8 +351,8 @@ in
 
     systemd.tmpfiles.rules = [
       "d '${appdata}' 0755 root root - -"
-      "d '${appdata}/beszel-hub' 0750 beszel-hub beszel-hub - -"
-      "z '${appdata}/beszel-hub' 0750 beszel-hub beszel-hub - -"
+      "d '${cfg.beszel.dataDir}' 0750 beszel-hub beszel-hub - -"
+      "z '${cfg.beszel.dataDir}' 0750 beszel-hub beszel-hub - -"
       "d '${appdata}/checkmate' 0750 root monitoring - -"
       "d '${appdata}/checkmate/mongo' 0750 root monitoring - -"
       "d '${appdata}/checkmate/uploads' 0750 root monitoring - -"
@@ -274,10 +435,32 @@ in
     };
 
     services.beszel.hub = {
-      dataDir = "${appdata}/beszel-hub";
+      dataDir = cfg.beszel.dataDir;
       enable = true;
       host = "0.0.0.0";
       port = cfg.ports.beszel;
+      environment = mkIf cfg.beszel.oidc.enable (
+        {
+          USER_CREATION = if cfg.beszel.oidc.allowUserCreation then "true" else "false";
+        }
+        // optionalAttrs cfg.beszel.oidc.disablePasswordAuth {
+          DISABLE_PASSWORD_AUTH = "true";
+        }
+      );
+    };
+
+    systemd.services.beszel-hub-oidc-config = mkIf cfg.beszel.oidc.enable {
+      description = "Configure Beszel Hub OAuth2/OIDC provider";
+      after = [ "systemd-tmpfiles-setup.service" ];
+      before = [ "beszel-hub.service" ];
+      requiredBy = [ "beszel-hub.service" ];
+      serviceConfig = {
+        ExecStart = beszelOidcProvision;
+        Group = "beszel-hub";
+        Type = "oneshot";
+        User = "beszel-hub";
+        WorkingDirectory = cfg.beszel.dataDir;
+      };
     };
 
     systemd.services.beszel-hub.serviceConfig = {
@@ -518,8 +701,14 @@ in
               Targets: /etc/fleet/checkmate-targets.json
               Last summary: /var/lib/checkmate-provisioning/last-summary.json
               Managed identity: fleet-declared plus fleet-service:<id> or fleet-host:<host>
-              Expected managed monitors: 43
+              Expected managed monitors: 44
               Stale managed monitors are paused, not deleted.
+
+            Beszel SSO:
+              Unit: beszel-hub-oidc-config.service
+              Provider: Authentik OIDC, client ID ${cfg.beszel.oidc.clientId}
+              Redirect URI: https://beszel.jax22.com/api/oauth2-redirect
+              Password login stays enabled unless fleet.monitoring.stack.beszel.oidc.disablePasswordAuth is true.
 
             Backup validation:
               mount ${cfg.smb.backupMount}

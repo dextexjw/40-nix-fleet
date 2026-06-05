@@ -51,9 +51,19 @@ in
             hosts = hostnames "beszel";
             url = backend 8090;
           };
+          auth = {
+            mode = "native-oidc";
+            groups = [ "monitoring-users" ];
+            oidc = {
+              clientId = "beszel";
+              clientSecretFile = "/run/secrets/beszel-oidc-client-secret";
+              launchUrl = "https://beszel.jax22.com/";
+              redirectUris = [ "https://beszel.jax22.com/api/oauth2-redirect" ];
+            };
+          };
           homepage = {
             description = "Lightweight host monitoring\n${backend 8090}";
-            href = "http://${hostname "beszel"}/";
+            href = "${routeUrl "beszel"}/";
             icon = "beszel.png";
             siteMonitor = "${backend 8090}/";
           };
