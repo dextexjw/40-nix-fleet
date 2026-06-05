@@ -7,7 +7,7 @@ REPOSITORY="/mnt/backups/restic/appdata/productivity-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
 SNAPSHOT="${1:-}"
-SERVICES="gitea forgejo nginx paperless-scheduler paperless-task-queue paperless-consumer paperless-web freshrss-updater phpfpm-freshrss searx vaultwarden phpfpm-privatebin syncthing stirling-pdf phpfpm-firefly-iii phpfpm-nextcloud garage podman-memos podman-shlink podman-shlink-web podman-rustfs ntfy-sh"
+SERVICES="gitea forgejo nginx paperless-scheduler paperless-task-queue paperless-consumer paperless-web freshrss-updater phpfpm-freshrss searx vaultwarden phpfpm-privatebin syncthing stirling-pdf phpfpm-firefly-iii phpfpm-nextcloud garage podman-memos podman-netbootxyz podman-shlink podman-shlink-web podman-rustfs ntfy-sh"
 
 die() {
   printf 'error: %s\n' "$*" >&2

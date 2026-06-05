@@ -27,6 +27,7 @@ SERVICES=(
   podman-openspeedtest.service
   phpfpm-invoiceplane.service
   mysql.service
+  podman-netbootxyz.service
   iperf3.service
   podman-memos.service
   rustdesk-signal.service

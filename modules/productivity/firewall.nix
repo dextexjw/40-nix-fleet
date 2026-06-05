@@ -39,10 +39,17 @@ in
       cfg.ports.stirlingPdf
       cfg.ports.syncthing
       cfg.ports.vaultwarden
+    ]
+    ++ optionals cfg.netbootxyz.openFirewall [
+      cfg.netbootxyz.assetPort
+      cfg.netbootxyz.webUiPort
     ];
     networking.firewall.allowedUDPPorts = [
       cfg.ports.iperf3
       21116
+    ]
+    ++ optionals cfg.netbootxyz.openFirewall [
+      cfg.netbootxyz.tftpPort
     ];
   };
 }

@@ -168,25 +168,6 @@ in
           smoke.http.path = "/api/health";
         }
         {
-          id = "netbootxyz";
-          name = "Netboot.xyz";
-          route = {
-            description = "netboot.xyz web configuration UI";
-            hosts = hostnames "netbootxyz";
-            url = "http://127.0.0.1:3001";
-          };
-          homepage = {
-            description = "TFTP ${host.ip}:69/udp";
-            href = "${routeUrl (hostname "netbootxyz")}/";
-            icon = "netboot.png";
-            siteMonitor = "http://127.0.0.1:3001/";
-          };
-          smoke = {
-            requiredUnit = "podman-netbootxyz.service";
-            http.path = "/";
-          };
-        }
-        {
           id = "wildcard-gateway-validation";
           name = "Wildcard Gateway Validation";
           smoke.dnsHosts = hostnames "wildcard-gateway-validation";

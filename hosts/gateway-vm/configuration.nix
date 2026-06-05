@@ -108,7 +108,6 @@ in
     ../../modules/gateway/authentik.nix
     ../../modules/gateway/homepage.nix
     ../../modules/gateway/netbird.nix
-    ../../modules/gateway/netbootxyz.nix
     ../../modules/gateway/state-backup.nix
     ../../modules/gateway/tailscale.nix
     ../../modules/gateway/technitium
@@ -121,7 +120,7 @@ in
 
   networking.hostName = "gateway-vm";
   networking.domain = host.domain;
-  users.motd = "gateway-vm: Authentik SSO, Traefik ingress, Homepage, Technitium DNS, Gluetun VPN proxy, netboot.xyz, NetBird, and Tailscale";
+  users.motd = "gateway-vm: Authentik SSO, Traefik ingress, Homepage, Technitium DNS, Gluetun VPN proxy, NetBird, and Tailscale";
 
   # ============================================================================
   # SECRETS
@@ -374,11 +373,6 @@ in
     enable = false;
   };
 
-  fleet.gateway.netbootxyz = {
-    enable = true;
-    tftpBindAddress = host.ip;
-  };
-
   fleet.gateway.stateBackup = {
     enable = secretsEnabled;
     credentialsFile = config.sops.secrets.smb-credentials.path;
@@ -498,7 +492,7 @@ in
         gateway-vm service model
         ========================
 
-        gateway-vm is scoped to Authentik SSO, Traefik, Homepage, Technitium, Gluetun, netboot.xyz,
+        gateway-vm is scoped to Authentik SSO, Traefik, Homepage, Technitium, Gluetun,
         NetBird, and Tailscale. Prometheus, Grafana, Jenkins, nginx reverse proxy,
         and node exporter are intentionally not enabled on this host.
 
@@ -515,7 +509,7 @@ in
           Technitium: technitium-dns-server.service, version 15.2.0, state /srv/appsdata/technitium-dns-server, admin HTTP on ${host.ip}:5380, https://technitium.jax22.com, and http://technitium.h
           Gluetun: podman-gluetun.service, PIA OpenVPN container, state /srv/appsdata/gluetun, unauthenticated LAN HTTP proxy on ${host.ip}:8888, authenticated control API internal to the container namespace
           Gluetun WebUI: podman-gluetun-webui.service, LAN access through Traefik at https://gluetun.jax22.com and http://gluetun.h, backend only on 127.0.0.1:3000
-          netboot.xyz: podman-netbootxyz.service, state /srv/appsdata/netbootxyz, web UI https://netbootxyz.jax22.com and http://netbootxyz.h, TFTP ${host.ip}:69/udp, boot file netboot.xyz.efi
+          netboot.xyz route: Gateway Traefik routes https://netbootxyz.jax22.com and http://netbootxyz.h to productivity-vm at ${hosts.productivity-vm.ip}:3001; direct assets and TFTP live on productivity-vm
           NetBird: disabled for now, state preserved at /srv/appsdata/netbird
           Tailscale: tailscaled.service, state /srv/appsdata/tailscale
           State backups: gateway-state-backup.timer, repository /mnt/backup/restic/appdata/gateway-vm
@@ -528,10 +522,10 @@ in
     ${exposureCatalog.routeUrlsText}
 
         Network boot:
-          Configure the LAN DHCP server to point option 66 at ${hosts.gateway-vm.ip}
-          and option 67 at netboot.xyz.efi. gateway-vm serves the netboot.xyz web
-          UI, local asset server, and TFTP, but does not take over DHCP for the
-          subnet.
+          Configure the LAN DHCP server to point option 66 at ${hosts.productivity-vm.ip}
+          and option 67 at netboot.xyz.efi. productivity-vm serves the
+          netboot.xyz local asset server and TFTP. gateway-vm only routes the
+          browser UI and does not take over DHCP for the subnet.
 
         Guarded deploy workflow:
           nix develop
@@ -557,7 +551,6 @@ in
           systemctl is-active technitium-dns-server.service
           systemctl is-active podman-gluetun.service
           systemctl is-active podman-gluetun-webui.service
-          systemctl is-active podman-netbootxyz.service
           systemctl is-active tailscaled.service
           systemctl is-active gateway-state-backup.timer
           curl --resolve homepage.jax22.com:443:127.0.0.1 https://homepage.jax22.com/
@@ -572,8 +565,8 @@ in
 
         Recovery notes:
           Restic backs up /srv/appsdata to /mnt/backup/restic/appdata/gateway-vm
-          using /run/secrets/restic-password. Authentik, Gluetun, and netboot.xyz store state
-          directly under /srv/appsdata/authentik, /srv/appsdata/gluetun, and /srv/appsdata/netbootxyz;
+          using /run/secrets/restic-password. Authentik and Gluetun store state
+          directly under /srv/appsdata/authentik and /srv/appsdata/gluetun;
           Technitium, Traefik, NetBird, and Tailscale keep
           upstream-compatible bind mounts from /srv/appsdata/<service_name>.
           Traefik's ACME account and wildcard certificate state is kept in
@@ -603,12 +596,12 @@ in
 
           Restore outline:
             1. Deploy gateway-vm once to create users, secrets, mounts, and units.
-            2. Stop Traefik, Authentik, PostgreSQL, Redis, Technitium, Gluetun, netboot.xyz, NetBird, and Tailscale before replacing state.
+            2. Stop Traefik, Authentik, PostgreSQL, Redis, Technitium, Gluetun, NetBird, and Tailscale before replacing state.
             3. Mount /mnt/backup.
             4. Choose a gateway-vm/appsdata snapshot ID.
             5. Restore the snapshot to / with restic --verify.
             6. Run systemd-tmpfiles --create.
-            7. Restart postgresql.service, redis-authentik.service, authentik-server.service, authentik-worker.service, traefik.service, homepage-dashboard.service, technitium-dns-server.service, podman-gluetun.service, podman-gluetun-webui.service, podman-netbootxyz.service, netbird.service, and tailscaled.service.
+            7. Restart postgresql.service, redis-authentik.service, authentik-server.service, authentik-worker.service, traefik.service, homepage-dashboard.service, technitium-dns-server.service, podman-gluetun.service, podman-gluetun-webui.service, netbird.service, and tailscaled.service.
 
           Keep auth keys, DNS API tokens, and service secrets in encrypted secrets only; do not write them into Nix
           files, generated configs, recovery notes, logs, or chat.

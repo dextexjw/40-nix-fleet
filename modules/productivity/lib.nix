@@ -20,6 +20,7 @@ let
     invoiceplane = "invoiceplane";
     iperf3 = "iperf3";
     memos = "memos";
+    netbootxyz = "netbootxyz";
     nextcloud = "nextcloud";
     ntfy = "ntfy";
     openspeedtest = "openspeedtest";
@@ -52,6 +53,7 @@ let
     "invoiceplane"
     "iperf3"
     "memos"
+    "netbootxyz"
     "rustdesk"
     "garage"
     "garageWeb"
@@ -153,6 +155,7 @@ let
     "mysql.service"
     "iperf3.service"
     "podman-memos.service"
+    "podman-netbootxyz.service"
     "podman-openspeedtest.service"
     "rustdesk-signal.service"
     "rustdesk-relay.service"

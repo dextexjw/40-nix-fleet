@@ -5,9 +5,9 @@ flake and deployed with Colmena.
 
 The current fleet is intentionally small:
 
-- `gateway-vm` runs Traefik ingress, Technitium DNS, netboot.xyz, NetBird, and Tailscale.
+- `gateway-vm` runs Traefik ingress, Technitium DNS, NetBird, and Tailscale.
 - `media-vm` runs Jellyfin, Audiobookshelf, Kavita, ARR apps, Gluetun-gated downloads, SMB media mounts, and appdata backups.
-- `productivity-vm` runs Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, speed tests, remote desktop relay, invoicing, notes, short links, S3-compatible object storage, notifications, and appdata backups.
+- `productivity-vm` runs Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, speed tests, remote desktop relay, invoicing, notes, short links, S3-compatible object storage, notifications, netboot.xyz, and appdata backups.
 - `monitoring-vm` runs Checkmate, Beszel, fleet monitoring agents, and appdata backups.
 
 Treat this repo as the source of truth for hosts, services, secrets workflow,
@@ -19,9 +19,9 @@ should follow that blueprint before being treated as production-ready.
 
 | Host | IP | Tags | Role | Runbook |
 | --- | --- | --- | --- | --- |
-| `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway` | Ingress, DNS, netboot, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
+| `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway` | Ingress, DNS, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
 | `media-vm` | `10.2.20.113` | `media` | Media services, Gluetun-gated downloads, SMB media, Restic appdata backups | [`hosts/media-vm/README.md`](hosts/media-vm/README.md) |
-| `productivity-vm` | `10.2.20.114` | `productivity` | Productivity services, documents, Git forges, speed tests, remote desktop relay, invoicing, notes, short links, object storage, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
+| `productivity-vm` | `10.2.20.114` | `productivity` | Productivity services, documents, Git forges, speed tests, remote desktop relay, invoicing, notes, short links, object storage, netboot, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
 | `monitoring-vm` | `10.2.20.115` | `monitoring` | Checkmate, Beszel, fleet monitoring agents, Restic appdata backups | [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md) |
 
 Inventory lives in `hosts.nix`. Per-host configuration and host-specific
@@ -36,9 +36,9 @@ runbooks live under `hosts/<name>/`.
 - `hosts/media-vm/`: media host configuration, hardware profile, and runbook.
 - `hosts/productivity-vm/`: productivity host configuration, hardware profile, and runbook.
 - `hosts/monitoring-vm/`: monitoring host configuration, hardware profile, exposure catalog, and runbook.
-- `modules/gateway/`: Traefik, Technitium, netboot.xyz, NetBird, Tailscale, and gateway backup modules.
+- `modules/gateway/`: Traefik, Technitium, NetBird, Tailscale, and gateway backup modules.
 - `modules/media/`: the `media-vm` service modules, SMB mounts, backups, and recovery notes.
-- `modules/productivity/`: the `productivity-vm` service modules, PostgreSQL, backups, and recovery notes.
+- `modules/productivity/`: the `productivity-vm` service modules, netboot.xyz, PostgreSQL, backups, and recovery notes.
 - `modules/monitoring/`: Checkmate, Beszel, fleet monitoring agents, and available Prometheus/Grafana/node exporter modules.
 - `modules/networking/reverse-proxy.nix`: available nginx virtual hosts module.
 - `modules/security/self-signed-ca.nix`: internal self-signed CA and per-domain cert generation.
@@ -55,7 +55,7 @@ and how to deploy safely.
 
 Use the host READMEs as operational runbooks:
 
-- [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md): direct ports, Traefik routes, netboot notes, state backup, bootstrap, and validation.
+- [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md): direct ports, Traefik routes, state backup, bootstrap, and validation.
 - [`hosts/media-vm/README.md`](hosts/media-vm/README.md): service URLs, media/appdata paths, SMB mounts, secrets, bootstrap, upgrade, backup, restore, and validation.
 - [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md): service URLs, appdata paths, secrets, bootstrap, upgrade, backup, restore, and validation.
 - [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md): service URLs, appdata paths, secrets, bootstrap, upgrade, backup, restore, and validation.

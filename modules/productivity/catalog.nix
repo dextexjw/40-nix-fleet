@@ -186,6 +186,18 @@ in
             path = "/";
           };
         })
+        (mkService {
+          id = "netbootxyz";
+          name = "Netboot.xyz";
+          port = 3001;
+          routeDescription = "netboot.xyz web configuration UI";
+          icon = "netboot.png";
+          homepageDescription = "TFTP ${host.ip}:69/udp";
+          smokeHttp = {
+            discard = true;
+            path = "/";
+          };
+        })
         (mkRouteOnly {
           id = "shlink";
           name = "Shlink API";

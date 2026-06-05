@@ -7,7 +7,7 @@ REMOTE_USER="smoke"
 EXPOSURE_SMOKE_FILE="/etc/fleet/gateway-exposure-smoke.tsv"
 EXTERNAL_TCP_PORTS=(22 53 80 443 853 5201 5380 8080 8082 8888 21115 21116 21117 21118 21119 53443)
 LOCAL_TCP_PORTS=(3000 5432 6379 9000 9300)
-UDP_PORTS=(53 69 5201 21116 41641)
+UDP_PORTS=(53 5201 21116 41641)
 KEY_UNITS=(
   traefik.service
   authentik-server.service
@@ -98,13 +98,6 @@ CHECK_NETBIRD=0
 if ssh_gateway_vm "systemctl list-unit-files 'netbird.service' --no-legend 2>/dev/null | grep -q '^netbird[.]service'"; then
   CHECK_NETBIRD=1
   KEY_UNITS+=(netbird.service)
-fi
-
-CHECK_NETBOOTXYZ=0
-if ssh_gateway_vm "systemctl list-unit-files 'podman-netbootxyz.service' --no-legend 2>/dev/null | grep -q '^podman-netbootxyz[.]service'"; then
-  CHECK_NETBOOTXYZ=1
-  KEY_UNITS+=(podman-netbootxyz.service)
-  LOCAL_TCP_PORTS+=(3001 8083)
 fi
 
 printf 'Checking gateway units...\n'
@@ -220,14 +213,6 @@ wait_for_remote "Homepage direct endpoint failed" "curl -fsS http://${HOST_IP}:8
 printf 'Checking Traefik ACME storage...\n'
 wait_for_remote "Traefik ACME storage is missing or empty" "sudo test -s /var/lib/traefik/acme.json"
 wait_for_remote "Traefik ACME storage ownership or permissions are incorrect" "sudo stat -c '%U:%G %a' /var/lib/traefik/acme.json | grep -Fxq 'traefik:traefik 600'"
-
-if [[ "$CHECK_NETBOOTXYZ" == 1 ]]; then
-  printf 'Checking netboot.xyz TFTP boot file fetch...\n'
-  wait_for_remote "netboot.xyz TFTP boot file fetch failed" \
-    "tmp=\$(mktemp); trap 'rm -f \"\$tmp\"' EXIT; atftp --get --remote-file netboot.xyz.efi --local-file \"\$tmp\" --tftp-timeout 5 ${HOST_IP} >/dev/null && test -s \"\$tmp\""
-else
-  printf 'Skipping netboot.xyz container checks; podman-netbootxyz.service is not installed on %s\n' "$HOST"
-fi
 
 printf 'Checking static Homepage bookmark config...\n'
 homepage_checks="grep -Fq 'Links:' /etc/homepage-dashboard/settings.yaml"

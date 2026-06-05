@@ -2,8 +2,8 @@
 
 `productivity-vm` runs the personal productivity stack, nginx-backed internal
 apps, Git forges, OpenSpeedTest, iperf3, RustDesk, InvoicePlane, Shlink short
-links, Memos notes, standalone Garage and RustFS object storage, PostgreSQL, MariaDB,
-appdata backups, and restore checks.
+links, Memos notes, netboot.xyz, standalone Garage and RustFS object storage,
+PostgreSQL, MariaDB, appdata backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
 `configuration.nix` and imports the stack from
@@ -46,6 +46,7 @@ path backed up by Restic.
 | OpenSpeedTest | `https://openspeedtest.jax22.com` | `http://openspeedtest.h` | `10.2.20.114:8989` |
 | InvoicePlane | `https://invoiceplane.jax22.com` | `http://invoiceplane.h` | `10.2.20.114:80` |
 | Memos | `https://memos.jax22.com` | `http://memos.h` | `10.2.20.114:5230` |
+| netboot.xyz WebUI | `https://netbootxyz.jax22.com` | `http://netbootxyz.h` | `10.2.20.114:3001` |
 | iperf3 | `iperf3.jax22.com:5201` | `iperf3.h:5201` | `10.2.20.114:5201/tcp+udp` |
 | RustDesk | `rustdesk.jax22.com` | `rustdesk.h` | `10.2.20.114:21115-21119/tcp, 21116/udp` |
 | Shlink short links/API | `https://s.jax22.com` | `http://s.h` | `10.2.20.114:8088` |
@@ -57,6 +58,8 @@ path backed up by Restic.
 | ntfy | `https://ntfy.jax22.com` | `http://ntfy.h` | `10.2.20.114:2586` |
 
 Traefik routes and Homepage cards are declared on `gateway-vm`.
+netboot.xyz local assets are served at `10.2.20.114:8083`; TFTP is served at
+`10.2.20.114:69/udp` with boot file `netboot.xyz.efi`.
 
 ## State Paths
 
@@ -74,6 +77,7 @@ Important appdata paths:
 - `/srv/appsdata/invoiceplane`
 - `/srv/appsdata/memos`
 - `/srv/appsdata/memos-backups`
+- `/srv/appsdata/netbootxyz`
 - `/srv/appsdata/vaultwarden`
 - `/srv/appsdata/syncthing`
 - `/srv/appsdata/stirling-pdf`
@@ -93,6 +97,12 @@ Important appdata paths:
 `productivity-memos-sqlite-backup.service` writes
 `/srv/appsdata/memos-backups/latest.db` before Restic backups when the Memos
 SQLite database exists.
+
+netboot.xyz runs as `podman-netbootxyz.service` with persistent config and
+downloaded assets under `/srv/appsdata/netbootxyz`. Configure the LAN DHCP
+server to point option 66 at `10.2.20.114` and option 67 at
+`netboot.xyz.efi`. Gateway Traefik routes only the browser UI; the asset server
+and TFTP listener are direct Productivity LAN services.
 
 ## Secrets
 

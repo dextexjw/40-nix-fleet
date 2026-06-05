@@ -29,7 +29,7 @@ in
 
   networking.hostName = "productivity-vm";
   networking.domain = host.domain;
-  users.motd = "productivity-vm: Git, docs, paperless, RSS, search, vault, files, S3, notifications, and appdata backups";
+  users.motd = "productivity-vm: Git, docs, paperless, RSS, search, vault, files, S3, netboot.xyz, notifications, and appdata backups";
 
   # ============================================================================
   # SECRETS
@@ -306,6 +306,12 @@ in
       enable = true;
       adminTokenFile = config.sops.secrets.memos-admin-pat.path;
       clientSecretFile = config.sops.secrets.memos-oidc-client-secret.path;
+    };
+    netbootxyz = {
+      enable = true;
+      assetBindAddress = host.ip;
+      tftpBindAddress = host.ip;
+      webUiBindAddress = host.ip;
     };
     paperless.oidc = lib.mkIf secretsEnabled {
       adminEmailFile = config.sops.secrets.authentik-bootstrap-email.path;

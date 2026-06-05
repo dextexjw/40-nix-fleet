@@ -20,6 +20,7 @@ let
     invoiceplane = "invoiceplane";
     iperf3 = "iperf3";
     memos = "memos";
+    netbootxyz = "netbootxyz";
     nextcloud = "nextcloud";
     ntfy = "ntfy";
     openspeedtest = "openspeedtest";
@@ -52,6 +53,7 @@ let
     "invoiceplane"
     "iperf3"
     "memos"
+    "netbootxyz"
     "rustdesk"
     "garage"
     "garageWeb"
@@ -114,6 +116,9 @@ in
         gitea = 3000;
         iperf3 = 5201;
         memos = 5230;
+        netbootxyzAsset = 8083;
+        netbootxyzTftp = 69;
+        netbootxyzWebUi = 3001;
         ntfy = 2586;
         openspeedtest = 8989;
         rustdeskRelay = 21117;
@@ -128,6 +133,77 @@ in
         vaultwarden = 8222;
       };
       description = "LAN-facing web or API ports for non-nginx productivity services.";
+    };
+
+    netbootxyz = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run netboot.xyz network boot service on productivity-vm.";
+      };
+
+      assetBindAddress = mkOption {
+        type = types.str;
+        default = "0.0.0.0";
+        description = "Host address used for the local netboot.xyz asset server listener.";
+        example = "10.2.20.114";
+      };
+
+      assetPort = mkOption {
+        type = types.port;
+        default = cfg.ports.netbootxyzAsset;
+        description = "Host port mapped to the netboot.xyz container asset server.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/netbootxyz/netbootxyz@sha256:942dfb60d11846b657a54dd36f1addf636b7736f38009223ce328ebc37f54d39";
+        description = "Pinned netboot.xyz OCI image reference.";
+      };
+
+      menuVersion = mkOption {
+        type = types.str;
+        default = "2.0.88";
+        description = "netboot.xyz menu version used by the container.";
+      };
+
+      openFirewall = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Open netboot.xyz web UI, asset, and TFTP ports.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/netbootxyz";
+        description = "Persistent netboot.xyz state directory.";
+      };
+
+      tftpBindAddress = mkOption {
+        type = types.str;
+        default = "0.0.0.0";
+        description = "Host address used for the netboot.xyz TFTP listener.";
+        example = "10.2.20.114";
+      };
+
+      tftpPort = mkOption {
+        type = types.port;
+        default = cfg.ports.netbootxyzTftp;
+        description = "Host UDP port mapped to the netboot.xyz TFTP service.";
+      };
+
+      webUiBindAddress = mkOption {
+        type = types.str;
+        default = "0.0.0.0";
+        description = "Host address used for the netboot.xyz web UI listener.";
+        example = "10.2.20.114";
+      };
+
+      webUiPort = mkOption {
+        type = types.port;
+        default = cfg.ports.netbootxyzWebUi;
+        description = "Host port mapped to the netboot.xyz web configuration UI.";
+      };
     };
 
     smb = {

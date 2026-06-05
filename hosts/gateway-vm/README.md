@@ -1,7 +1,7 @@
 # gateway-vm
 
-`gateway-vm` runs Authentik SSO, Traefik ingress, Homepage, Technitium DNS, Gluetun,
-netboot.xyz, NetBird, and Tailscale.
+`gateway-vm` runs Authentik SSO, Traefik ingress, Homepage, Technitium DNS,
+Gluetun, NetBird, and Tailscale.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
 `configuration.nix` and imports service modules from `../../modules/gateway/`.
@@ -23,7 +23,6 @@ Important host values:
 State paths:
 
 - `/srv/appsdata/gluetun`
-- `/srv/appsdata/netbootxyz`
 - `/srv/appsdata/authentik`
 - `/srv/appsdata/technitium-dns-server`
 - `/srv/appsdata/traefik`
@@ -53,9 +52,8 @@ Service access:
 - MediaVM Gluetun WebUI: `https://media-gluetun.jax22.com/` through Traefik, `http://media-gluetun.h/` as an alias; backend on `10.2.20.113:3001`
 - Checkmate: `https://checkmate.jax22.com/` through Traefik, `http://checkmate.h/` as an alias; backend on `10.2.20.115:52345`
 - Beszel: `https://beszel.jax22.com/` through Traefik, `http://beszel.h/` as an alias; backend on `10.2.20.115:8090`
-- netboot.xyz WebUI: `https://netbootxyz.jax22.com/` through Traefik, `http://netbootxyz.h/` as an alias; backend only on `127.0.0.1:3001`
-- netboot.xyz local assets: backend only on `127.0.0.1:8083`
-- netboot.xyz TFTP: `10.2.20.112:69/udp`, boot file `netboot.xyz.efi`
+- netboot.xyz WebUI: `https://netbootxyz.jax22.com/` through Traefik, `http://netbootxyz.h/` as an alias; backend on `10.2.20.114:3001`
+- netboot.xyz local assets and TFTP live on `productivity-vm`; configure DHCP option 66 to `10.2.20.114` and option 67 to `netboot.xyz.efi`
 - NetBird: disabled for now; state preserved at `/srv/appsdata/netbird`
 - Tailscale: `10.2.20.112:41641/udp`
 
@@ -162,7 +160,6 @@ endpoint is available.
 `gateway-vm` intentionally pins Traefik to the upstream `3.7.1` Linux AMD64
 release artifact, Technitium DNS to the upstream `15.2.0` source release, and
 Gluetun to `ghcr.io/qdm12/gluetun@sha256:2f33c71e5e164fcd51a962cb950134df25155593edf0c3e1201f888d027049b4`
-and netboot.xyz to `ghcr.io/netbootxyz/netbootxyz@sha256:942dfb60d11846b657a54dd36f1addf636b7736f38009223ce328ebc37f54d39`
 while the rest of the fleet remains on the locked `nixpkgs` package set.
 
 Gluetun uses Private Internet Access over OpenVPN. The HTTP proxy is exposed on
@@ -185,12 +182,11 @@ namespace used by qBittorrent and SABnzbd, and is available through Gateway Trae
 routes to its MediaVM LAN backend on `10.2.20.113:3001`; the VPN container and
 downloader kill switch still live on `media-vm`.
 
-The netboot.xyz container runs as `podman-netbootxyz.service`. Its web
-configuration UI is available through Traefik at `https://netbootxyz.jax22.com/`
-and `http://netbootxyz.h/`, while the web UI backend on `127.0.0.1:3001` and local asset server on
-`127.0.0.1:8083` stay host-local. TFTP is exposed on `10.2.20.112:69/udp` with
-single-port transfers enabled. Persistent config and downloaded assets live
-under `/srv/appsdata/netbootxyz`.
+The netboot.xyz container runs on `productivity-vm` as
+`podman-netbootxyz.service`. Gateway only routes the web configuration UI at
+`https://netbootxyz.jax22.com/` and `http://netbootxyz.h/` to
+`10.2.20.114:3001`. The local asset server and TFTP listener live on
+`productivity-vm`.
 
 Technitium serves the `jax22.com` and `.h` service zones. Wildcard DNS resolves
 `*.jax22.com` and `*.h` to `gateway-vm` at `10.2.20.112`, where Traefik routes
@@ -251,9 +247,9 @@ Adding a Gateway-exposed VM:
    under `modules/<domain>/catalog.nix`.
 
 For netboot.xyz, configure the LAN DHCP server to point option 66 at
-`10.2.20.112` and option 67 at `netboot.xyz.efi`. `gateway-vm` serves the
-netboot.xyz web UI, local asset server, and TFTP, but does not take over DHCP
-for the subnet.
+`10.2.20.114` and option 67 at `netboot.xyz.efi`. `productivity-vm` serves the
+netboot.xyz local asset server and TFTP; Gateway only routes the browser UI and
+does not take over DHCP for the subnet.
 
 ## Secrets
 
@@ -417,8 +413,8 @@ scripts/gateway-vm/test-gateway-services.sh
 ```
 
 That script verifies service health, listener ports, Traefik HTTP and HTTPS routes, DNS
-records, Gluetun proxy egress, netboot.xyz TFTP fetches, Homepage generated
-config, and gateway state backup/restore validation.
+records, Gluetun proxy egress, Homepage generated config, and gateway state
+backup/restore validation.
 
 Lower-level backup and restore validation on `gateway-vm` for debugging:
 
@@ -432,12 +428,12 @@ systemctl status gateway-state-backup.service gateway-state-restore-check.servic
 Restore outline:
 
 1. Deploy `gateway-vm` once to create users, secrets, mounts, and units.
-2. Stop Traefik, Technitium, Gluetun, netboot.xyz, NetBird, and Tailscale before replacing state.
+2. Stop Traefik, Technitium, Gluetun, NetBird, and Tailscale before replacing state.
 3. Mount `/mnt/backup`.
 4. Choose a `gateway-vm` appdata snapshot ID.
 5. Restore the snapshot to `/` with `restic --verify`.
 6. Run `systemd-tmpfiles --create`.
-7. Restart `traefik.service`, `homepage-dashboard.service`, `technitium-dns-server.service`, `podman-gluetun.service`, `podman-gluetun-webui.service`, `podman-netbootxyz.service`, and `tailscaled.service`; restart `netbird.service` too if NetBird is re-enabled.
+7. Restart `traefik.service`, `homepage-dashboard.service`, `technitium-dns-server.service`, `podman-gluetun.service`, `podman-gluetun-webui.service`, and `tailscaled.service`; restart `netbird.service` too if NetBird is re-enabled.
 
 Homepage has no authoritative mutable app state in this fleet pass. Restore its
 dashboard by redeploying the Gateway Nix configuration.
@@ -456,7 +452,6 @@ colmena exec --on gateway-vm -- systemctl status homepage-dashboard
 colmena exec --on gateway-vm -- systemctl status technitium-dns-server
 colmena exec --on gateway-vm -- systemctl status podman-gluetun
 colmena exec --on gateway-vm -- systemctl status podman-gluetun-webui
-colmena exec --on gateway-vm -- systemctl status podman-netbootxyz
 colmena exec --on gateway-vm -- systemctl status tailscaled
 colmena exec --on gateway-vm -- systemctl status gateway-state-backup.timer
 ```
@@ -472,6 +467,6 @@ You can also reboot and choose an earlier generation from the bootloader.
 ## Safety Notes
 
 - `hosts.nix` declares the `gateway-vm` disk as `/dev/sda`; any installer or partitioning command against that disk is destructive.
-- `gateway-vm` serves netboot.xyz TFTP and the web UI but does not take over DHCP for the subnet.
+- `gateway-vm` routes the netboot.xyz web UI to `productivity-vm` but does not take over DHCP for the subnet.
 - Keep auth keys, DNS API tokens, and service secrets in encrypted secrets only.
 - Do not write plaintext secrets into Nix files, generated configs, recovery notes, logs, or chat.

@@ -87,7 +87,7 @@ printf 'Stopping gateway-state-backup.timer...\n'
 systemctl stop gateway-state-backup.timer
 
 printf 'Stopping stateful Gateway services for a consistent snapshot...\n'
-for unit in traefik.service authentik-worker.service authentik-server.service redis-authentik.service postgresql.service podman-gluetun-webui.service podman-gluetun.service podman-netbootxyz.service technitium-dns-server.service tailscaled.service netbird.service; do
+for unit in traefik.service authentik-worker.service authentik-server.service redis-authentik.service postgresql.service podman-gluetun-webui.service podman-gluetun.service technitium-dns-server.service tailscaled.service netbird.service; do
   if ! unit_exists "$unit"; then
     printf '  %s not installed; skipping\n' "$unit"
     continue

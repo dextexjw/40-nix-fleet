@@ -29,7 +29,7 @@ in
 
         productivity-vm runs Gitea, Forgejo, Material for MkDocs, Paperless-ngx,
         FreshRSS, SearXNG, Vaultwarden, PrivateBin, Syncthing, Stirling PDF,
-        Firefly III, Nextcloud, OpenSpeedTest, InvoicePlane, Memos, iperf3,
+        Firefly III, Nextcloud, OpenSpeedTest, InvoicePlane, Memos, netboot.xyz, iperf3,
         RustDesk, Shlink, Garage, RustFS, ntfy, nginx, PostgreSQL, MariaDB, and
         Restic appdata backups.
 
@@ -53,6 +53,9 @@ in
           Syncthing GUI: ${toString cfg.ports.syncthing}
           Stirling PDF: ${toString cfg.ports.stirlingPdf}
           OpenSpeedTest: ${toString cfg.ports.openspeedtest}
+          netboot.xyz WebUI: ${toString cfg.netbootxyz.webUiPort}
+          netboot.xyz assets: ${toString cfg.netbootxyz.assetPort}
+          netboot.xyz TFTP UDP: ${toString cfg.netbootxyz.tftpPort}
           iperf3 TCP/UDP: ${toString cfg.ports.iperf3}
           Memos: ${toString cfg.ports.memos}
           RustDesk TCP: 21115, 21116, 21117, 21118, 21119
@@ -130,6 +133,14 @@ in
         Authentik OAuth2 provider with the encrypted memos-admin-pat and
         memos-oidc-client-secret secrets. Local password auth and signup policy
         remain managed in Memos.
+
+        netboot.xyz stores persistent config and downloaded assets under
+        ${cfg.netbootxyz.stateDir}. Gateway Traefik routes
+        ${serviceHosts.netbootxyz} to ${config.networking.hostName} on
+        ${toString cfg.netbootxyz.webUiPort}. Configure the LAN DHCP server
+        option 66 to ${config.networking.hostName}.home.arpa or 10.2.20.114 and
+        option 67 to netboot.xyz.efi. TFTP is direct UDP on
+        ${toString cfg.netbootxyz.tftpPort}; Gateway does not proxy TFTP.
 
         Gitea OIDC uses the encrypted gitea-oidc-client-secret shared between
         gateway-vm Authentik provisioning and gitea-oidc-config.service.

@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="productivity-vm"
+HOST_IP="10.2.20.114"
 REPOSITORY="/mnt/backups/restic/appdata/productivity-vm"
 SOURCE="/srv/appsdata"
 ALLOW_MISSING_NEW_SERVICES=0
@@ -33,6 +34,7 @@ KEY_SERVICES=(
   mysql
   iperf3
   podman-memos
+  podman-netbootxyz
   rustdesk-signal
   rustdesk-relay
   garage
@@ -58,6 +60,7 @@ HOST_ROUTES=(
   openspeedtest
   invoiceplane
   memos
+  netbootxyz
   garage
   s3.garage
   s3.rustfs
@@ -74,6 +77,7 @@ declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
   [mysql]=1
   [phpfpm-invoiceplane]=1
   [podman-memos]=1
+  [podman-netbootxyz]=1
   [podman-shlink]=1
   [podman-shlink-web]=1
   [podman-rustfs]=1
@@ -149,6 +153,9 @@ route_is_skipped() {
       ;;
     memos.*)
       service_is_skipped podman-memos
+      ;;
+    netbootxyz.*)
+      service_is_skipped podman-netbootxyz
       ;;
     rustfs.* | s3.rustfs.*)
       service_is_skipped podman-rustfs
@@ -281,6 +288,11 @@ if ! service_is_skipped podman-memos; then
   fi
   colmena exec --on "$HOST" -- "sh -lc 'if [ -s /srv/appsdata/memos/memos_prod.db ]; then test -s /srv/appsdata/memos-backups/latest.db; fi'"
 fi
+if ! service_is_skipped podman-netbootxyz; then
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:3001/ >/dev/null"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:8083/ >/dev/null"
+  colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap '\\''rm -f \"\$tmp\"'\\'' EXIT; atftp --get --remote-file netboot.xyz.efi --local-file \"\$tmp\" --tftp-timeout 5 ${HOST_IP} >/dev/null && test -s \"\$tmp\"'"
+fi
 if ! service_is_skipped rustdesk-signal && ! service_is_skipped rustdesk-relay; then
   colmena exec --on "$HOST" -- "test -s /srv/appsdata/rustdesk/id_ed25519.pub"
   for port in 21115 21116 21117 21118 21119; do
@@ -349,6 +361,9 @@ for route_prefix in "${HOST_ROUTES[@]}"; do
         ;;
       memos.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:5230/ >/dev/null"
+        ;;
+      netbootxyz.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://${HOST_IP}:3001/ >/dev/null"
         ;;
       s3.rustfs.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:9000/health >/dev/null"
