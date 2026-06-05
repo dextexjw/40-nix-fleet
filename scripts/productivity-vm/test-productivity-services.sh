@@ -198,6 +198,16 @@ colmena exec --on "$HOST" -- env \
 
 printf 'Checking direct service listeners and nginx vhosts...\n'
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/ >/dev/null"
+if allow_missing_unit gitea-oidc-config.service; then
+  printf 'Skipping Gitea OIDC source checks because gitea-oidc-config.service is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- "systemctl show gitea-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show gitea-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+  colmena exec --on "$HOST" -- "sudo -u postgres psql -d gitea -tAc \"select count(*) from login_source where name = 'authentik' and type = 6 and is_active\" | tr -d '[:space:]' | grep -Fxq 1"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq '/user/oauth2/authentik'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq 'name=\"user_name\"'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq 'name=\"password\"'"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://gitea.jax22.com/user/login | grep -Fq '/user/oauth2/authentik'"
+fi
 if allow_missing_paperless_oidc_environment; then
   printf 'Skipping Paperless OIDC provider checks because paperless-oidc-environment is not deployed yet.\n'
 else

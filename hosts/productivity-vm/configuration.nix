@@ -87,6 +87,12 @@ in
         mode = "0400";
         restartUnits = [ "forgejo-oidc-config.service" ];
       };
+      gitea-oidc-client-secret = {
+        owner = "gitea";
+        group = "gitea";
+        mode = "0400";
+        restartUnits = [ "gitea-oidc-config.service" ];
+      };
       garage-admin-token = {
         owner = "garage";
         group = "garage";
@@ -291,6 +297,10 @@ in
     forgejo.oidc = lib.mkIf secretsEnabled {
       enable = true;
       clientSecretFile = config.sops.secrets.forgejo-oidc-client-secret.path;
+    };
+    gitea.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      clientSecretFile = config.sops.secrets.gitea-oidc-client-secret.path;
     };
     memos.oidc = lib.mkIf secretsEnabled {
       enable = true;

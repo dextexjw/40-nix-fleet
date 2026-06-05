@@ -93,6 +93,8 @@ the `beszel` client, allows `monitoring-users`, and uses
 `https://memos.jax22.com/auth/callback` as the callback. Forgejo uses the
 `forgejo` client, allows `productivity-users`, and uses
 `https://forgejo.jax22.com/user/oauth2/authentik/callback` as the callback.
+Gitea uses the `gitea` client, allows `productivity-users`, and uses
+`https://gitea.jax22.com/user/oauth2/authentik/callback` as the callback.
 Paperless uses the `paperless` client, allows `productivity-users`, and uses
 `https://paperless.jax22.com/accounts/oidc/authentik/login/callback/` as the
 callback. RustFS Console uses
@@ -266,6 +268,7 @@ Required secrets:
 - `authentik-secret-key`
 - `beszel-oidc-client-secret`
 - `forgejo-oidc-client-secret`
+- `gitea-oidc-client-secret`
 - `memos-oidc-client-secret`
 - `nextcloud-oidc-client-secret`
 - `paperless-oidc-client-secret`

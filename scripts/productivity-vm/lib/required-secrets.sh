@@ -7,6 +7,7 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   forgejo-oidc-client-secret
   freshrss-admin-password
   freshrss-admin-username
+  gitea-oidc-client-secret
   memos-admin-pat
   memos-oidc-client-secret
   nextcloud-admin-password

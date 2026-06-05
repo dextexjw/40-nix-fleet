@@ -131,6 +131,11 @@ in
         memos-oidc-client-secret secrets. Local password auth and signup policy
         remain managed in Memos.
 
+        Gitea OIDC uses the encrypted gitea-oidc-client-secret shared between
+        gateway-vm Authentik provisioning and gitea-oidc-config.service.
+        Authentik allows productivity-users, and local Gitea username/password
+        login remains enabled for break-glass access.
+
         Paperless OIDC uses the encrypted paperless-oidc-client-secret shared
         between gateway-vm Authentik provisioning and this host's paperless-owned
         generated runtime environment file. Authentik allows productivity-users,

@@ -107,6 +107,7 @@ Required productivity secrets:
 - `authentik-bootstrap-email`
 - `firefly-app-key`
 - `forgejo-oidc-client-secret`
+- `gitea-oidc-client-secret`
 - `freshrss-admin-password`
 - `freshrss-admin-username`
 - `garage-admin-token`
@@ -128,6 +129,13 @@ Required productivity secrets:
 - `syncthing-gui-password`
 - `syncthing-gui-username`
 - `vaultwarden-environment`
+
+Gitea uses native OIDC with Authentik. Authentik provisions the `gitea`
+client and allows `productivity-users`; `gitea-oidc-config.service` provisions
+the Gitea `authentik` OpenID Connect authentication source using the
+SOPS-managed `gitea-oidc-client-secret`. The only allowed callback is
+`https://gitea.jax22.com/user/oauth2/authentik/callback`. Local Gitea accounts
+and password login remain enabled for break-glass access.
 
 Forgejo uses native OIDC with Authentik. Authentik provisions the `forgejo`
 client and allows `productivity-users`; `forgejo-oidc-config.service`
@@ -326,6 +334,11 @@ Memos stores its SQLite database and local app state under `/srv/appsdata/memos`
 The pre-backup SQLite copy is `/srv/appsdata/memos-backups/latest.db`.
 `memos-oidc-config.service` declaratively keeps the Authentik OAuth2 provider
 visible on the Memos sign-in page without disabling existing local auth.
+
+Gitea uses Authentik native OIDC for `productivity-users`.
+`gitea-oidc-client-secret` is shared between Gateway Authentik provisioning and
+`gitea-oidc-config.service`. Local Gitea password login stays enabled for
+break-glass access.
 
 Forgejo uses Authentik native OIDC for `productivity-users`.
 `forgejo-oidc-client-secret` is shared between Gateway Authentik provisioning
