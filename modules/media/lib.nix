@@ -200,6 +200,16 @@ let
     uid = pwd.getpwnam("qbittorrent").pw_uid
     gid = grp.getgrnam("media").gr_gid
 
+    for runtime_path in [
+        config_dir / "ipc-socket",
+        config_dir / "lockfile",
+        config_dir / "qBittorrent-data.conf.lock",
+    ]:
+        try:
+            runtime_path.unlink()
+        except FileNotFoundError:
+            pass
+
     def write_config(path):
         fd, tmp_name = tempfile.mkstemp(prefix=".qBittorrent.conf.", dir=path.parent)
         try:
