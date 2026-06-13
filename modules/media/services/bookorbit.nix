@@ -430,7 +430,7 @@ in
 
       volumes = [
         "${appdata}/bookorbit/data:/data"
-        "${cfg.libraries.books}:/books"
+        "${mediaRoot}:/media"
       ];
 
       extraOptions = [

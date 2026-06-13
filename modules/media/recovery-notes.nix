@@ -47,9 +47,9 @@ in
       BookOrbit uses /srv/appsdata/bookorbit/data for application state,
       /srv/appsdata/bookorbit/postgresql for PostgreSQL 16 plus pgvector data,
       and /srv/appsdata/bookorbit/postgresql-dumps/latest.sql.gz for the
-      pre-Restic PostgreSQL dump. The NAS-backed /mnt/media/Books library is
-      mounted into the container as /books and is not included in Restic
-      appdata backups.
+      pre-Restic PostgreSQL dump. The NAS-backed /mnt/media share is mounted
+      into the container as /media and is not included in Restic appdata
+      backups. Books are available at /media/Books inside BookOrbit.
 
       qBittorrent and SABnzbd run as podman-media-qbittorrent.service and
       podman-media-sabnzbd.service in the media-gluetun container network

@@ -106,8 +106,8 @@ colmena exec --on "$HOST" -- "sh -lc 'podman inspect --format \"{{range .Mounts}
   || die "media-sabnzbd does not mount $INCOMPLETE_DOWNLOADS"
 colmena exec --on "$HOST" -- "sh -lc 'podman inspect --format \"{{range .Mounts}}{{.Source}} {{.Destination}}{{println}}{{end}}\" media-bookorbit | grep -Fxq \"/srv/appsdata/bookorbit/data /data\"'" \
   || die "media-bookorbit does not mount /srv/appsdata/bookorbit/data"
-colmena exec --on "$HOST" -- "sh -lc 'podman inspect --format \"{{range .Mounts}}{{.Source}} {{.Destination}}{{println}}{{end}}\" media-bookorbit | grep -Fxq \"/mnt/media/Books /books\"'" \
-  || die "media-bookorbit does not mount /mnt/media/Books"
+colmena exec --on "$HOST" -- "sh -lc 'podman inspect --format \"{{range .Mounts}}{{.Source}} {{.Destination}}{{println}}{{end}}\" media-bookorbit | grep -Fxq \"/mnt/media /media\"'" \
+  || die "media-bookorbit does not mount /mnt/media as /media"
 colmena exec --on "$HOST" -- "sh -lc 'test \"\$(podman inspect --format \"{{json .HostConfig.PortBindings}}\" media-qbittorrent)\" = \"{}\"'" \
   || die "media-qbittorrent unexpectedly declares host port bindings"
 colmena exec --on "$HOST" -- "sh -lc 'test \"\$(podman inspect --format \"{{json .HostConfig.PortBindings}}\" media-sabnzbd)\" = \"{}\"'" \

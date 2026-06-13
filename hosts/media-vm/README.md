@@ -117,8 +117,9 @@ BookOrbit runs as `podman-media-bookorbit.service` with the pinned
 `ghcr.io/bookorbit/bookorbit:1.10.0` image. It listens on MediaVM port `3000`,
 stores app-managed state in `/srv/appsdata/bookorbit/data`, uses native
 PostgreSQL 16 with `pgvector` under `/srv/appsdata/bookorbit/postgresql`, and
-mounts `/mnt/media/Books` read-write as `/books`. The Books library is
-NAS-backed media data and is outside the Restic appdata source.
+mounts `/mnt/media` read-write as `/media`. The Books library is available at
+`/media/Books`, remains NAS-backed media data, and is outside the Restic
+appdata source.
 
 BookOrbit declarative app configuration is enforced by
 `bookorbit-declarative-config.service` after the container and PostgreSQL are
@@ -317,8 +318,8 @@ scripts/media-vm/deploy-media.sh
 That service writes a compressed BookOrbit PostgreSQL dump to
 `/srv/appsdata/bookorbit/postgresql-dumps/latest.sql.gz`, then Restic captures
 the dump, BookOrbit app data, and PostgreSQL data directory under
-`/srv/appsdata`. `/mnt/media/Books` remains NAS-backed media data outside the
-Restic appdata source.
+`/srv/appsdata`. `/mnt/media` remains NAS-backed media data outside the Restic
+appdata source; BookOrbit sees it as `/media`.
 
 Post-deploy validation:
 
