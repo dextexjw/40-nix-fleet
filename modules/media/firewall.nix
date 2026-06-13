@@ -19,6 +19,7 @@ in
     networking.firewall.allowedTCPPorts = [
       cfg.ports.audiobookshelf
       cfg.ports.bazarr
+      cfg.ports.bookorbit
       cfg.ports.jellyfin
       cfg.ports.kavita
       cfg.ports.prowlarr

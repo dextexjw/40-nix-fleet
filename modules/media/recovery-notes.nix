@@ -27,9 +27,10 @@ in
       ======================
 
       Restore /srv/appsdata after reinstalling this NixOS host, before first
-      use of Jellyfin, Audiobookshelf, Kavita, ARR apps, qBittorrent, Gluetun,
-      SABnzbd, or Seerr. The first activation creates /run/secrets/restic-password,
-      /mnt/backups, Restic, users/groups, and service units needed for restore.
+      use of Jellyfin, Audiobookshelf, Kavita, BookOrbit, ARR apps,
+      qBittorrent, Gluetun, SABnzbd, or Seerr. The first activation creates
+      /run/secrets/restic-password, /mnt/backups, Restic, users/groups, and
+      service units needed for restore.
 
       Media files under /mnt/media are mounted from SMB and are not included in
       appsdata-backup.service.
@@ -42,6 +43,13 @@ in
 
       Seerr uses /srv/appsdata/seerr. On deploy or restore, legacy
       /srv/appsdata/jellyseerr data is moved there when the new path is empty.
+
+      BookOrbit uses /srv/appsdata/bookorbit/data for application state,
+      /srv/appsdata/bookorbit/postgresql for PostgreSQL 16 plus pgvector data,
+      and /srv/appsdata/bookorbit/postgresql-dumps/latest.sql.gz for the
+      pre-Restic PostgreSQL dump. The NAS-backed /mnt/media/Books library is
+      mounted into the container as /books and is not included in Restic
+      appdata backups.
 
       qBittorrent and SABnzbd run as podman-media-qbittorrent.service and
       podman-media-sabnzbd.service in the media-gluetun container network
@@ -62,6 +70,8 @@ in
         mount /mnt/backups
         systemctl start appsdata-backup.service
         systemctl start appsdata-restore-check.service
+        systemctl is-active postgresql.service
+        systemctl is-active podman-media-bookorbit.service
         systemctl is-active podman-media-gluetun.service
         systemctl is-active podman-media-qbittorrent.service
         systemctl is-active podman-media-sabnzbd.service
@@ -85,7 +95,7 @@ in
            appsdata-backup.timer, then continues as a fresh system.
 
       Full restore outline:
-        1. Stop appsdata-backup.timer and media services.
+        1. Stop appsdata-backup.timer, PostgreSQL, and media services.
         2. Mount /mnt/backups.
         3. Choose a media-vm/appsdata snapshot ID, avoiding tiny fresh-system
            snapshots made after a rebuild.
@@ -95,8 +105,18 @@ in
            Keep /srv/appsdata/prowlarr owned by nobody:nogroup with mode 0700
            so the Prowlarr DynamicUser idmapped bind mount can access SQLite.
         6. Restart media-gluetun-control-auth-config.service,
-           kavita-token-key.service, media services, appsdata-backup.timer,
-           and appsdata-restore-check.service.
+           kavita-token-key.service, PostgreSQL, media services,
+           appsdata-backup.timer, and appsdata-restore-check.service.
+
+      BookOrbit first-run setup:
+        Direct URL: http://10.2.20.113:3000
+        Gateway URLs: https://bookorbit.jax22.com and http://bookorbit.h
+        Setup bootstrap token: /run/secrets/bookorbit-setup-bootstrap-token
+        OIDC issuer URI: https://auth.jax22.com/application/o/bookorbit/
+        OIDC client ID: bookorbit
+        OIDC client secret: bookorbit-oidc-client-secret in SOPS
+        OIDC scopes: openid profile email groups
+        Enable local account linking for existing BookOrbit users.
 
       Jellyfin kids access is configured inside Jellyfin after first setup:
       create a non-admin user named kids, grant only the Kids Movies and Kids TV
@@ -110,7 +130,9 @@ in
       MediaVM Gluetun at http://10.2.20.113:8080, SABnzbd is available through
       MediaVM Gluetun at http://10.2.20.113:8085, and the MediaVM Gluetun WebUI
       is available at http://10.2.20.113:3001 and, through Gateway Traefik,
-      ${concatStringsSep " and " mediaGluetunRouteUrls}.
+      ${concatStringsSep " and " mediaGluetunRouteUrls}. BookOrbit is available
+      at http://10.2.20.113:3000, https://bookorbit.jax22.com, and
+      http://bookorbit.h.
     '';
   };
 }

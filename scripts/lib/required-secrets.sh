@@ -23,6 +23,7 @@ GATEWAY_REQUIRED_SECRET_KEYS=(
   authentik-postgresql-password
   authentik-secret-key
   beszel-oidc-client-secret
+  bookorbit-oidc-client-secret
   forgejo-oidc-client-secret
   gitea-oidc-client-secret
   gluetun-control-api-key
@@ -41,6 +42,11 @@ GATEWAY_REQUIRED_SECRET_KEYS=(
 
 MEDIA_REQUIRED_SECRET_KEYS=(
   "${FLEET_COMMON_REQUIRED_SECRET_KEYS[@]}"
+  bookorbit-email-encryption-key
+  bookorbit-jwt-secret
+  bookorbit-migration-encryption-key
+  bookorbit-postgres-password
+  bookorbit-setup-bootstrap-token
   media-gluetun-control-api-key
   media-gluetun-openvpn-password
   media-gluetun-openvpn-username

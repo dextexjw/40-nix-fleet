@@ -1,7 +1,7 @@
 # media-vm
 
-`media-vm` runs the media stack, Gluetun-gated qBittorrent downloads, SMB media
-mounts, appdata backups, and restore checks.
+`media-vm` runs the media stack, BookOrbit, Gluetun-gated qBittorrent
+downloads, SMB media mounts, appdata backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
 `configuration.nix` and imports the media stack from `../../modules/media/`.
@@ -34,6 +34,7 @@ Incomplete downloader files live on local VM storage at
 | Jellyfin | `http://10.2.20.113:8096` |
 | Audiobookshelf | `http://10.2.20.113:8000` |
 | Kavita | `http://10.2.20.113:5000` |
+| BookOrbit | `http://10.2.20.113:3000` |
 | Radarr | `http://10.2.20.113:7878` |
 | Sonarr | `http://10.2.20.113:8989` |
 | Prowlarr | `http://10.2.20.113:9696` |
@@ -52,6 +53,7 @@ and HTTP-only `.h` aliases:
 - `jellyfin.jax22.com`, `jellyfin.h`
 - `audiobookshelf.jax22.com`, `audiobookshelf.h`
 - `kavita.jax22.com`, `kavita.h`
+- `bookorbit.jax22.com`, `bookorbit.h`
 - `sonarr.jax22.com`, `sonarr.h`
 - `radarr.jax22.com`, `radarr.h`
 - `prowlarr.jax22.com`, `prowlarr.h`
@@ -79,6 +81,9 @@ Appdata paths:
 - `/srv/appsdata/jellyfin`
 - `/srv/appsdata/audiobookshelf`
 - `/srv/appsdata/kavita`
+- `/srv/appsdata/bookorbit/data`
+- `/srv/appsdata/bookorbit/postgresql`
+- `/srv/appsdata/bookorbit/postgresql-dumps/latest.sql.gz`
 - `/srv/appsdata/radarr`
 - `/srv/appsdata/sonarr`
 - `/srv/appsdata/prowlarr`
@@ -108,6 +113,23 @@ Media library paths:
 - Completed downloads: `/mnt/media/downloads`
 - Incomplete downloads: `/var/lib/media-downloads`
 
+BookOrbit runs as `podman-media-bookorbit.service` with the pinned
+`ghcr.io/bookorbit/bookorbit:1.10.0` image. It listens on MediaVM port `3000`,
+stores app-managed state in `/srv/appsdata/bookorbit/data`, uses native
+PostgreSQL 16 with `pgvector` under `/srv/appsdata/bookorbit/postgresql`, and
+mounts `/mnt/media/Books` read-write as `/books`. The Books library is
+NAS-backed media data and is outside the Restic appdata source.
+
+BookOrbit OIDC is configured in the app after first setup under Settings >
+OIDC / SSO:
+
+- Issuer URI: `https://auth.jax22.com/application/o/bookorbit/`
+- Client ID: `bookorbit`
+- Client secret: decrypt `bookorbit-oidc-client-secret` from SOPS
+- Scopes: `openid profile email groups`
+- Redirect URI already provisioned in Authentik: `https://bookorbit.jax22.com/oauth2-callback`
+- Enable local account linking for existing users.
+
 ## Secrets
 
 Required secrets:
@@ -115,6 +137,11 @@ Required secrets:
 - `admin-password-hash`
 - `smb-credentials`
 - `restic-password`
+- `bookorbit-postgres-password`
+- `bookorbit-jwt-secret`
+- `bookorbit-setup-bootstrap-token`
+- `bookorbit-email-encryption-key`
+- `bookorbit-migration-encryption-key`
 - `qbittorrent-webui-username`
 - `qbittorrent-webui-password`
 - `media-gluetun-control-api-key`
@@ -279,6 +306,13 @@ scripts/media-vm/deploy-media.sh
 - Restic tag: `appsdata`
 - Non-destructive restore validation: `appsdata-restore-check.service`
 
+`appsdata-backup.service` requires `bookorbit-postgresql-dump.service` first.
+That service writes a compressed BookOrbit PostgreSQL dump to
+`/srv/appsdata/bookorbit/postgresql-dumps/latest.sql.gz`, then Restic captures
+the dump, BookOrbit app data, and PostgreSQL data directory under
+`/srv/appsdata`. `/mnt/media/Books` remains NAS-backed media data outside the
+Restic appdata source.
+
 Post-deploy validation:
 
 ```sh
@@ -286,10 +320,11 @@ scripts/media-vm/test-media-backup.sh
 ```
 
 That script mounts `/mnt/backups` if needed, starts a backup, starts the restore
-check, verifies the timer, lists the latest tagged snapshots, checks the MediaVM
-Gluetun/qBittorrent/SABnzbd units, confirms qBittorrent, SABnzbd, and Gluetun
-WebUI are reachable, and verifies the downloader sidecars have no host-published
-ports of their own.
+check, verifies the timer, lists the latest tagged snapshots, checks the
+PostgreSQL, BookOrbit, MediaVM Gluetun, qBittorrent, and SABnzbd units, confirms
+BookOrbit, qBittorrent, SABnzbd, and Gluetun WebUI are reachable, validates the
+BookOrbit PostgreSQL dump, and verifies the downloader sidecars have no
+host-published ports of their own.
 
 To run the disruptive kill-switch check after changing Gluetun or downloader
 networking:
@@ -325,7 +360,7 @@ Destructive full restore outline:
 
 ```sh
 systemctl stop appsdata-backup.timer
-systemctl stop jellyfin audiobookshelf kavita radarr sonarr prowlarr bazarr podman-media-gluetun-webui podman-media-qbittorrent podman-media-sabnzbd podman-media-gluetun seerr flaresolverr
+systemctl stop jellyfin audiobookshelf kavita postgresql podman-media-bookorbit radarr sonarr prowlarr bazarr podman-media-gluetun-webui podman-media-qbittorrent podman-media-sabnzbd podman-media-gluetun seerr flaresolverr
 ```
 
 2. Mount the backup share.
@@ -358,13 +393,14 @@ RESTIC_REPOSITORY=/mnt/backups/restic/appdata/media-stack-vm \
 
 5. Reapply declared directories, normalize ownership for rebuilt users, keep
    `/srv/appsdata/prowlarr` owned by `nobody:nogroup` with mode `0700` for the
-   Prowlarr DynamicUser bind mount, restart services, and validate.
+   Prowlarr DynamicUser bind mount, keep BookOrbit PostgreSQL paths owned by
+   `postgres:postgres`, restart services, and validate.
 
 ```sh
 systemd-tmpfiles --create
 systemctl restart media-gluetun-control-auth-config.service
 systemctl restart kavita-token-key.service
-systemctl start jellyfin audiobookshelf kavita radarr sonarr prowlarr bazarr podman-media-gluetun podman-media-qbittorrent podman-media-sabnzbd podman-media-gluetun-webui seerr flaresolverr
+systemctl start postgresql jellyfin audiobookshelf kavita podman-media-bookorbit radarr sonarr prowlarr bazarr podman-media-gluetun podman-media-qbittorrent podman-media-sabnzbd podman-media-gluetun-webui seerr flaresolverr
 systemctl start appsdata-backup.timer
 systemctl start appsdata-restore-check.service
 ```
@@ -379,6 +415,8 @@ Check service status through Colmena:
 
 ```sh
 colmena exec --on media-vm -- systemctl status jellyfin
+colmena exec --on media-vm -- systemctl status postgresql
+colmena exec --on media-vm -- systemctl status podman-media-bookorbit
 colmena exec --on media-vm -- systemctl status podman-media-gluetun
 colmena exec --on media-vm -- systemctl status podman-media-qbittorrent
 colmena exec --on media-vm -- systemctl status podman-media-sabnzbd

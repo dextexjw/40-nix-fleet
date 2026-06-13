@@ -23,6 +23,7 @@ let
       smokeHttp ? null,
       authGroups ? [ ],
       authMode ? "none",
+      authOidc ? { },
     }:
     let
       primaryHostName = builtins.head hostNames;
@@ -49,6 +50,7 @@ let
           auth = {
             mode = authMode;
             groups = authGroups;
+            oidc = authOidc;
           };
         }
     )
@@ -97,6 +99,26 @@ in
           smokeHttp = {
             discard = true;
             path = "/";
+          };
+        })
+        (mkService {
+          id = "bookorbit";
+          name = "BookOrbit";
+          port = 3000;
+          routeDescription = "BookOrbit reading library";
+          icon = "mdi-book-open-page-variant";
+          homepageDescription = "Reading library ${backend 3000}";
+          authMode = "native-oidc";
+          authGroups = [ "media-users" ];
+          authOidc = {
+            clientId = "bookorbit";
+            clientSecretFile = "/run/secrets/bookorbit-oidc-client-secret";
+            launchUrl = "https://bookorbit.jax22.com/";
+            redirectUris = [ "https://bookorbit.jax22.com/oauth2-callback" ];
+          };
+          smokeHttp = {
+            discard = true;
+            path = "/api/v1/health";
           };
         })
         (mkService {

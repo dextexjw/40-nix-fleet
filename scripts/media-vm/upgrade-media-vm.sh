@@ -13,6 +13,8 @@ KEY_SERVICES=(
   jellyfin
   audiobookshelf
   kavita
+  postgresql
+  podman-media-bookorbit
   radarr
   sonarr
   prowlarr

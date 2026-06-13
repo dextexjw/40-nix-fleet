@@ -10,6 +10,7 @@ COMPLETED_DOWNLOADS="/mnt/media/downloads"
 INCOMPLETE_DOWNLOADS="/var/lib/media-downloads"
 QBITTORRENT_CONFIG="/srv/appsdata/qbittorrent/qBittorrent/qBittorrent.conf"
 SABNZBD_CONFIG="/srv/appsdata/sabnzbd/sabnzbd.ini"
+BOOKORBIT_DUMP="/srv/appsdata/bookorbit/postgresql-dumps/latest.sql.gz"
 RUN_KILL_SWITCH=false
 
 die() {
@@ -65,10 +66,14 @@ colmena exec --on "$HOST" -- env \
   RESTIC_PASSWORD_FILE=/run/secrets/restic-password \
   restic snapshots --host "$HOST" --path "$SOURCE" --tag appsdata --latest 3
 
-for unit in podman-media-gluetun podman-media-qbittorrent podman-media-sabnzbd podman-media-gluetun-webui; do
+colmena exec --on "$HOST" -- "sh -lc 'test -s \"$BOOKORBIT_DUMP\" && gzip -t \"$BOOKORBIT_DUMP\"'" \
+  || die "BookOrbit PostgreSQL dump is missing or invalid"
+
+for unit in postgresql podman-media-bookorbit podman-media-gluetun podman-media-qbittorrent podman-media-sabnzbd podman-media-gluetun-webui; do
   colmena exec --on "$HOST" -- systemctl is-active --quiet "$unit.service" || die "$unit.service is not active"
 done
 
+curl -fsS "http://$HOST_IP:3000/api/v1/health" >/dev/null || die "BookOrbit health endpoint is not reachable"
 curl -fsS "http://$HOST_IP:8080/" >/dev/null || die "qBittorrent WebUI is not reachable through MediaVM Gluetun"
 curl -fsS "http://$HOST_IP:8085/" >/dev/null || die "SABnzbd is not reachable through MediaVM Gluetun"
 curl -fsS "http://$HOST_IP:3001/api/health" >/dev/null || die "MediaVM Gluetun WebUI health endpoint is not reachable"
@@ -88,10 +93,18 @@ colmena exec --on "$HOST" -- "sh -lc 'podman inspect --format \"{{range .Mounts}
   || die "media-qbittorrent does not mount $INCOMPLETE_DOWNLOADS"
 colmena exec --on "$HOST" -- "sh -lc 'podman inspect --format \"{{range .Mounts}}{{.Source}} {{.Destination}}{{println}}{{end}}\" media-sabnzbd | grep -Fxq \"$INCOMPLETE_DOWNLOADS $INCOMPLETE_DOWNLOADS\"'" \
   || die "media-sabnzbd does not mount $INCOMPLETE_DOWNLOADS"
+colmena exec --on "$HOST" -- "sh -lc 'podman inspect --format \"{{range .Mounts}}{{.Source}} {{.Destination}}{{println}}{{end}}\" media-bookorbit | grep -Fxq \"/srv/appsdata/bookorbit/data /data\"'" \
+  || die "media-bookorbit does not mount /srv/appsdata/bookorbit/data"
+colmena exec --on "$HOST" -- "sh -lc 'podman inspect --format \"{{range .Mounts}}{{.Source}} {{.Destination}}{{println}}{{end}}\" media-bookorbit | grep -Fxq \"/mnt/media/Books /books\"'" \
+  || die "media-bookorbit does not mount /mnt/media/Books"
 colmena exec --on "$HOST" -- "sh -lc 'test \"\$(podman inspect --format \"{{json .HostConfig.PortBindings}}\" media-qbittorrent)\" = \"{}\"'" \
   || die "media-qbittorrent unexpectedly declares host port bindings"
 colmena exec --on "$HOST" -- "sh -lc 'test \"\$(podman inspect --format \"{{json .HostConfig.PortBindings}}\" media-sabnzbd)\" = \"{}\"'" \
   || die "media-sabnzbd unexpectedly declares host port bindings"
+colmena exec --on "$HOST" -- "sh -lc 'test \"\$(podman inspect --format \"{{.HostConfig.NetworkMode}}\" media-bookorbit)\" = host'" \
+  || die "media-bookorbit is not using the host network for localhost PostgreSQL"
+colmena exec --on "$HOST" -- "sh -lc 'test \"\$(podman inspect --format \"{{.HostConfig.ReadonlyRootfs}}\" media-bookorbit)\" = true'" \
+  || die "media-bookorbit does not have a read-only root filesystem"
 colmena exec --on "$HOST" -- "sh -lc 'podman port media-gluetun | grep -Fq \"8080/tcp\" && podman port media-gluetun | grep -Fq \"8085/tcp\" && podman port media-gluetun | grep -Fq \"3001/tcp\"'" \
   || die "media-gluetun is not publishing the expected qBittorrent, SABnzbd, and Gluetun WebUI ports"
 

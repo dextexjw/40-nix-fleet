@@ -18,14 +18,55 @@ in
   config = mkIf cfg.enable {
     environment.systemPackages = [ pkgs.restic ];
 
+    systemd.services.bookorbit-postgresql-dump = {
+      description = "Dump BookOrbit PostgreSQL database before backup";
+      after = [
+        "bookorbit-postgresql-extensions.service"
+        "postgresql.service"
+      ];
+      requires = [
+        "bookorbit-postgresql-extensions.service"
+        "postgresql.service"
+      ];
+      path = [
+        pkgs.coreutils
+        pkgs.gzip
+        config.services.postgresql.package
+      ];
+      serviceConfig = {
+        Type = "oneshot";
+        User = "postgres";
+        Group = "postgres";
+      };
+      script = ''
+        set -euo pipefail
+
+        install -d -m 0700 -o postgres -g postgres '${appdata}/bookorbit/postgresql-dumps'
+        tmp="$(mktemp '${appdata}/bookorbit/postgresql-dumps/.dump.XXXXXX.sql.gz')"
+        trap 'rm -f "$tmp"' EXIT
+
+        pg_dump --clean --create --if-exists --dbname bookorbit | gzip -9 > "$tmp"
+        chmod 0600 "$tmp"
+        mv "$tmp" '${appdata}/bookorbit/postgresql-dumps/latest.sql.gz'
+        trap - EXIT
+      '';
+    };
+
     systemd.services.appsdata-backup = {
       description = "Back up /srv/appsdata with restic";
       after = [
+        "bookorbit-postgresql-dump.service"
         "network-online.target"
         "${utils.escapeSystemdPath cfg.smb.backupMount}.mount"
       ];
-      wants = [ "network-online.target" ];
-      requires = [ "${utils.escapeSystemdPath cfg.smb.backupMount}.mount" ];
+      wants = [
+        "bookorbit-postgresql-dump.service"
+        "network-online.target"
+      ];
+      requires = [
+        "bookorbit-postgresql-dump.service"
+        "${utils.escapeSystemdPath cfg.smb.backupMount}.mount"
+      ];
       path = [
         pkgs.coreutils
         pkgs.restic

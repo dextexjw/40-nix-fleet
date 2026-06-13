@@ -23,6 +23,31 @@ let
       config.sops.secrets.media-gluetun-openvpn-username.path
     else
       "/run/secrets/media-gluetun-openvpn-username";
+  bookorbitEmailEncryptionKeyFile =
+    if cfg.secrets.enable then
+      config.sops.secrets.bookorbit-email-encryption-key.path
+    else
+      "/run/secrets/bookorbit-email-encryption-key";
+  bookorbitJwtSecretFile =
+    if cfg.secrets.enable then
+      config.sops.secrets.bookorbit-jwt-secret.path
+    else
+      "/run/secrets/bookorbit-jwt-secret";
+  bookorbitMigrationEncryptionKeyFile =
+    if cfg.secrets.enable then
+      config.sops.secrets.bookorbit-migration-encryption-key.path
+    else
+      "/run/secrets/bookorbit-migration-encryption-key";
+  bookorbitPostgresPasswordFile =
+    if cfg.secrets.enable then
+      config.sops.secrets.bookorbit-postgres-password.path
+    else
+      "/run/secrets/bookorbit-postgres-password";
+  bookorbitSetupBootstrapTokenFile =
+    if cfg.secrets.enable then
+      config.sops.secrets.bookorbit-setup-bootstrap-token.path
+    else
+      "/run/secrets/bookorbit-setup-bootstrap-token";
 in
 {
   options.fleet.media.stack = {
@@ -92,6 +117,7 @@ in
       default = {
         audiobookshelf = 8000;
         bazarr = 6767;
+        bookorbit = 3000;
         jellyfin = 8096;
         kavita = 5000;
         prowlarr = 9696;
@@ -108,6 +134,44 @@ in
       type = types.nullOr types.str;
       default = null;
       description = "Optional URL Jellyfin advertises to clients during auto-discovery.";
+    };
+
+    bookorbit = {
+      emailEncryptionKeyFile = mkOption {
+        type = types.path;
+        default = bookorbitEmailEncryptionKeyFile;
+        description = "Runtime secret file containing BookOrbit EMAIL_ENCRYPTION_KEY.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/bookorbit/bookorbit:1.10.0";
+        description = "Pinned BookOrbit OCI image reference.";
+      };
+
+      jwtSecretFile = mkOption {
+        type = types.path;
+        default = bookorbitJwtSecretFile;
+        description = "Runtime secret file containing BookOrbit JWT_SECRET.";
+      };
+
+      migrationEncryptionKeyFile = mkOption {
+        type = types.path;
+        default = bookorbitMigrationEncryptionKeyFile;
+        description = "Runtime secret file containing BookOrbit MIGRATION_ENCRYPTION_KEY.";
+      };
+
+      postgresPasswordFile = mkOption {
+        type = types.path;
+        default = bookorbitPostgresPasswordFile;
+        description = "Runtime secret file containing the BookOrbit PostgreSQL role password.";
+      };
+
+      setupBootstrapTokenFile = mkOption {
+        type = types.path;
+        default = bookorbitSetupBootstrapTokenFile;
+        description = "Runtime secret file containing BookOrbit SETUP_BOOTSTRAP_TOKEN.";
+      };
     };
 
     qbittorrent.image = mkOption {

@@ -29,7 +29,7 @@ in
   # ============================================================================
 
   fleet.host.name = "media-vm";
-  users.motd = "media-vm: Jellyfin, Audiobookshelf, Kavita, ARR stack, downloads, and appdata backups";
+  users.motd = "media-vm: Jellyfin, Audiobookshelf, Kavita, BookOrbit, ARR stack, downloads, and appdata backups";
 
   # ============================================================================
   # SECRETS
@@ -56,6 +56,39 @@ in
       };
       checkmate-capture-environment = {
         restartUnits = [ "checkmate-capture.service" ];
+      };
+      bookorbit-email-encryption-key = {
+        owner = "bookorbit";
+        group = "media";
+        mode = "0400";
+        restartUnits = [ "podman-media-bookorbit.service" ];
+      };
+      bookorbit-jwt-secret = {
+        owner = "bookorbit";
+        group = "media";
+        mode = "0400";
+        restartUnits = [ "podman-media-bookorbit.service" ];
+      };
+      bookorbit-migration-encryption-key = {
+        owner = "bookorbit";
+        group = "media";
+        mode = "0400";
+        restartUnits = [ "podman-media-bookorbit.service" ];
+      };
+      bookorbit-postgres-password = {
+        owner = "postgres";
+        group = "media";
+        mode = "0440";
+        restartUnits = [
+          "bookorbit-postgresql-password.service"
+          "podman-media-bookorbit.service"
+        ];
+      };
+      bookorbit-setup-bootstrap-token = {
+        owner = "bookorbit";
+        group = "media";
+        mode = "0400";
+        restartUnits = [ "podman-media-bookorbit.service" ];
       };
       media-gluetun-control-api-key.restartUnits = [
         "media-gluetun-control-auth-config.service"
@@ -89,6 +122,33 @@ in
 
   fleet.media.stack = {
     enable = true;
+    bookorbit = {
+      emailEncryptionKeyFile =
+        if secretsEnabled then
+          config.sops.secrets.bookorbit-email-encryption-key.path
+        else
+          "/run/secrets/bookorbit-email-encryption-key";
+      jwtSecretFile =
+        if secretsEnabled then
+          config.sops.secrets.bookorbit-jwt-secret.path
+        else
+          "/run/secrets/bookorbit-jwt-secret";
+      migrationEncryptionKeyFile =
+        if secretsEnabled then
+          config.sops.secrets.bookorbit-migration-encryption-key.path
+        else
+          "/run/secrets/bookorbit-migration-encryption-key";
+      postgresPasswordFile =
+        if secretsEnabled then
+          config.sops.secrets.bookorbit-postgres-password.path
+        else
+          "/run/secrets/bookorbit-postgres-password";
+      setupBootstrapTokenFile =
+        if secretsEnabled then
+          config.sops.secrets.bookorbit-setup-bootstrap-token.path
+        else
+          "/run/secrets/bookorbit-setup-bootstrap-token";
+    };
     gluetun = {
       controlServer.apiKeyFile =
         if secretsEnabled then

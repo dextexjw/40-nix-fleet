@@ -74,6 +74,8 @@ let
     "${appdata}/audiobookshelf"
     "${appdata}/audiobookshelf/config"
     "${appdata}/audiobookshelf/metadata"
+    "${appdata}/bookorbit"
+    "${appdata}/bookorbit/data"
     "${appdata}/flaresolverr"
     "${appdata}/gluetun"
     "${appdata}/monitoring"

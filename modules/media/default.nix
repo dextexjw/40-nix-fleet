@@ -6,6 +6,7 @@
     ./services/jellyfin.nix
     ./services/audiobookshelf.nix
     ./services/kavita.nix
+    ./services/bookorbit.nix
     ./services/radarr.nix
     ./services/sonarr.nix
     ./services/prowlarr.nix

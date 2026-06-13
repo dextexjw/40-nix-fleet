@@ -6,7 +6,7 @@ HOST="media-vm"
 REPOSITORY="/mnt/backups/restic/appdata/media-stack-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
-SERVICES="jellyfin audiobookshelf kavita radarr sonarr prowlarr bazarr podman-media-gluetun-webui podman-media-qbittorrent podman-media-sabnzbd podman-media-gluetun seerr flaresolverr"
+SERVICES="postgresql jellyfin audiobookshelf kavita radarr sonarr prowlarr bazarr podman-media-bookorbit podman-media-gluetun-webui podman-media-qbittorrent podman-media-sabnzbd podman-media-gluetun seerr flaresolverr"
 SNAPSHOT="${1:-}"
 
 die() {
@@ -112,6 +112,13 @@ chmod 0770 "\$source_path"
 [ -d "\$source_path/jellyfin" ] && chown -R jellyfin:media "\$source_path/jellyfin"
 [ -d "\$source_path/audiobookshelf" ] && chown -R audiobookshelf:media "\$source_path/audiobookshelf"
 [ -d "\$source_path/kavita" ] && chown -R kavita:kavita "\$source_path/kavita"
+if [ -d "\$source_path/bookorbit" ]; then
+  chown root:media "\$source_path/bookorbit"
+  chmod 0770 "\$source_path/bookorbit"
+  [ -d "\$source_path/bookorbit/data" ] && chown -R bookorbit:media "\$source_path/bookorbit/data"
+  [ -d "\$source_path/bookorbit/postgresql" ] && chown -R postgres:postgres "\$source_path/bookorbit/postgresql"
+  [ -d "\$source_path/bookorbit/postgresql-dumps" ] && chown -R postgres:postgres "\$source_path/bookorbit/postgresql-dumps"
+fi
 [ -d "\$source_path/radarr" ] && chown -R radarr:media "\$source_path/radarr"
 [ -d "\$source_path/sonarr" ] && chown -R sonarr:media "\$source_path/sonarr"
 if [ -d "\$source_path/prowlarr" ]; then

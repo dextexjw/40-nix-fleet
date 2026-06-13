@@ -46,6 +46,13 @@ in
       home = appdata;
     };
 
+    users.users.bookorbit = {
+      isSystemUser = true;
+      uid = 987;
+      group = "media";
+      home = "${appdata}/bookorbit";
+    };
+
     users.users.qbittorrent = {
       isSystemUser = true;
       uid = 988;
@@ -70,7 +77,17 @@ in
 
     systemd.tmpfiles.rules =
       (map (path: "d '${path}' 0770 root media - -") appsdataDirs)
-      ++ (map (path: "d '${path}' 0770 root media - -") downloadTempDirs);
+      ++ (map (path: "d '${path}' 0770 root media - -") downloadTempDirs)
+      ++ [
+        "a+ '${appdata}' - - - - u:postgres:--x"
+        "a+ '${appdata}/bookorbit' - - - - u:postgres:--x"
+        "d '${appdata}/bookorbit/postgresql' 0750 postgres postgres - -"
+        "z '${appdata}/bookorbit/postgresql' 0750 postgres postgres - -"
+        "d '${appdata}/bookorbit/postgresql/${config.services.postgresql.package.psqlSchema}' 0750 postgres postgres - -"
+        "z '${appdata}/bookorbit/postgresql/${config.services.postgresql.package.psqlSchema}' 0750 postgres postgres - -"
+        "d '${appdata}/bookorbit/postgresql-dumps' 0700 postgres postgres - -"
+        "z '${appdata}/bookorbit/postgresql-dumps' 0700 postgres postgres - -"
+      ];
     systemd.tmpfiles.settings."10-prowlarr"."${appdata}/prowlarr".d = {
       group = mkForce "nogroup";
       mode = mkForce "0700";

@@ -50,6 +50,7 @@ Service access:
 - Gluetun HTTP proxy: `http://10.2.20.112:8888`
 - Gluetun WebUI: `https://gluetun.gateway.jax22.com/` through Traefik, `http://gluetun.gateway.h/` as an alias; backend only on `127.0.0.1:3000`
 - MediaVM Gluetun WebUI: `https://gluetun.media.jax22.com/` through Traefik, `http://gluetun.media.h/` as an alias; backend on `10.2.20.113:3001`
+- BookOrbit: `https://bookorbit.jax22.com/` through Traefik, `http://bookorbit.h/` as an alias; backend on `10.2.20.113:3000`
 - Checkmate: `https://checkmate.jax22.com/` through Traefik, `http://checkmate.h/` as an alias; backend on `10.2.20.115:52345`
 - Beszel: `https://beszel.jax22.com/` through Traefik, `http://beszel.h/` as an alias; backend on `10.2.20.115:8090`
 - netboot.xyz WebUI: `https://netbootxyz.jax22.com/` through Traefik, `http://netbootxyz.h/` as an alias; backend on `10.2.20.114:3001`
@@ -101,6 +102,11 @@ the `rustfs-console` client, allows `fleet-admins`, and uses
 the callback. Native OIDC providers use Authentik's self-signed signing key so
 the provider JWKS is populated for clients that validate discovery during
 startup.
+BookOrbit uses the `bookorbit` client, allows `media-users`, and uses
+`https://bookorbit.jax22.com/oauth2-callback` as the callback. Authentik
+provisioning is declarative, but the BookOrbit app-side provider is configured
+interactively in BookOrbit Settings > OIDC / SSO because upstream documents that
+path rather than environment variables or an API.
 
 Future Authentik integrations should follow this pattern:
 
@@ -129,7 +135,8 @@ Future Authentik integrations should follow this pattern:
    Authentik-owned SOPS secret declarations from the catalog
    `clientSecretFile`; the app host must also expose the same secret to the app
    service user or app-specific OIDC config unit.
-5. Configure the app side declaratively before service start. Use the same
+5. Configure the app side declaratively before service start when the app
+   supports a documented declarative interface. Use the same
    `clientId`, client secret, and Authentik discovery URL:
    `https://auth.jax22.com/application/o/<clientId>/.well-known/openid-configuration`.
    Keep local or break-glass login enabled until an interactive OIDC login is
@@ -264,6 +271,7 @@ Required secrets:
 - `authentik-postgresql-password`
 - `authentik-secret-key`
 - `beszel-oidc-client-secret`
+- `bookorbit-oidc-client-secret`
 - `forgejo-oidc-client-secret`
 - `gitea-oidc-client-secret`
 - `memos-oidc-client-secret`
