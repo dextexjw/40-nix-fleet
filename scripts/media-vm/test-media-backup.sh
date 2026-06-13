@@ -84,8 +84,8 @@ curl -fsS "http://$HOST_IP:8080/" >/dev/null || die "qBittorrent WebUI is not re
 curl -fsS "http://$HOST_IP:8085/" >/dev/null || die "SABnzbd is not reachable through MediaVM Gluetun"
 curl -fsS "http://$HOST_IP:3001/api/health" >/dev/null || die "MediaVM Gluetun WebUI health endpoint is not reachable"
 
-colmena exec --on "$HOST" -- "sudo -u postgres psql -d bookorbit -tAc \"select count(*) from users where username = 'coldkey' and email = 'coldkey@jax22.com' and active and is_superuser and not is_default_password and provisioning_method = 'local'\" | tr -d '[:space:]' | grep -Fxq 1" \
-  || die "BookOrbit coldkey local superuser is not declared as expected"
+colmena exec --on "$HOST" -- "sh -lc 'IFS= read -r admin_user < /run/secrets/bookorbit-admin-username; test -n \"\$admin_user\"; printf \"%s\n\" \"select count(*) from users where username = :'\\''admin_user'\\'' and email = '\\''coldkey@jax22.com'\\'' and active and is_superuser and not is_default_password and provisioning_method = '\\''local'\\'';\" | sudo -u postgres psql -d bookorbit -v ON_ERROR_STOP=1 -v admin_user=\"\$admin_user\" -tA | tr -d \"[:space:]\" | grep -Fxq 1'" \
+  || die "BookOrbit local superuser is not declared from the SOPS-backed username as expected"
 colmena exec --on "$HOST" -- "sudo -u postgres psql -d bookorbit -tAc \"select count(*) from oidc_providers where slug = 'authentik' and display_name = 'Authentik' and enabled and issuer_uri = 'https://auth.jax22.com/application/o/bookorbit/' and client_id = 'bookorbit' and scopes = 'openid profile email groups' and auto_provision @> '{\\\"enabled\\\": true, \\\"allowLocalLinking\\\": true}'::jsonb\" | tr -d '[:space:]' | grep -Fxq 1" \
   || die "BookOrbit Authentik OIDC provider is not declared as expected"
 

@@ -63,6 +63,12 @@ in
         mode = "0400";
         restartUnits = [ "bookorbit-declarative-config.service" ];
       };
+      bookorbit-admin-username = {
+        owner = "bookorbit";
+        group = "media";
+        mode = "0400";
+        restartUnits = [ "bookorbit-declarative-config.service" ];
+      };
       bookorbit-email-encryption-key = {
         owner = "bookorbit";
         group = "media";

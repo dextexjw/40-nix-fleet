@@ -125,7 +125,7 @@ BookOrbit declarative app configuration is enforced by
 `bookorbit-declarative-config.service` after the container and PostgreSQL are
 ready:
 
-- Local superuser: `coldkey`
+- Local superuser username: `/run/secrets/bookorbit-admin-username`
 - Local superuser email: `coldkey@jax22.com`
 - Local superuser password: `/run/secrets/bookorbit-admin-password`
 - OIDC provider slug: `authentik`
@@ -143,6 +143,7 @@ Required secrets:
 - `admin-password-hash`
 - `smb-credentials`
 - `restic-password`
+- `bookorbit-admin-username`
 - `bookorbit-admin-password`
 - `bookorbit-postgres-password`
 - `bookorbit-jwt-secret`

@@ -88,7 +88,7 @@ let
     export BOOKORBIT_ADMIN_EMAIL=${escapeShellArg bookorbitAdmin.email}
     export BOOKORBIT_ADMIN_NAME=${escapeShellArg bookorbitAdmin.name}
     export BOOKORBIT_ADMIN_PASSWORD_FILE=${escapeShellArg (toString bookorbitAdmin.passwordFile)}
-    export BOOKORBIT_ADMIN_USERNAME=${escapeShellArg bookorbitAdmin.username}
+    export BOOKORBIT_ADMIN_USERNAME_FILE=${escapeShellArg (toString bookorbitAdmin.usernameFile)}
     export BOOKORBIT_OIDC_AUTO_PROVISION=${
       escapeShellArg (
         builtins.toJSON {
@@ -164,7 +164,7 @@ let
         raise SystemExit(f"BookOrbit API did not become ready: {last_error}")
 
 
-    admin_username = os.environ["BOOKORBIT_ADMIN_USERNAME"]
+    admin_username = read_secret(os.environ["BOOKORBIT_ADMIN_USERNAME_FILE"], "admin username")
     admin_password = read_secret(os.environ["BOOKORBIT_ADMIN_PASSWORD_FILE"], "admin password")
     oidc_client_secret = read_secret(os.environ["BOOKORBIT_OIDC_CLIENT_SECRET_FILE"], "OIDC client")
     postgres_password = read_secret(os.environ["BOOKORBIT_POSTGRES_PASSWORD_FILE"], "PostgreSQL")

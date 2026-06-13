@@ -42,6 +42,7 @@ GATEWAY_REQUIRED_SECRET_KEYS=(
 
 MEDIA_REQUIRED_SECRET_KEYS=(
   "${FLEET_COMMON_REQUIRED_SECRET_KEYS[@]}"
+  bookorbit-admin-username
   bookorbit-admin-password
   bookorbit-email-encryption-key
   bookorbit-jwt-secret

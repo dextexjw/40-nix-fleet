@@ -112,7 +112,7 @@ in
       BookOrbit declarative app setup:
         Direct URL: http://10.2.20.113:3000
         Gateway URLs: https://bookorbit.jax22.com and http://bookorbit.h
-        Local superuser: coldkey
+        Local superuser username: /run/secrets/bookorbit-admin-username
         Local superuser email: coldkey@jax22.com
         Local superuser password: /run/secrets/bookorbit-admin-password
         OIDC issuer URI: https://auth.jax22.com/application/o/bookorbit/

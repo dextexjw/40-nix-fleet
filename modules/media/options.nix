@@ -33,6 +33,11 @@ let
       config.sops.secrets.bookorbit-admin-password.path
     else
       "/run/secrets/bookorbit-admin-password";
+  bookorbitAdminUsernameFile =
+    if cfg.secrets.enable then
+      config.sops.secrets.bookorbit-admin-username.path
+    else
+      "/run/secrets/bookorbit-admin-username";
   bookorbitJwtSecretFile =
     if cfg.secrets.enable then
       config.sops.secrets.bookorbit-jwt-secret.path
@@ -166,10 +171,10 @@ in
           description = "Runtime secret file containing the BookOrbit local superuser password.";
         };
 
-        username = mkOption {
-          type = types.str;
-          default = "coldkey";
-          description = "BookOrbit declarative local superuser username.";
+        usernameFile = mkOption {
+          type = types.path;
+          default = bookorbitAdminUsernameFile;
+          description = "Runtime secret file containing the BookOrbit local superuser username.";
         };
       };
 
