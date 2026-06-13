@@ -120,15 +120,20 @@ PostgreSQL 16 with `pgvector` under `/srv/appsdata/bookorbit/postgresql`, and
 mounts `/mnt/media/Books` read-write as `/books`. The Books library is
 NAS-backed media data and is outside the Restic appdata source.
 
-BookOrbit OIDC is configured in the app after first setup under Settings >
-OIDC / SSO:
+BookOrbit declarative app configuration is enforced by
+`bookorbit-declarative-config.service` after the container and PostgreSQL are
+ready:
 
-- Issuer URI: `https://auth.jax22.com/application/o/bookorbit/`
-- Client ID: `bookorbit`
-- Client secret: decrypt `bookorbit-oidc-client-secret` from SOPS
-- Scopes: `openid profile email groups`
+- Local superuser: `coldkey`
+- Local superuser email: `coldkey@jax22.com`
+- Local superuser password: `/run/secrets/bookorbit-admin-password`
+- OIDC provider slug: `authentik`
+- OIDC issuer URI: `https://auth.jax22.com/application/o/bookorbit/`
+- OIDC client ID: `bookorbit`
+- OIDC client secret: `/run/secrets/bookorbit-oidc-client-secret`
+- OIDC scopes: `openid profile email groups`
+- OIDC local account linking and auto-provisioning are enabled.
 - Redirect URI already provisioned in Authentik: `https://bookorbit.jax22.com/oauth2-callback`
-- Enable local account linking for existing users.
 
 ## Secrets
 
@@ -137,11 +142,13 @@ Required secrets:
 - `admin-password-hash`
 - `smb-credentials`
 - `restic-password`
+- `bookorbit-admin-password`
 - `bookorbit-postgres-password`
 - `bookorbit-jwt-secret`
 - `bookorbit-setup-bootstrap-token`
 - `bookorbit-email-encryption-key`
 - `bookorbit-migration-encryption-key`
+- `bookorbit-oidc-client-secret`
 - `qbittorrent-webui-username`
 - `qbittorrent-webui-password`
 - `media-gluetun-control-api-key`
@@ -323,8 +330,9 @@ That script mounts `/mnt/backups` if needed, starts a backup, starts the restore
 check, verifies the timer, lists the latest tagged snapshots, checks the
 PostgreSQL, BookOrbit, MediaVM Gluetun, qBittorrent, and SABnzbd units, confirms
 BookOrbit, qBittorrent, SABnzbd, and Gluetun WebUI are reachable, validates the
-BookOrbit PostgreSQL dump, and verifies the downloader sidecars have no
-host-published ports of their own.
+BookOrbit PostgreSQL dump, verifies the declarative BookOrbit account/OIDC
+state, and verifies the downloader sidecars have no host-published ports of
+their own.
 
 To run the disruptive kill-switch check after changing Gluetun or downloader
 networking:
@@ -417,6 +425,7 @@ Check service status through Colmena:
 colmena exec --on media-vm -- systemctl status jellyfin
 colmena exec --on media-vm -- systemctl status postgresql
 colmena exec --on media-vm -- systemctl status podman-media-bookorbit
+colmena exec --on media-vm -- systemctl status bookorbit-declarative-config
 colmena exec --on media-vm -- systemctl status podman-media-gluetun
 colmena exec --on media-vm -- systemctl status podman-media-qbittorrent
 colmena exec --on media-vm -- systemctl status podman-media-sabnzbd

@@ -6,7 +6,7 @@ flake and deployed with Colmena.
 The current fleet is intentionally small:
 
 - `gateway-vm` runs Traefik ingress, Technitium DNS, NetBird, and Tailscale.
-- `media-vm` runs Jellyfin, Audiobookshelf, Kavita, BookOrbit, ARR apps, Gluetun-gated downloads, SMB media mounts, and appdata backups.
+- `media-vm` runs Jellyfin, Audiobookshelf, Kavita, declaratively provisioned BookOrbit, ARR apps, Gluetun-gated downloads, SMB media mounts, and appdata backups.
 - `productivity-vm` runs Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, speed tests, remote desktop relay, invoicing, notes, short links, S3-compatible object storage, notifications, netboot.xyz, and appdata backups.
 - `monitoring-vm` runs Checkmate, Beszel, fleet monitoring agents, and appdata backups.
 

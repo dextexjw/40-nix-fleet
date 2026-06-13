@@ -42,9 +42,11 @@ GATEWAY_REQUIRED_SECRET_KEYS=(
 
 MEDIA_REQUIRED_SECRET_KEYS=(
   "${FLEET_COMMON_REQUIRED_SECRET_KEYS[@]}"
+  bookorbit-admin-password
   bookorbit-email-encryption-key
   bookorbit-jwt-secret
   bookorbit-migration-encryption-key
+  bookorbit-oidc-client-secret
   bookorbit-postgres-password
   bookorbit-setup-bootstrap-token
   media-gluetun-control-api-key

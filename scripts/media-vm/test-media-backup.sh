@@ -72,11 +72,22 @@ colmena exec --on "$HOST" -- "sh -lc 'test -s \"$BOOKORBIT_DUMP\" && gzip -t \"$
 for unit in postgresql podman-media-bookorbit podman-media-gluetun podman-media-qbittorrent podman-media-sabnzbd podman-media-gluetun-webui; do
   colmena exec --on "$HOST" -- systemctl is-active --quiet "$unit.service" || die "$unit.service is not active"
 done
+colmena exec --on "$HOST" -- "systemctl show bookorbit-declarative-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show bookorbit-declarative-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0" \
+  || die "BookOrbit declarative config service did not complete successfully"
 
 curl -fsS "http://$HOST_IP:3000/api/v1/health" >/dev/null || die "BookOrbit health endpoint is not reachable"
+curl -fsS "http://$HOST_IP:3000/api/v1/auth/setup-status" | grep -Fq '"needsSetup":false' \
+  || die "BookOrbit still reports first-run setup is required"
+curl -fsS "http://$HOST_IP:3000/api/v1/app-settings/oidc/providers/public" | grep -Fq '"slug":"authentik"' \
+  || die "BookOrbit public OIDC provider endpoint does not expose Authentik"
 curl -fsS "http://$HOST_IP:8080/" >/dev/null || die "qBittorrent WebUI is not reachable through MediaVM Gluetun"
 curl -fsS "http://$HOST_IP:8085/" >/dev/null || die "SABnzbd is not reachable through MediaVM Gluetun"
 curl -fsS "http://$HOST_IP:3001/api/health" >/dev/null || die "MediaVM Gluetun WebUI health endpoint is not reachable"
+
+colmena exec --on "$HOST" -- "sudo -u postgres psql -d bookorbit -tAc \"select count(*) from users where username = 'coldkey' and email = 'coldkey@jax22.com' and active and is_superuser and not is_default_password and provisioning_method = 'local'\" | tr -d '[:space:]' | grep -Fxq 1" \
+  || die "BookOrbit coldkey local superuser is not declared as expected"
+colmena exec --on "$HOST" -- "sudo -u postgres psql -d bookorbit -tAc \"select count(*) from oidc_providers where slug = 'authentik' and display_name = 'Authentik' and enabled and issuer_uri = 'https://auth.jax22.com/application/o/bookorbit/' and client_id = 'bookorbit' and scopes = 'openid profile email groups' and auto_provision @> '{\\\"enabled\\\": true, \\\"allowLocalLinking\\\": true}'::jsonb\" | tr -d '[:space:]' | grep -Fxq 1" \
+  || die "BookOrbit Authentik OIDC provider is not declared as expected"
 
 colmena exec --on "$HOST" -- "sh -lc 'test -d \"$INCOMPLETE_DOWNLOADS\" && test \"\$(stat -c \"%U:%G:%a\" \"$INCOMPLETE_DOWNLOADS\")\" = root:media:770'" \
   || die "$INCOMPLETE_DOWNLOADS does not have expected root:media 0770 ownership"

@@ -28,6 +28,11 @@ let
       config.sops.secrets.bookorbit-email-encryption-key.path
     else
       "/run/secrets/bookorbit-email-encryption-key";
+  bookorbitAdminPasswordFile =
+    if cfg.secrets.enable then
+      config.sops.secrets.bookorbit-admin-password.path
+    else
+      "/run/secrets/bookorbit-admin-password";
   bookorbitJwtSecretFile =
     if cfg.secrets.enable then
       config.sops.secrets.bookorbit-jwt-secret.path
@@ -48,6 +53,11 @@ let
       config.sops.secrets.bookorbit-setup-bootstrap-token.path
     else
       "/run/secrets/bookorbit-setup-bootstrap-token";
+  bookorbitOidcClientSecretFile =
+    if cfg.secrets.enable then
+      config.sops.secrets.bookorbit-oidc-client-secret.path
+    else
+      "/run/secrets/bookorbit-oidc-client-secret";
 in
 {
   options.fleet.media.stack = {
@@ -137,6 +147,32 @@ in
     };
 
     bookorbit = {
+      admin = {
+        email = mkOption {
+          type = types.str;
+          default = "coldkey@jax22.com";
+          description = "BookOrbit declarative local superuser email address.";
+        };
+
+        name = mkOption {
+          type = types.str;
+          default = "coldkey";
+          description = "BookOrbit declarative local superuser display name.";
+        };
+
+        passwordFile = mkOption {
+          type = types.path;
+          default = bookorbitAdminPasswordFile;
+          description = "Runtime secret file containing the BookOrbit local superuser password.";
+        };
+
+        username = mkOption {
+          type = types.str;
+          default = "coldkey";
+          description = "BookOrbit declarative local superuser username.";
+        };
+      };
+
       emailEncryptionKeyFile = mkOption {
         type = types.path;
         default = bookorbitEmailEncryptionKeyFile;
@@ -171,6 +207,84 @@ in
         type = types.path;
         default = bookorbitSetupBootstrapTokenFile;
         description = "Runtime secret file containing BookOrbit SETUP_BOOTSTRAP_TOKEN.";
+      };
+
+      oidc = {
+        allowLocalLinking = mkOption {
+          type = types.bool;
+          default = true;
+          description = "Allow BookOrbit OIDC logins to link to existing local accounts.";
+        };
+
+        autoProvision = mkOption {
+          type = types.bool;
+          default = true;
+          description = "Allow BookOrbit to auto-provision users from OIDC claims.";
+        };
+
+        claimMapping = mkOption {
+          type = types.attrsOf types.str;
+          default = {
+            email = "email";
+            groups = "groups";
+            name = "name";
+            username = "preferred_username";
+          };
+          description = "BookOrbit OIDC claim mapping.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "bookorbit";
+          description = "BookOrbit Authentik OIDC client ID.";
+        };
+
+        clientSecretFile = mkOption {
+          type = types.path;
+          default = bookorbitOidcClientSecretFile;
+          description = "Runtime secret file containing the BookOrbit OIDC client secret.";
+        };
+
+        defaultPermissionNames = mkOption {
+          type = types.listOf types.str;
+          default = [ ];
+          description = "BookOrbit permissions granted to newly auto-provisioned OIDC users.";
+        };
+
+        displayName = mkOption {
+          type = types.str;
+          default = "Authentik";
+          description = "BookOrbit OIDC provider display name.";
+        };
+
+        enable = mkOption {
+          type = types.bool;
+          default = true;
+          description = "Configure BookOrbit's in-app Authentik OIDC provider declaratively.";
+        };
+
+        issuerUri = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/bookorbit/";
+          description = "BookOrbit Authentik OIDC issuer URI.";
+        };
+
+        scopes = mkOption {
+          type = types.nonEmptyListOf types.str;
+          default = [
+            "openid"
+            "profile"
+            "email"
+            "groups"
+          ];
+          description = "BookOrbit OIDC scopes.";
+        };
+
+        slug = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "BookOrbit OIDC provider slug.";
+        };
       };
     };
 

@@ -104,9 +104,9 @@ the provider JWKS is populated for clients that validate discovery during
 startup.
 BookOrbit uses the `bookorbit` client, allows `media-users`, and uses
 `https://bookorbit.jax22.com/oauth2-callback` as the callback. Authentik
-provisioning is declarative, but the BookOrbit app-side provider is configured
-interactively in BookOrbit Settings > OIDC / SSO because upstream documents that
-path rather than environment variables or an API.
+provisioning remains catalog-driven on `gateway-vm`; the BookOrbit app-side
+provider and local break-glass account are declared on `media-vm` by
+`bookorbit-declarative-config.service`.
 
 Future Authentik integrations should follow this pattern:
 

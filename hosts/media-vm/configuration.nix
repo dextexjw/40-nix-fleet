@@ -57,6 +57,12 @@ in
       checkmate-capture-environment = {
         restartUnits = [ "checkmate-capture.service" ];
       };
+      bookorbit-admin-password = {
+        owner = "bookorbit";
+        group = "media";
+        mode = "0400";
+        restartUnits = [ "bookorbit-declarative-config.service" ];
+      };
       bookorbit-email-encryption-key = {
         owner = "bookorbit";
         group = "media";
@@ -75,12 +81,19 @@ in
         mode = "0400";
         restartUnits = [ "podman-media-bookorbit.service" ];
       };
+      bookorbit-oidc-client-secret = {
+        owner = "bookorbit";
+        group = "media";
+        mode = "0400";
+        restartUnits = [ "bookorbit-declarative-config.service" ];
+      };
       bookorbit-postgres-password = {
         owner = "postgres";
         group = "media";
         mode = "0440";
         restartUnits = [
           "bookorbit-postgresql-password.service"
+          "bookorbit-declarative-config.service"
           "podman-media-bookorbit.service"
         ];
       };
@@ -123,6 +136,11 @@ in
   fleet.media.stack = {
     enable = true;
     bookorbit = {
+      admin.passwordFile =
+        if secretsEnabled then
+          config.sops.secrets.bookorbit-admin-password.path
+        else
+          "/run/secrets/bookorbit-admin-password";
       emailEncryptionKeyFile =
         if secretsEnabled then
           config.sops.secrets.bookorbit-email-encryption-key.path
@@ -148,6 +166,11 @@ in
           config.sops.secrets.bookorbit-setup-bootstrap-token.path
         else
           "/run/secrets/bookorbit-setup-bootstrap-token";
+      oidc.clientSecretFile =
+        if secretsEnabled then
+          config.sops.secrets.bookorbit-oidc-client-secret.path
+        else
+          "/run/secrets/bookorbit-oidc-client-secret";
     };
     gluetun = {
       controlServer.apiKeyFile =

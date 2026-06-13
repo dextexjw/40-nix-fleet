@@ -70,6 +70,7 @@ in
         mount /mnt/backups
         systemctl start appsdata-backup.service
         systemctl start appsdata-restore-check.service
+        systemctl status bookorbit-declarative-config.service
         systemctl is-active postgresql.service
         systemctl is-active podman-media-bookorbit.service
         systemctl is-active podman-media-gluetun.service
@@ -108,15 +109,20 @@ in
            kavita-token-key.service, PostgreSQL, media services,
            appsdata-backup.timer, and appsdata-restore-check.service.
 
-      BookOrbit first-run setup:
+      BookOrbit declarative app setup:
         Direct URL: http://10.2.20.113:3000
         Gateway URLs: https://bookorbit.jax22.com and http://bookorbit.h
-        Setup bootstrap token: /run/secrets/bookorbit-setup-bootstrap-token
+        Local superuser: coldkey
+        Local superuser email: coldkey@jax22.com
+        Local superuser password: /run/secrets/bookorbit-admin-password
         OIDC issuer URI: https://auth.jax22.com/application/o/bookorbit/
         OIDC client ID: bookorbit
-        OIDC client secret: bookorbit-oidc-client-secret in SOPS
+        OIDC client secret: /run/secrets/bookorbit-oidc-client-secret
         OIDC scopes: openid profile email groups
-        Enable local account linking for existing BookOrbit users.
+        OIDC provider slug: authentik
+        bookorbit-declarative-config.service keeps the local superuser and
+        Authentik OIDC provider present, with local account linking and
+        auto-provisioning enabled.
 
       Jellyfin kids access is configured inside Jellyfin after first setup:
       create a non-admin user named kids, grant only the Kids Movies and Kids TV
