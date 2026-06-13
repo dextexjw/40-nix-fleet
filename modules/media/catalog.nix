@@ -106,7 +106,7 @@ in
           name = "BookOrbit";
           port = 3000;
           routeDescription = "BookOrbit reading library";
-          icon = "mdi-book-open-page-variant";
+          icon = "bookorbit.png";
           homepageDescription = "Reading library ${backend 3000}";
           authMode = "native-oidc";
           authGroups = [ "media-users" ];
