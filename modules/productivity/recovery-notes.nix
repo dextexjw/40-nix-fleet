@@ -27,11 +27,11 @@ in
         productivity-vm service model
         =============================
 
-        productivity-vm runs Gitea, Forgejo, Material for MkDocs, Paperless-ngx,
-        FreshRSS, SearXNG, Vaultwarden, PrivateBin, Syncthing, Stirling PDF,
-        Firefly III, Nextcloud, OpenSpeedTest, InvoicePlane, Memos, netboot.xyz, iperf3,
-        RustDesk, Shlink, Garage, RustFS, ntfy, nginx, PostgreSQL, MariaDB, and
-        Restic appdata backups.
+        productivity-vm runs AFFiNE, Gitea, Forgejo, Material for MkDocs,
+        Paperless-ngx, FreshRSS, SearXNG, Vaultwarden, PrivateBin, Syncthing,
+        Stirling PDF, Firefly III, Nextcloud, OpenSpeedTest, InvoicePlane,
+        Memos, netboot.xyz, iperf3, RustDesk, Shlink, Garage, RustFS, ntfy,
+        nginx, PostgreSQL, MariaDB, Redis, and Restic appdata backups.
 
         Persistent state root:
           ${appdata}
@@ -46,6 +46,7 @@ in
       ${serviceRouteLines}
 
         Direct LAN ports:
+          AFFiNE: ${toString cfg.ports.affine}
           Gitea: ${toString cfg.ports.gitea}
           Forgejo: ${toString cfg.ports.forgejo}
           SearXNG: ${toString cfg.ports.searxng}
@@ -167,6 +168,19 @@ in
         gateway-vm Authentik provisioning and this host's root-only generated
         RustFS environment file. Re-run rustfs-oidc-policy.service after RustFS
         appdata restores or RustFS root credential rotation.
+
+        AFFiNE stores uploaded blobs and custom config under ${appdata}/affine
+        and uses the PostgreSQL database named affine. The AFFiNE container runs
+        database migrations before each server start through podman-affine.service
+        and uses a host-local redis-affine.service instance as volatile cache and
+        job state. affine-environment supplies DB_PASSWORD; the derived
+        DATABASE_URL is generated at runtime under /run/affine/environment so it
+        is not stored in the Nix store. Authentik provisions the affine OIDC
+        client for productivity-users with callback
+        https://affine.jax22.com/oauth/callback. Finish the app-side OIDC setup
+        in AFFiNE Admin Panel > Settings > OAuth with issuer
+        https://auth.jax22.com/application/o/affine, client ID affine, and the
+        encrypted affine-oidc-client-secret.
     '';
   };
 }

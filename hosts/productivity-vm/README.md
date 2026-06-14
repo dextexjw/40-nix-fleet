@@ -1,9 +1,9 @@
 # productivity-vm
 
-`productivity-vm` runs the personal productivity stack, nginx-backed internal
-apps, Git forges, OpenSpeedTest, iperf3, RustDesk, InvoicePlane, Shlink short
-links, Memos notes, netboot.xyz, standalone Garage and RustFS object storage,
-PostgreSQL, MariaDB, appdata backups, and restore checks.
+`productivity-vm` runs the personal productivity stack, AFFiNE, nginx-backed
+internal apps, Git forges, OpenSpeedTest, iperf3, RustDesk, InvoicePlane,
+Shlink short links, Memos notes, netboot.xyz, standalone Garage and RustFS
+object storage, PostgreSQL, MariaDB, appdata backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
 `configuration.nix` and imports the stack from
@@ -20,8 +20,9 @@ Important host values:
 - Time zone: `America/New_York`
 - Admin user: `smoke`
 - VM disk: `/dev/sda`
-- VM RAM: `8 GB`
+- VM RAM: `4 GB`
 - VM CPU cores: `4`
+- Swap safety valve: declarative `zramSwap` at `50%` memory
 - Backup SMB share: `//nas.home.arpa/backups` mounted at `/mnt/backups`
 
 Application state lives under `/srv/appsdata`, which is the restore-critical
@@ -31,6 +32,7 @@ path backed up by Restic.
 
 | Service | Canonical route | Alias | Backend |
 | --- | --- | --- | --- |
+| AFFiNE | `https://affine.jax22.com` | `http://affine.h` | `10.2.20.114:3010` |
 | Gitea | `https://gitea.jax22.com` | `http://gitea.h` | `10.2.20.114:3000` |
 | Forgejo | `https://forgejo.jax22.com` | `http://forgejo.h` | `10.2.20.114:3002` |
 | Material for MkDocs | `https://docs.jax22.com` | `http://docs.h` | `10.2.20.114:80` |
@@ -65,6 +67,7 @@ netboot.xyz local assets are served at `10.2.20.114:8083`; TFTP is served at
 
 Important appdata paths:
 
+- `/srv/appsdata/affine`
 - `/srv/appsdata/gitea`
 - `/srv/appsdata/forgejo`
 - `/srv/appsdata/mkdocs`
@@ -114,6 +117,7 @@ Required shared secrets:
 
 Required productivity secrets:
 
+- `affine-environment`
 - `authentik-bootstrap-email`
 - `firefly-app-key`
 - `forgejo-oidc-client-secret`
@@ -139,6 +143,10 @@ Required productivity secrets:
 - `syncthing-gui-password`
 - `syncthing-gui-username`
 - `vaultwarden-environment`
+
+Required Gateway/Auth secret for AFFiNE exposure:
+
+- `affine-oidc-client-secret`
 
 Gitea uses native OIDC with Authentik. Authentik provisions the `gitea`
 client and allows `productivity-users`; `gitea-oidc-config.service` provisions
@@ -182,6 +190,19 @@ installs the Authentik provider with `nextcloud-occ` from the encrypted
 separate from same-named local users by Nextcloud's unique OIDC user IDs, and
 `allow_multiple_user_backends=1` keeps local username/password login available
 for break-glass access.
+
+AFFiNE runs as `podman-affine.service` on `10.2.20.114:3010`, stores uploads
+and config under `/srv/appsdata/affine`, uses PostgreSQL database `affine`, and
+uses `redis-affine.service` as a host-local volatile Redis cache. The
+`affine-environment` secret supplies `DB_PASSWORD`; the service generates the
+derived `DATABASE_URL` under `/run/affine/environment` at runtime.
+
+Gateway Authentik provisioning creates the `affine` OIDC client for
+`productivity-users` with callback `https://affine.jax22.com/oauth/callback`.
+AFFiNE's app-side OIDC settings are completed from the AFFiNE admin panel:
+`Admin Panel > Settings > OAuth`, OIDC config
+`{"args":{},"issuer":"https://auth.jax22.com/application/o/affine","clientId":"affine","clientSecret":"<affine-oidc-client-secret>"}`.
+Local AFFiNE email/password login remains available for break-glass access.
 
 FreshRSS is not wired to native OIDC in this NixOS deployment yet. The upstream
 FreshRSS OIDC path is Apache `mod_auth_openidc` or the official Apache-based

@@ -4,6 +4,7 @@
     ./common.nix
     ./mounts.nix
     ./services/postgresql.nix
+    ./services/affine.nix
     ./services/gitea.nix
     ./services/forgejo.nix
     ./services/paperless.nix

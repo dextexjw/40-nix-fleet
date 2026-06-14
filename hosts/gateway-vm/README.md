@@ -87,7 +87,9 @@ has its own auth or a native SSO integration is configured. Role groups are
 they are provisioned in Authentik for native app integrations.
 Native OIDC integrations are provisioned from the route catalog. Beszel uses
 the `beszel` client, allows `monitoring-users`, and uses
-`https://beszel.jax22.com/api/oauth2-redirect` as the callback. Memos uses the
+`https://beszel.jax22.com/api/oauth2-redirect` as the callback. AFFiNE uses the
+`affine` client, allows `productivity-users`, and uses
+`https://affine.jax22.com/oauth/callback` as the callback. Memos uses the
 `memos` client, allows `productivity-users`, and uses
 `https://memos.jax22.com/auth/callback` as the callback. Forgejo uses the
 `forgejo` client, allows `productivity-users`, and uses
@@ -270,6 +272,7 @@ Required secrets:
 - `authentik-bootstrap-username`
 - `authentik-postgresql-password`
 - `authentik-secret-key`
+- `affine-oidc-client-secret`
 - `beszel-oidc-client-secret`
 - `bookorbit-oidc-client-secret`
 - `forgejo-oidc-client-secret`

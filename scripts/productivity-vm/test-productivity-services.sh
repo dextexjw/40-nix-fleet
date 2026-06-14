@@ -13,6 +13,8 @@ SERVICE_DOMAINS=(
 )
 KEY_SERVICES=(
   postgresql
+  redis-affine
+  podman-affine
   gitea
   forgejo
   nginx
@@ -45,6 +47,7 @@ KEY_SERVICES=(
 )
 
 HOST_ROUTES=(
+  affine
   gitea
   forgejo
   docs
@@ -73,7 +76,9 @@ HOST_ROUTES=(
 declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
   [forgejo]=1
   [iperf3]=1
+  [podman-affine]=1
   [podman-openspeedtest]=1
+  [redis-affine]=1
   [mysql]=1
   [phpfpm-invoiceplane]=1
   [podman-memos]=1
@@ -151,6 +156,9 @@ route_is_skipped() {
   local route="$1"
 
   case "$route" in
+    affine.*)
+      service_is_skipped podman-affine
+      ;;
     forgejo.*)
       service_is_skipped forgejo
       ;;
@@ -222,6 +230,11 @@ colmena exec --on "$HOST" -- env \
   restic snapshots --host "$HOST" --path "$SOURCE" --tag appsdata --latest 3
 
 printf 'Checking direct service listeners and nginx vhosts...\n'
+if ! service_is_skipped podman-affine; then
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 20 http://127.0.0.1:3010/ >/dev/null"
+  colmena exec --on "$HOST" -- test -d /srv/appsdata/affine/storage
+  colmena exec --on "$HOST" -- test -d /srv/appsdata/affine/config
+fi
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/ >/dev/null"
 if allow_missing_unit gitea-oidc-config.service; then
   printf 'Skipping Gitea OIDC source checks because gitea-oidc-config.service is not deployed yet.\n'
@@ -358,6 +371,9 @@ for route_prefix in "${HOST_ROUTES[@]}"; do
     fi
 
     case "$route" in
+      affine.*)
+        colmena exec --on "$HOST" -- "curl -fsS --max-time 20 -H 'Host: $route' http://127.0.0.1:3010/ >/dev/null"
+        ;;
       garage.*)
         colmena exec --on "$HOST" -- "sh -lc 'tmp=\$(mktemp); trap \"rm -f \\\"\$tmp\\\"\" EXIT; status=\$(curl -sS -o \"\$tmp\" -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1:3900/); case \"\$status\" in 403) ;; *) echo \"unexpected Garage S3 anonymous status for $route: \$status\" >&2; cat \"\$tmp\" >&2; exit 1 ;; esac; grep -q AccessDenied \"\$tmp\" || { echo \"Garage S3 anonymous response did not contain AccessDenied\" >&2; cat \"\$tmp\" >&2; exit 1; }'"
         ;;

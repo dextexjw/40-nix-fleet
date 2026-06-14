@@ -18,6 +18,7 @@ in
   config = mkIf cfg.enable {
     networking.firewall.allowedTCPPorts = [
       80
+      cfg.ports.affine
       cfg.ports.forgejo
       cfg.ports.garageS3
       cfg.ports.garageWeb

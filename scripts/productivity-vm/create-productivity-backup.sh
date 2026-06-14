@@ -8,6 +8,8 @@ REMOTE_USER="smoke"
 REPOSITORY="/mnt/backups/restic/appdata/productivity-vm"
 SOURCE="/srv/appsdata"
 SERVICES=(
+  redis-affine.service
+  podman-affine.service
   gitea.service
   forgejo.service
   nginx.service

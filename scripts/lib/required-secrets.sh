@@ -22,6 +22,7 @@ GATEWAY_REQUIRED_SECRET_KEYS=(
   authentik-bootstrap-username
   authentik-postgresql-password
   authentik-secret-key
+  affine-oidc-client-secret
   beszel-oidc-client-secret
   bookorbit-oidc-client-secret
   forgejo-oidc-client-secret
@@ -70,6 +71,7 @@ MONITORING_REQUIRED_SECRET_KEYS=(
 
 PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   "${FLEET_COMMON_REQUIRED_SECRET_KEYS[@]}"
+  affine-environment
   authentik-bootstrap-email
   firefly-app-key
   forgejo-oidc-client-secret

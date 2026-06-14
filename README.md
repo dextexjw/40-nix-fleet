@@ -7,7 +7,7 @@ The current fleet is intentionally small:
 
 - `gateway-vm` runs Traefik ingress, Technitium DNS, NetBird, and Tailscale.
 - `media-vm` runs Jellyfin, Audiobookshelf, Kavita, declaratively provisioned BookOrbit, ARR apps, Gluetun-gated downloads, SMB media mounts, and appdata backups.
-- `productivity-vm` runs Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, speed tests, remote desktop relay, invoicing, notes, short links, S3-compatible object storage, notifications, netboot.xyz, and appdata backups.
+- `productivity-vm` runs AFFiNE, Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, speed tests, remote desktop relay, invoicing, notes, short links, S3-compatible object storage, notifications, netboot.xyz, and appdata backups.
 - `monitoring-vm` runs Checkmate, Beszel, fleet monitoring agents, and appdata backups.
 
 Treat this repo as the source of truth for hosts, services, secrets workflow,
@@ -21,7 +21,7 @@ should follow that blueprint before being treated as production-ready.
 | --- | --- | --- | --- | --- |
 | `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway` | Ingress, DNS, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
 | `media-vm` | `10.2.20.113` | `media` | Media services, BookOrbit, Gluetun-gated downloads, SMB media, Restic appdata backups | [`hosts/media-vm/README.md`](hosts/media-vm/README.md) |
-| `productivity-vm` | `10.2.20.114` | `productivity` | Productivity services, documents, Git forges, speed tests, remote desktop relay, invoicing, notes, short links, object storage, netboot, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
+| `productivity-vm` | `10.2.20.114` | `productivity` | AFFiNE, productivity services, documents, Git forges, speed tests, remote desktop relay, invoicing, notes, short links, object storage, netboot, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
 | `monitoring-vm` | `10.2.20.115` | `monitoring` | Checkmate, Beszel, fleet monitoring agents, Restic appdata backups | [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md) |
 
 Inventory lives in `hosts.nix`. Per-host configuration and host-specific

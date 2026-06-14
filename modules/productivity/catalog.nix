@@ -119,6 +119,26 @@ in
       style = "row";
       services = [
         (mkService {
+          id = "affine";
+          name = "AFFiNE";
+          port = 3010;
+          routeDescription = "AFFiNE collaborative workspace";
+          icon = "affine.png";
+          homepageDescription = "Collaborative docs and whiteboards\n${backend 3010}";
+          authMode = "native-oidc";
+          authGroups = [ "productivity-users" ];
+          authOidc = {
+            clientId = "affine";
+            clientSecretFile = "/run/secrets/affine-oidc-client-secret";
+            launchUrl = "https://affine.jax22.com/";
+            redirectUris = [ "https://affine.jax22.com/oauth/callback" ];
+          };
+          smokeHttp = {
+            discard = true;
+            path = "/";
+          };
+        })
+        (mkService {
           id = "memos";
           name = "Memos";
           port = 5230;

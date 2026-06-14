@@ -51,6 +51,12 @@ in
     };
 
     systemd.tmpfiles.rules = (map (path: "d '${path}' 0755 root root - -") appsdataDirs) ++ [
+      "d '${appdata}/affine' 0750 root root - -"
+      "z '${appdata}/affine' 0750 root root - -"
+      "d '${appdata}/affine/config' 0750 root root - -"
+      "z '${appdata}/affine/config' 0750 root root - -"
+      "d '${appdata}/affine/storage' 0750 root root - -"
+      "z '${appdata}/affine/storage' 0750 root root - -"
       "d '${appdata}/firefly-iii' 0750 firefly-iii nginx - -"
       "z '${appdata}/firefly-iii' 0750 firefly-iii nginx - -"
       "d '${appdata}/forgejo' 0750 forgejo forgejo - -"
