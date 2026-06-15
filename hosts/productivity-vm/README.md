@@ -64,7 +64,8 @@ path backed up by Restic.
 
 Traefik routes and Homepage cards are declared on `gateway-vm`.
 The On-Demand Apps Dashboard route is protected by Authentik forward-auth for
-`productivity-users`; its backend port is source-restricted to `gateway-vm`.
+`productivity-users` plus the fleet-wide `fleet-admins` admin override; its
+backend port is source-restricted to `gateway-vm`.
 netboot.xyz local assets are served at `10.2.20.114:8083`; TFTP is served at
 `10.2.20.114:69/udp` with boot file `netboot.xyz.efi`.
 

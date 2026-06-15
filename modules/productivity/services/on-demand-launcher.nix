@@ -173,7 +173,10 @@ in
   options.fleet.productivity.stack.onDemandLauncher = {
     allowedGroups = mkOption {
       type = types.listOf types.str;
-      default = [ "productivity-users" ];
+      default = [
+        "fleet-admins"
+        "productivity-users"
+      ];
       description = "Authentik groups allowed to use launcher control pages and actions.";
     };
 

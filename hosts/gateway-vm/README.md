@@ -89,7 +89,8 @@ bootstrap API token, secret key, and PostgreSQL password are SOPS secrets.
 Authentik is attached as a Traefik forwardAuth proxy only for routes that
 explicitly declare it in the exposure catalog. The current forward-auth route is
 the On-Demand Apps Dashboard at `https://ondemand.jax22.com/`, limited
-to `productivity-users`. Ordinary app routes remain plain Traefik routes unless
+to `productivity-users` plus the fleet-wide `fleet-admins` admin override.
+Ordinary app routes remain plain Traefik routes unless
 the application has its own auth or a native SSO integration is configured. Role
 groups are `fleet-admins`, `media-users`, `productivity-users`, and
 `monitoring-users`; they are provisioned in Authentik for native app
