@@ -8,8 +8,6 @@ REMOTE_USER="smoke"
 REPOSITORY="/mnt/backups/restic/appdata/productivity-vm"
 SOURCE="/srv/appsdata"
 SERVICES=(
-  redis-affine.service
-  podman-affine.service
   forgejo.service
   nginx.service
   paperless-scheduler.service
@@ -38,6 +36,8 @@ SERVICES=(
   ntfy-sh.service
 )
 ON_DEMAND_STOP_UNITS=(
+  podman-affine.service
+  redis-affine.service
   gitea-oidc-config.service
   gitea.service
   firefly-iii-cron.timer
@@ -45,9 +45,25 @@ ON_DEMAND_STOP_UNITS=(
   phpfpm-firefly-iii.service
   stirling-pdf.service
 )
-GITEA_WAS_ACTIVE=0
-FIREFLY_WAS_ACTIVE=0
-STIRLING_WAS_ACTIVE=0
+ON_DEMAND_APPS=(
+  affine
+  gitea
+  firefly
+  stirling-pdf
+)
+declare -A ON_DEMAND_STATUS_UNIT=(
+  [affine]=podman-affine.service
+  [firefly]=phpfpm-firefly-iii.service
+  [gitea]=gitea.service
+  [stirling-pdf]=stirling-pdf.service
+)
+declare -A ON_DEMAND_START_UNITS=(
+  [affine]="redis-affine.service podman-affine.service"
+  [firefly]="phpfpm-firefly-iii.service firefly-iii-cron.timer"
+  [gitea]="gitea.service gitea-oidc-config.service"
+  [stirling-pdf]="stirling-pdf.service"
+)
+ON_DEMAND_ACTIVE_APPS=()
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -99,15 +115,11 @@ cd "$ROOT"
 printf 'Checking backup mount prerequisites on %s...\n' "$HOST"
 ssh_productivity_vm "sh -lc 'getent hosts nas.home.arpa >/dev/null && (findmnt -rn --target /mnt/backups >/dev/null || sudo mount /mnt/backups)'"
 
-if remote_unit_active gitea.service; then
-  GITEA_WAS_ACTIVE=1
-fi
-if remote_unit_active phpfpm-firefly-iii.service; then
-  FIREFLY_WAS_ACTIVE=1
-fi
-if remote_unit_active stirling-pdf.service; then
-  STIRLING_WAS_ACTIVE=1
-fi
+for app in "${ON_DEMAND_APPS[@]}"; do
+  if remote_unit_active "${ON_DEMAND_STATUS_UNIT[$app]}"; then
+    ON_DEMAND_ACTIVE_APPS+=("$app")
+  fi
+done
 
 printf 'Stopping backup timer and stateful productivity services...\n'
 set_maintenance_lock
@@ -128,19 +140,13 @@ restart_services() {
   for service in "${SERVICES[@]}"; do
     ssh_productivity_vm "sudo systemctl start '$service' || true"
   done
-  if (( GITEA_WAS_ACTIVE )); then
-    ssh_productivity_vm "sudo systemctl start gitea.service" || true
-    if remote_unit_exists gitea-oidc-config.service; then
-      ssh_productivity_vm "sudo systemctl start gitea-oidc-config.service" || true
-    fi
-  fi
-  if (( FIREFLY_WAS_ACTIVE )); then
-    ssh_productivity_vm "sudo systemctl start phpfpm-firefly-iii.service" || true
-    ssh_productivity_vm "sudo systemctl start firefly-iii-cron.timer" || true
-  fi
-  if (( STIRLING_WAS_ACTIVE )); then
-    ssh_productivity_vm "sudo systemctl start stirling-pdf.service" || true
-  fi
+  for app in "${ON_DEMAND_ACTIVE_APPS[@]}"; do
+    for unit in ${ON_DEMAND_START_UNITS[$app]}; do
+      if remote_unit_exists "$unit"; then
+        ssh_productivity_vm "sudo systemctl start '$unit' || true"
+      fi
+    done
+  done
   ssh_productivity_vm "sudo systemctl start productivity-appdata-backup.timer"
   clear_maintenance_lock
 }

@@ -314,7 +314,8 @@ scripts/productivity-vm/deploy-productivity.sh
 
 `productivity-vm` backs up `/srv/appsdata` with Restic.
 
-- Service: `productivity-appdata-backup.service`
+- Timer service: `productivity-consistency-backup.service`
+- Restic service: `productivity-appdata-backup.service`
 - Timer: `productivity-appdata-backup.timer`
 - Source: `/srv/appsdata`
 - Repository: `/mnt/backups/restic/appdata/productivity-vm`
@@ -331,6 +332,8 @@ scripts/productivity-vm/create-productivity-backup.sh
 
 The manual backup helper records whether each on-demand app was running before
 the backup and only restarts those apps afterward.
+The scheduled timer uses the same maintenance lock and on-demand quiesce model
+before it runs the database dumps and Restic backup.
 
 Post-deploy validation:
 

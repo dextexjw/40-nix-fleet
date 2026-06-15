@@ -74,9 +74,9 @@ in
 
         Backup validation:
           mount ${cfg.smb.backupMount}
-          systemctl start productivity-appdata-backup.service
+          systemctl start productivity-consistency-backup.service
           systemctl start productivity-appdata-restore-check.service
-          systemctl status productivity-appdata-backup.service productivity-appdata-restore-check.service
+          systemctl status productivity-consistency-backup.service productivity-appdata-backup.service productivity-appdata-restore-check.service
 
         Restore outline:
           1. Deploy productivity-vm once to create users, secrets, mounts, and units.
@@ -101,9 +101,10 @@ in
           AFFiNE, Gitea, Stirling PDF, and Firefly III are installed but not
           wanted by boot targets. Homepage links those cards to the launcher.
           The launcher refuses actions while backup, restore-check, dump,
-          migration, or deployment lock signals are active. The manual backup
-          helper preserves each on-demand app's pre-backup running/stopped state;
-          destructive restore leaves on-demand apps stopped until relaunched.
+          migration, or deployment lock signals are active. The scheduled
+          consistency backup and manual backup helper preserve each on-demand
+          app's pre-backup running/stopped state; destructive restore leaves
+          on-demand apps stopped until relaunched.
 
         Garage is standalone S3 in this pass. It does not back Nextcloud primary
         storage. ${serviceHosts.garage} is the authenticated S3 API, so anonymous

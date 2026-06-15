@@ -20,7 +20,7 @@ in
       enable = true;
       domain = serviceHosts.searxng;
       environmentFile = secretPath "searxng-environment";
-      openFirewall = true;
+      openFirewall = false;
       redisCreateLocally = true;
       settings = {
         search.safe_search = 1;

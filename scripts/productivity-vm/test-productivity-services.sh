@@ -13,8 +13,6 @@ SERVICE_DOMAINS=(
 )
 KEY_SERVICES=(
   postgresql
-  redis-affine
-  podman-affine
   forgejo
   nginx
   on-demand-apps-dashboard
@@ -44,6 +42,8 @@ KEY_SERVICES=(
   ntfy-sh
 )
 ON_DEMAND_SERVICES=(
+  redis-affine
+  podman-affine
   gitea
   phpfpm-firefly-iii
   stirling-pdf
@@ -242,7 +242,7 @@ done
 colmena exec --on "$HOST" -- "systemctl cat firefly-iii-cron.timer >/dev/null"
 colmena exec --on "$HOST" -- "sh -lc '! systemctl is-enabled --quiet \"\$1\"' sh firefly-iii-cron.timer"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8092/healthz >/dev/null"
-for app in gitea firefly stirling-pdf; do
+for app in affine gitea firefly stirling-pdf; do
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8092/apps/$app/status >/dev/null"
 done
 

@@ -13,33 +13,38 @@ let
     inherit config lib pkgs;
   };
   inherit (productivityLib) cfg;
+  gatewayOnlyTCPPorts = unique [
+    80
+    cfg.ports.affine
+    cfg.ports.forgejo
+    cfg.ports.garageS3
+    cfg.ports.garageWeb
+    cfg.ports.gitea
+    cfg.ports.memos
+    cfg.ports.ntfy
+    cfg.ports.openspeedtest
+    cfg.ports.rustfsApi
+    cfg.ports.rustfsConsole
+    cfg.ports.searxng
+    cfg.ports.shlink
+    cfg.ports.shlinkWeb
+    cfg.ports.stirlingPdf
+    cfg.ports.syncthing
+    cfg.ports.vaultwarden
+  ];
+  mkGatewayAccept = port: ''
+    iptables -A nixos-fw -p tcp -s ${cfg.onDemandLauncher.gatewayAddress} --dport ${toString port} -j nixos-fw-accept
+  '';
 in
 {
   config = mkIf cfg.enable {
     networking.firewall.allowedTCPPorts = [
-      80
-      cfg.ports.affine
-      cfg.ports.forgejo
-      cfg.ports.garageS3
-      cfg.ports.garageWeb
-      cfg.ports.gitea
       cfg.ports.iperf3
-      cfg.ports.memos
-      cfg.ports.ntfy
-      cfg.ports.openspeedtest
       21115
       21116
       21117
       21118
       21119
-      cfg.ports.rustfsApi
-      cfg.ports.rustfsConsole
-      cfg.ports.searxng
-      cfg.ports.shlink
-      cfg.ports.shlinkWeb
-      cfg.ports.stirlingPdf
-      cfg.ports.syncthing
-      cfg.ports.vaultwarden
     ]
     ++ optionals cfg.netbootxyz.openFirewall [
       cfg.netbootxyz.assetPort
@@ -52,5 +57,7 @@ in
     ++ optionals cfg.netbootxyz.openFirewall [
       cfg.netbootxyz.tftpPort
     ];
+
+    networking.firewall.extraCommands = concatStringsSep "\n" (map mkGatewayAccept gatewayOnlyTCPPorts);
   };
 }

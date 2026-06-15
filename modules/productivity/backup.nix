@@ -19,6 +19,39 @@ let
     memosUid
     resticPasswordFile
     ;
+  launcherCfg = cfg.onDemandLauncher;
+  onDemandBundles = mapAttrsToList (id: bundle: {
+    inherit id;
+    inherit (bundle) startUnits statusUnits;
+  }) launcherCfg.bundles;
+  onDemandStopUnits = unique (concatMap (bundle: bundle.stopUnits) (attrValues launcherCfg.bundles));
+  onDemandStateCommands = concatStringsSep "\n" (
+    map (
+      bundle:
+      let
+        statusCheck = concatStringsSep " || " (
+          map (unit: "systemctl is-active --quiet ${escapeShellArg unit}") bundle.statusUnits
+        );
+      in
+      ''
+        if ${if statusCheck == "" then "false" else statusCheck}; then
+          printf '%s\n' ${escapeShellArg bundle.id} >> "$state_file"
+        fi
+      ''
+    ) onDemandBundles
+  );
+  onDemandStopCommands = concatStringsSep "\n" (
+    map (unit: "systemctl stop ${escapeShellArg unit} || true") onDemandStopUnits
+  );
+  onDemandResumeCases = concatStringsSep "\n" (
+    map (bundle: ''
+      ${bundle.id})
+        ${concatStringsSep "\n          " (
+          map (unit: "systemctl start ${escapeShellArg unit} || true") bundle.startUnits
+        )}
+        ;;
+    '') onDemandBundles
+  );
 in
 {
   config = mkIf cfg.enable {
@@ -119,6 +152,65 @@ in
         chmod 0600 "$tmp"
         mv "$tmp" '${appdata}/postgresql-dumps/latest.sql.gz'
         trap - EXIT
+      '';
+    };
+
+    systemd.services.productivity-consistency-backup = {
+      description = "Run productivity-vm backup with on-demand apps quiesced";
+      after = [
+        "network-online.target"
+        "${utils.escapeSystemdPath cfg.smb.backupMount}.mount"
+      ];
+      wants = [ "network-online.target" ];
+      requires = [ "${utils.escapeSystemdPath cfg.smb.backupMount}.mount" ];
+      path = [
+        pkgs.coreutils
+        pkgs.systemd
+        pkgs.util-linux
+      ];
+      serviceConfig = {
+        Type = "oneshot";
+        User = "root";
+        Group = "root";
+      };
+      script = ''
+        set -euo pipefail
+
+        if ! findmnt -rn --target '${cfg.smb.backupMount}' >/dev/null; then
+          echo '${cfg.smb.backupMount} is not mounted; refusing to run backup'
+          exit 1
+        fi
+
+        lock_path='${toString launcherCfg.maintenanceLock}'
+        lock_dir="$(dirname "$lock_path")"
+        state_file="$lock_dir/backup-on-demand-apps"
+
+        install -d -m 0755 -o root -g root "$lock_dir"
+        : > "$state_file"
+        chmod 0600 "$state_file"
+        printf '%s\n' 'consistency-first backup is running' > "$lock_path"
+
+        resume_on_demand_apps() {
+          set +e
+          if [ -s "$state_file" ]; then
+            while IFS= read -r app; do
+              case "$app" in
+                ${onDemandResumeCases}
+              esac
+            done < "$state_file"
+          fi
+          rm -f -- "$state_file" "$lock_path"
+        }
+        trap resume_on_demand_apps EXIT
+
+        ${onDemandStateCommands}
+
+        ${onDemandStopCommands}
+
+        systemctl start productivity-postgresql-dump.service
+        systemctl start productivity-mariadb-dump.service
+        systemctl start productivity-memos-sqlite-backup.service
+        systemctl start productivity-appdata-backup.service
       '';
     };
 
@@ -291,7 +383,7 @@ in
       timerConfig = {
         OnCalendar = "daily";
         Persistent = true;
-        Unit = "productivity-appdata-backup.service";
+        Unit = "productivity-consistency-backup.service";
       };
     };
   };

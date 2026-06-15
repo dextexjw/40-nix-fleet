@@ -4,6 +4,7 @@ import hmac
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -36,12 +37,14 @@ CONFIG = load_config()
 APPS = {app["id"]: app for app in CONFIG["apps"]}
 CSRF_SECRET = os.urandom(32)
 STATUS_LABELS = {
+    "degraded": "Degraded",
     "failed": "Needs attention",
     "running": "Live",
     "starting": "Starting",
     "stopped": "Stopped",
 }
 STATUS_RING_LABELS = {
+    "degraded": "WARN",
     "failed": "ALERT",
     "running": "READY",
     "starting": "WAIT",
@@ -49,6 +52,7 @@ STATUS_RING_LABELS = {
     "stopping": "STOP",
 }
 STATE_CAPTIONS = {
+    "degraded": "Running, but health check is failing",
     "failed": "Startup needs attention",
     "running": "Ready to open",
     "starting": "Starting and checking health",
@@ -61,6 +65,7 @@ INTERACTION_SCRIPT = r"""
   const OPEN_DELAY_MS = 700;
   const MAX_POLLS = 120;
   const STATUS_LABELS = {
+    degraded: "Degraded",
     failed: "Needs attention",
     running: "Live",
     starting: "Starting",
@@ -68,6 +73,7 @@ INTERACTION_SCRIPT = r"""
     stopped: "Stopped",
   };
   const STATUS_RING_LABELS = {
+    degraded: "WARN",
     failed: "ALERT",
     running: "READY",
     starting: "WAIT",
@@ -75,6 +81,7 @@ INTERACTION_SCRIPT = r"""
     stopped: "IDLE",
   };
   const STATE_CAPTIONS = {
+    degraded: "Running, but health check is failing",
     failed: "Startup needs attention",
     running: "Ready to open",
     starting: "Starting and checking health",
@@ -144,10 +151,10 @@ INTERACTION_SCRIPT = r"""
     const blocked = Boolean(status.blocked && status.blocked.length);
     const state = status.status || panel.dataset.status || "stopped";
     panel.querySelectorAll("[data-start-action]").forEach((element) => {
-      element.hidden = state === "running" || state === "stopping";
+      element.hidden = state === "running" || state === "degraded" || state === "stopping";
     });
     panel.querySelectorAll("[data-open-action]").forEach((element) => {
-      element.hidden = state !== "running" || busy;
+      element.hidden = (state !== "running" && state !== "degraded") || busy;
     });
     panel.querySelectorAll("[data-stop-action]").forEach((element) => {
       element.hidden = state === "stopped";
@@ -161,7 +168,7 @@ INTERACTION_SCRIPT = r"""
       if (busy) {
         button.disabled = true;
       } else if (action === "start") {
-        button.disabled = blocked || state === "starting" || state === "running" || state === "stopping";
+        button.disabled = blocked || state === "starting" || state === "running" || state === "degraded" || state === "stopping";
       } else if (action === "stop") {
         button.disabled = blocked || state === "stopped";
       }
@@ -199,7 +206,7 @@ INTERACTION_SCRIPT = r"""
     const totals = panels.reduce(
       (summary, panel) => {
         const state = panel.dataset.status || "stopped";
-        if (state === "running") {
+        if (state === "running" || state === "degraded") {
           summary.running += 1;
         } else if (state === "stopped") {
           summary.stopped += 1;
@@ -244,7 +251,7 @@ INTERACTION_SCRIPT = r"""
   }
 
   function phaseMessage(status) {
-    if (status.status === "running") {
+    if (status.status === "running" || status.status === "degraded") {
       return "Live. Opening the app.";
     }
     if (status.status === "starting") {
@@ -257,7 +264,7 @@ INTERACTION_SCRIPT = r"""
   }
 
   function phaseStage(status) {
-    if (status.status === "running") {
+    if (status.status === "running" || status.status === "degraded") {
       return "ready";
     }
     if (status.status === "starting") {
@@ -441,6 +448,26 @@ def state_caption(status):
     return STATE_CAPTIONS.get(status, status_label(status))
 
 
+def split_groups(header_value):
+    return {group for group in re.split(r"[\s,;|]+", header_value or "") if group}
+
+
+def auth_allowed(headers):
+    if not CONFIG.get("require_auth_header", True):
+        return True, ""
+    user_header = CONFIG.get("auth_header", "X-authentik-username")
+    if not headers.get(user_header):
+        return False, f"Missing {user_header}."
+    allowed_groups = set(CONFIG.get("allowed_groups", []))
+    if not CONFIG.get("require_allowed_group", True) or not allowed_groups:
+        return True, ""
+    groups_header = CONFIG.get("auth_groups_header", "X-authentik-groups")
+    user_groups = split_groups(headers.get(groups_header, ""))
+    if allowed_groups.intersection(user_groups):
+        return True, ""
+    return False, "Your Authentik session is not in an allowed productivity group."
+
+
 def render_state_flow(status, include_copy=True):
     current = status["status"]
     copy_html = (
@@ -481,8 +508,8 @@ def render_actions(app, status, user, compact=False):
     blocked = bool(status["blocked"])
     start_disabled = " disabled" if blocked or status["status"] == "starting" else ""
     stop_disabled = " disabled" if blocked or status["status"] == "stopped" else ""
-    start_hidden = " hidden" if status["status"] == "running" else ""
-    open_hidden = "" if status["status"] == "running" else " hidden"
+    start_hidden = " hidden" if status["status"] in {"running", "degraded"} else ""
+    open_hidden = "" if status["status"] in {"running", "degraded"} else " hidden"
     stop_hidden = " hidden" if status["status"] == "stopped" else ""
     detail_link = "" if not compact else f'<a class="button ghost" href="/apps/{esc(app["id"])}">Manage</a>'
 
@@ -537,9 +564,35 @@ def csrf_valid(user, app_id, action, token):
     return hmac.compare_digest(expected, token or "")
 
 
+UNIT_STATE_PROPERTIES = [
+    "LoadState",
+    "ActiveState",
+    "SubState",
+    "Result",
+    "RemainAfterExit",
+    "Type",
+]
+PRIVILEGED_SYSTEMCTL_ACTIONS = {"reset-failed", "start", "stop"}
+
+
+def default_unit_state():
+    return {
+        "LoadState": "unknown",
+        "ActiveState": "unknown",
+        "SubState": "unknown",
+        "Result": "unknown",
+        "RemainAfterExit": "unknown",
+        "Type": "unknown",
+    }
+
+
 def systemctl(*args, check=False):
+    command = ["systemctl", *args]
+    helper = CONFIG.get("systemctl_helper")
+    if helper and args and args[0] in PRIVILEGED_SYSTEMCTL_ACTIONS:
+        command = ["sudo", "-n", helper, args[0], *args[1:]]
     result = subprocess.run(
-        ["systemctl", *args],
+        command,
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -554,43 +607,59 @@ def systemctl(*args, check=False):
 
 def reset_failed_units(units):
     seen = set()
+    states = unit_states(units)
     for unit in units:
         if unit in seen:
             continue
         seen.add(unit)
-        if unit_state(unit)["ActiveState"] == "failed":
+        if states.get(unit, default_unit_state())["ActiveState"] == "failed":
             systemctl("reset-failed", unit)
 
 
 def unit_state(unit):
+    return unit_states([unit])[unit]
+
+
+def parse_unit_state_output(units, stdout):
+    states = {unit: default_unit_state() for unit in units}
+    sections = stdout.strip().split("\n\n") if stdout.strip() else []
+    for unit, section in zip(units, sections):
+        state = states[unit]
+        for line in section.splitlines():
+            if "=" in line:
+                key, value = line.split("=", 1)
+                state[key] = value
+    return states
+
+
+def unit_states(units):
+    ordered_units = list(dict.fromkeys(units))
+    if not ordered_units:
+        return {}
+    result = systemctl(
+        "show",
+        *ordered_units,
+        *(f"--property={prop}" for prop in UNIT_STATE_PROPERTIES),
+        "--no-pager",
+    )
+    if result.returncode != 0:
+        return {unit: unit_state_fallback(unit) for unit in ordered_units}
+    return parse_unit_state_output(ordered_units, result.stdout)
+
+
+def unit_state_fallback(unit):
     result = systemctl(
         "show",
         unit,
-        "--property=LoadState",
-        "--property=ActiveState",
-        "--property=SubState",
-        "--property=Result",
-        "--property=RemainAfterExit",
-        "--property=Type",
+        *(f"--property={prop}" for prop in UNIT_STATE_PROPERTIES),
         "--no-pager",
     )
-    state = {
-        "LoadState": "unknown",
-        "ActiveState": "unknown",
-        "SubState": "unknown",
-        "Result": "unknown",
-        "RemainAfterExit": "unknown",
-        "Type": "unknown",
-    }
     if result.returncode != 0:
+        state = default_unit_state()
         state["LoadState"] = "not-found"
         state["Error"] = result.stderr.strip() or result.stdout.strip()
         return state
-    for line in result.stdout.splitlines():
-        if "=" in line:
-            key, value = line.split("=", 1)
-            state[key] = value
-    return state
+    return parse_unit_state_output([unit], result.stdout)[unit]
 
 
 def unit_active_or_starting(unit):
@@ -612,7 +681,7 @@ def unit_blocks_actions(state):
     return True
 
 
-def blocking_reasons():
+def blocking_reasons(states=None):
     reasons = []
     lock_path = CONFIG.get("maintenance_lock")
     if lock_path and os.path.exists(lock_path):
@@ -624,7 +693,7 @@ def blocking_reasons():
         reasons.append(reason or f"{lock_path} exists")
 
     for unit in CONFIG.get("blocked_units", []):
-        state = unit_state(unit)
+        state = (states or {}).get(unit) or unit_state(unit)
         if unit_blocks_actions(state):
             reasons.append(f"{unit} is {state['ActiveState']}")
     return reasons
@@ -657,8 +726,22 @@ def wait_for_health(app):
     return health_ok(app)
 
 
-def app_status(app):
-    units = {unit: unit_state(unit) for unit in app.get("status_units", [])}
+def collect_request_state(apps=None):
+    selected_apps = apps or CONFIG["apps"]
+    units = set(CONFIG.get("blocked_units", []))
+    for app in selected_apps:
+        units.update(app.get("status_units", []))
+    states = unit_states(sorted(units))
+    return states, blocking_reasons(states)
+
+
+def app_status(app, states=None, blocked=None):
+    if states is None or blocked is None:
+        states, blocked = collect_request_state([app])
+    units = {
+        unit: states.get(unit, default_unit_state())
+        for unit in app.get("status_units", [])
+    }
     active_states = [state["ActiveState"] for state in units.values()]
     active_units = sum(
         1 for state in units.values() if state["ActiveState"] in {"active", "activating", "reloading"}
@@ -671,7 +754,9 @@ def app_status(app):
         status = "failed"
     elif health_ok(app):
         status = "running"
-    elif any(state in {"activating", "reloading", "active"} for state in active_states):
+    elif any(state == "active" for state in active_states):
+        status = "degraded"
+    elif any(state in {"activating", "reloading"} for state in active_states):
         status = "starting"
     else:
         status = "stopped"
@@ -683,7 +768,7 @@ def app_status(app):
         "unit_count": len(units),
         "url": app["url"],
         "units": units,
-        "blocked": blocking_reasons(),
+        "blocked": blocked,
     }
 
 
@@ -945,6 +1030,11 @@ def render_page(title, body, status=HTTPStatus.OK):
 	      background: rgba(239, 230, 160, 0.1);
 	      color: var(--warn);
 	    }}
+	    .status.degraded {{
+	      border-color: rgba(239, 230, 160, 0.55);
+	      background: rgba(239, 230, 160, 0.12);
+	      color: var(--warn);
+	    }}
 	    .status.stopping {{
 	      border-color: rgba(239, 230, 160, 0.5);
 	      background: rgba(239, 230, 160, 0.08);
@@ -988,6 +1078,7 @@ def render_page(title, body, status=HTTPStatus.OK):
       color: var(--ok);
     }}
     .app-card[data-status="starting"] .status-ring,
+    .app-card[data-status="degraded"] .status-ring,
     .app-card[data-status="stopping"] .status-ring {{
       background:
         conic-gradient(var(--warn) 180deg, rgba(104, 115, 111, 0.18) 0),
@@ -1109,7 +1200,7 @@ def render_page(title, body, status=HTTPStatus.OK):
 	      background: var(--dim);
 	      box-shadow: none;
 	    }}
-	    .state-flow.starting .state-fill, .state-flow.stopping .state-fill {{
+	    .state-flow.starting .state-fill, .state-flow.degraded .state-fill, .state-flow.stopping .state-fill {{
 	      width: 50%;
 	      background: var(--warn);
 	      box-shadow: 0 0 12px rgba(239, 230, 160, 0.22);
@@ -1149,6 +1240,7 @@ def render_page(title, body, status=HTTPStatus.OK):
 	    }}
 	    .state-flow.stopped .node-stopped,
 	    .state-flow.starting .node-starting,
+	    .state-flow.degraded .node-starting,
 	    .state-flow.stopping .node-starting,
 	    .state-flow.running .node-running,
 	    .state-flow.failed .node-starting {{
@@ -1160,6 +1252,7 @@ def render_page(title, body, status=HTTPStatus.OK):
           0 0 16px rgba(255, 255, 255, 0.10);
 	    }}
 	    .state-flow.starting .node-stopped,
+	    .state-flow.degraded .node-stopped,
 	    .state-flow.stopping .node-stopped,
 	    .state-flow.running .node-stopped,
 	    .state-flow.running .node-starting {{
@@ -1169,7 +1262,7 @@ def render_page(title, body, status=HTTPStatus.OK):
 	    .state-flow.running {{
 	      color: var(--ok);
 	    }}
-	    .state-flow.starting, .state-flow.stopping {{
+	    .state-flow.starting, .state-flow.degraded, .state-flow.stopping {{
 	      color: var(--warn);
 	    }}
 	    .state-flow.failed {{
@@ -1198,6 +1291,7 @@ def render_page(title, body, status=HTTPStatus.OK):
 	    }}
 	    .state-flow.stopped .state-labels span:nth-child(1),
 	    .state-flow.starting .state-labels span:nth-child(2),
+	    .state-flow.degraded .state-labels span:nth-child(2),
 	    .state-flow.stopping .state-labels span:nth-child(2),
 	    .state-flow.running .state-labels span:nth-child(3),
 	    .state-flow.failed .state-labels span:nth-child(2) {{
@@ -1502,10 +1596,10 @@ def render_page(title, body, status=HTTPStatus.OK):
 
 
 def render_index(user=""):
-    statuses = [(app, app_status(app)) for app in CONFIG["apps"]]
-    running = sum(1 for _app, status in statuses if status["status"] == "running")
+    states, blocked = collect_request_state(CONFIG["apps"])
+    statuses = [(app, app_status(app, states, blocked)) for app in CONFIG["apps"]]
+    running = sum(1 for _app, status in statuses if status["status"] in {"running", "degraded"})
     stopped = sum(1 for _app, status in statuses if status["status"] == "stopped")
-    blocked = statuses[0][1]["blocked"] if statuses else []
 
     block_html = ""
     if blocked:
@@ -1579,7 +1673,8 @@ def render_index(user=""):
 
 
 def render_app(app, message=None, status_code=HTTPStatus.OK, user=""):
-    status = app_status(app)
+    states, blocked = collect_request_state([app])
+    status = app_status(app, states, blocked)
     blocked = status["blocked"]
     block_html = ""
     if blocked:
@@ -1671,14 +1766,12 @@ class Handler(BaseHTTPRequestHandler):
             parsed.path.startswith("/apps/") and parsed.path.endswith("/status")
         ):
             return True
-        if not CONFIG.get("require_auth_header", True):
-            return True
-        header = CONFIG.get("auth_header", "X-authentik-username")
-        if self.headers.get(header):
+        allowed, reason = auth_allowed(self.headers)
+        if allowed:
             return True
         status, content_type, body = render_page(
             "Unauthorized",
-            "<section class=\"card\">This control surface must be opened through Authentik.</section>",
+            f"<section class=\"card\">{esc(reason or 'This control surface must be opened through Authentik.')}</section>",
             HTTPStatus.UNAUTHORIZED,
         )
         self.send_body(status, content_type, body)
@@ -1699,10 +1792,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_body(*render_app(APPS[parts[1]], user=self.current_user()), include_body=include_body)
             return
         if len(parts) == 3 and parts[0] == "apps" and parts[1] in APPS and parts[2] == "status":
+            states, blocked = collect_request_state([APPS[parts[1]]])
             self.send_body(
                 HTTPStatus.OK,
                 "application/json; charset=utf-8",
-                json.dumps(app_status(APPS[parts[1]]), sort_keys=True) + "\n",
+                json.dumps(app_status(APPS[parts[1]], states, blocked), sort_keys=True) + "\n",
                 include_body,
             )
             return
@@ -1755,7 +1849,7 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
         with ACTION_LOCK:
-            blocked = blocking_reasons()
+            states, blocked = collect_request_state([app])
             if blocked:
                 if wants_json:
                     self.send_json(

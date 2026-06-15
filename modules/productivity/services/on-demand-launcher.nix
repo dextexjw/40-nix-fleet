@@ -114,22 +114,75 @@ let
     };
   }) launcherCfg.bundles;
 
+  systemctlAllowedUnits = unique (
+    launcherCfg.blockedUnits
+    ++ concatMap (bundle: bundle.startUnits ++ bundle.statusUnits ++ bundle.stopUnits) (
+      attrValues launcherCfg.bundles
+    )
+  );
+
+  systemctlHelper = pkgs.writeShellScript "on-demand-apps-systemctl" ''
+    set -euo pipefail
+
+    if [ "$#" -ne 2 ]; then
+      echo "usage: on-demand-apps-systemctl ACTION UNIT" >&2
+      exit 2
+    fi
+
+    action="$1"
+    unit="$2"
+
+    case "$action" in
+      reset-failed|start|stop) ;;
+      *)
+        echo "refusing unsupported systemctl action: $action" >&2
+        exit 2
+        ;;
+    esac
+
+    case "$unit" in
+      ${concatStringsSep "|" systemctlAllowedUnits}) ;;
+      *)
+        echo "refusing unit outside on-demand allow-list: $unit" >&2
+        exit 2
+        ;;
+    esac
+
+    exec ${pkgs.systemd}/bin/systemctl "$action" "$unit"
+  '';
+
   launcherConfig = pkgs.writeText "on-demand-apps-dashboard.json" (
     builtins.toJSON {
       apps = appList;
+      allowed_groups = launcherCfg.allowedGroups;
       auth_header = launcherCfg.authHeader;
+      auth_groups_header = launcherCfg.authGroupsHeader;
       blocked_units = launcherCfg.blockedUnits;
       listen = {
         address = launcherCfg.bindAddress;
         inherit (launcherCfg) port;
       };
       maintenance_lock = launcherCfg.maintenanceLock;
+      require_allowed_group = launcherCfg.requireAllowedGroup;
       require_auth_header = launcherCfg.requireAuthHeader;
+      systemctl_helper = systemctlHelper;
     }
   );
 in
 {
   options.fleet.productivity.stack.onDemandLauncher = {
+    allowedGroups = mkOption {
+      type = types.listOf types.str;
+      default = [ "productivity-users" ];
+      description = "Authentik groups allowed to use launcher control pages and actions.";
+    };
+
+    authGroupsHeader = mkOption {
+      type = types.str;
+      default = "X-authentik-groups";
+      description = "Forward-auth response header containing Authentik group names.";
+    };
+
     authHeader = mkOption {
       type = types.str;
       default = "X-authentik-username";
@@ -305,9 +358,36 @@ in
       default = true;
       description = "Require the Authentik forward-auth username header for HTML pages and actions.";
     };
+
+    requireAllowedGroup = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Require at least one allowed Authentik group in the forwarded group header.";
+    };
   };
 
   config = mkIf (cfg.enable && launcherCfg.enable) {
+    users.groups.on-demand-apps-dashboard = { };
+    users.users.on-demand-apps-dashboard = {
+      group = "on-demand-apps-dashboard";
+      isSystemUser = true;
+    };
+
+    security.sudo.extraRules = [
+      {
+        users = [ "on-demand-apps-dashboard" ];
+        commands = [
+          {
+            command = toString systemctlHelper;
+            options = [
+              "NOPASSWD"
+              "NOSETENV"
+            ];
+          }
+        ];
+      }
+    ];
+
     systemd.services.gitea.wantedBy = mkForce [ ];
     systemd.services.gitea-oidc-config = mkIf cfg.gitea.oidc.enable {
       wantedBy = mkForce [ ];
@@ -329,14 +409,14 @@ in
       wantedBy = [ "multi-user.target" ];
       path = [
         pkgs.coreutils
+        pkgs.sudo
         pkgs.systemd
       ];
       serviceConfig = {
         CapabilityBoundingSet = "";
         ExecStart = "${lib.getExe pkgs.python3} ${./on-demand-launcher.py} ${launcherConfig}";
-        Group = "root";
+        Group = "on-demand-apps-dashboard";
         LockPersonality = true;
-        NoNewPrivileges = true;
         PrivateDevices = true;
         PrivateTmp = true;
         ProtectClock = true;
@@ -348,14 +428,15 @@ in
         ProtectKernelTunables = true;
         ProtectSystem = "strict";
         Restart = "on-failure";
+        RuntimeDirectory = "on-demand-apps-dashboard";
+        RuntimeDirectoryMode = "0755";
         RestrictAddressFamilies = [
           "AF_INET"
           "AF_INET6"
           "AF_UNIX"
         ];
-        RuntimeDirectory = "on-demand-apps-dashboard";
         Type = "simple";
-        User = "root";
+        User = "on-demand-apps-dashboard";
         WorkingDirectory = "/run/on-demand-apps-dashboard";
       };
     };
