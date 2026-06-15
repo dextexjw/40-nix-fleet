@@ -28,6 +28,7 @@
     ./services/rustfs.nix
     ./services/mkdocs.nix
     ./services/nginx.nix
+    ./services/on-demand-launcher.nix
     ./backup.nix
     ./firewall.nix
     ./recovery-notes.nix

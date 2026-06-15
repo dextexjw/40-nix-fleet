@@ -411,6 +411,7 @@ in
     dashboard.webRoute.enable = true;
     domain = serviceDomain;
     enable = true;
+    authentik.enable = true;
     metrics.enable = true;
     package = traefik_3_7_1;
     routes = exposureCatalog.traefikRoutes;
@@ -446,6 +447,26 @@ in
   # ============================================================================
   # NETWORKING & FIREWALL
   # ============================================================================
+
+  services.resolved = {
+    enable = true;
+    settings.Resolve = {
+      DNS = [
+        "1.1.1.1"
+        "8.8.8.8"
+        "9.9.9.9"
+      ];
+      FallbackDNS = [
+        "1.0.0.1"
+        "8.8.4.4"
+        "149.112.112.112"
+      ];
+    };
+  };
+
+  # Keep the LAN resolver scoped to home.arpa so Gateway deploys do not depend
+  # on 10.2.20.1 for public names such as cache.nixos.org.
+  systemd.network.networks."10-lan".networkConfig.DNSDefaultRoute = lib.mkForce false;
 
   networking.firewall.allowedTCPPorts = [ ];
 
@@ -486,9 +507,12 @@ in
           Tailscale: tailscaled.service, state /srv/appsdata/tailscale
           State backups: gateway-state-backup.timer, repository /mnt/backup/restic/appdata/gateway-vm
 
+        Resolver model:
+          systemd-resolved uses public recursive DNS for ordinary internet names. The LAN resolver 10.2.20.1 remains route-only for home.arpa so NAS and VM hostnames still resolve, but public names such as cache.nixos.org do not depend on the LAN resolver during Colmena deploys.
+
         Auth model:
-          Authentik is the fleet identity provider, but it is not attached as a Traefik forwardAuth proxy in front of application routes. Browser routes are ordinary Traefik routes unless the application has its own auth or a native SSO integration is configured. Role groups are fleet-admins, media-users, productivity-users, and monitoring-users; they are provisioned in Authentik for native app integrations.
-          Native OIDC applications are declared in the exposure catalog. Beszel uses the beszel client with monitoring-users. BookOrbit uses the bookorbit client with media-users and https://bookorbit.jax22.com/oauth2-callback; the BookOrbit app-side provider and coldkey local account are declared on media-vm by bookorbit-declarative-config.service. Memos uses the memos client with productivity-users and https://memos.jax22.com/auth/callback. Gitea uses the gitea client with productivity-users and https://gitea.jax22.com/user/oauth2/authentik/callback. Forgejo uses the forgejo client with productivity-users and https://forgejo.jax22.com/user/oauth2/authentik/callback. Paperless uses the paperless client with productivity-users and https://paperless.jax22.com/accounts/oidc/authentik/login/callback/. Nextcloud uses the nextcloud client with productivity-users and https://nextcloud.jax22.com/apps/user_oidc/code. RustFS Console uses the rustfs-console client with fleet-admins and https://rustfs.jax22.com/rustfs/admin/v3/oidc/callback/authentik.
+          Authentik is the fleet identity provider. Browser routes are ordinary Traefik routes unless the application has its own auth, a native SSO integration, or an explicitly declared forward-auth proxy route. The On-Demand Apps Dashboard at https://ondemand.jax22.com is protected with Authentik forward-auth for productivity-users; ordinary app routes still prefer native OIDC.
+          Native OIDC and forward-auth applications are declared in the exposure catalog. Beszel uses the beszel client with monitoring-users. BookOrbit uses the bookorbit client with media-users and https://bookorbit.jax22.com/oauth2-callback; the BookOrbit app-side provider and coldkey local account are declared on media-vm by bookorbit-declarative-config.service. Memos uses the memos client with productivity-users and https://memos.jax22.com/auth/callback. Gitea uses the gitea client with productivity-users and https://gitea.jax22.com/user/oauth2/authentik/callback. Forgejo uses the forgejo client with productivity-users and https://forgejo.jax22.com/user/oauth2/authentik/callback. Paperless uses the paperless client with productivity-users and https://paperless.jax22.com/accounts/oidc/authentik/login/callback/. Nextcloud uses the nextcloud client with productivity-users and https://nextcloud.jax22.com/apps/user_oidc/code. RustFS Console uses the rustfs-console client with fleet-admins and https://rustfs.jax22.com/rustfs/admin/v3/oidc/callback/authentik.
 
         Internal routes:
     ${exposureCatalog.routeUrlsText}

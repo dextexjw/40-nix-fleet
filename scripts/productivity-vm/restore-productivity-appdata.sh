@@ -7,7 +7,8 @@ REPOSITORY="/mnt/backups/restic/appdata/productivity-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
 SNAPSHOT="${1:-}"
-SERVICES="gitea forgejo nginx paperless-scheduler paperless-task-queue paperless-consumer paperless-web freshrss-updater phpfpm-freshrss searx vaultwarden phpfpm-privatebin syncthing stirling-pdf phpfpm-firefly-iii phpfpm-nextcloud garage podman-memos podman-netbootxyz podman-shlink podman-shlink-web podman-rustfs ntfy-sh"
+SERVICES="forgejo nginx paperless-scheduler paperless-task-queue paperless-consumer paperless-web freshrss-updater phpfpm-freshrss searx vaultwarden phpfpm-privatebin syncthing phpfpm-nextcloud garage podman-memos podman-netbootxyz podman-shlink podman-shlink-web podman-rustfs ntfy-sh"
+ON_DEMAND_SERVICES="gitea-oidc-config gitea firefly-iii-cron.timer firefly-iii-cron phpfpm-firefly-iii stirling-pdf"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -31,13 +32,20 @@ repository='${REPOSITORY}'
 source_path='${SOURCE}'
 tag='${TAG}'
 services='${SERVICES}'
+on_demand_services='${ON_DEMAND_SERVICES}'
 requested_snapshot='${SNAPSHOT}'
 
 export RESTIC_REPOSITORY="\$repository"
 export RESTIC_PASSWORD_FILE=/run/secrets/restic-password
+cleanup() {
+  rm -f /run/on-demand-apps-dashboard/maintenance.lock
+}
+trap cleanup EXIT
 
 echo 'Stopping productivity services before appdata restore...'
-systemctl stop productivity-appdata-backup.timer \$services
+install -d -m 0755 -o root -g root /run/on-demand-apps-dashboard
+printf '%s\n' 'appdata restore is running' >/run/on-demand-apps-dashboard/maintenance.lock
+systemctl stop productivity-appdata-backup.timer \$services \$on_demand_services || true
 
 echo 'Mounting /mnt/backups...'
 findmnt -rn --target /mnt/backups >/dev/null || mount /mnt/backups

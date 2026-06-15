@@ -24,6 +24,24 @@ need sops
 need ssh
 need ssh-to-age
 
+ssh_productivity_vm() {
+  ssh \
+    -o BatchMode=yes \
+    -o ConnectTimeout=5 \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    "$REMOTE_USER@$HOST_IP" \
+    "$@"
+}
+
+set_maintenance_lock() {
+  ssh_productivity_vm "sudo install -d -m 0755 -o root -g root /run/on-demand-apps-dashboard && printf '%s\n' 'colmena switch is running' | sudo tee /run/on-demand-apps-dashboard/maintenance.lock >/dev/null" || true
+}
+
+clear_maintenance_lock() {
+  ssh_productivity_vm "sudo rm -f /run/on-demand-apps-dashboard/maintenance.lock" || true
+}
+
 cd "$ROOT"
 
 [[ -f "$SECRETS" ]] || die "missing $SECRETS"
@@ -61,4 +79,8 @@ if ! grep -Fq "$target_recipient" "$SECRETS"; then
   die "$HOST cannot decrypt $SECRETS; add '$target_recipient' to .sops.yaml, then run: sops updatekeys secrets/secrets.yaml"
 fi
 
+set_maintenance_lock
+trap clear_maintenance_lock EXIT
 colmena apply --on "$HOST" switch
+trap - EXIT
+clear_maintenance_lock

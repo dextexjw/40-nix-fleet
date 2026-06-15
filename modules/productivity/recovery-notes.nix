@@ -27,11 +27,12 @@ in
         productivity-vm service model
         =============================
 
-        productivity-vm runs AFFiNE, Gitea, Forgejo, Material for MkDocs,
-        Paperless-ngx, FreshRSS, SearXNG, Vaultwarden, PrivateBin, Syncthing,
-        Stirling PDF, Firefly III, Nextcloud, OpenSpeedTest, InvoicePlane,
-        Memos, netboot.xyz, iperf3, RustDesk, Shlink, Garage, RustFS, ntfy,
-        nginx, PostgreSQL, MariaDB, Redis, and Restic appdata backups.
+        productivity-vm runs AFFiNE, the On-Demand Apps Dashboard, Gitea, Forgejo,
+        Material for MkDocs, Paperless-ngx, FreshRSS, SearXNG, Vaultwarden,
+        PrivateBin, Syncthing, Stirling PDF, Firefly III, Nextcloud,
+        OpenSpeedTest, InvoicePlane, Memos, netboot.xyz, iperf3, RustDesk,
+        Shlink, Garage, RustFS, ntfy, nginx, PostgreSQL, MariaDB, Redis, and
+        Restic appdata backups.
 
         Persistent state root:
           ${appdata}
@@ -47,6 +48,7 @@ in
 
         Direct LAN ports:
           AFFiNE: ${toString cfg.ports.affine}
+          On-Demand Apps Dashboard: ${toString cfg.onDemandLauncher.port} (gateway-vm only)
           Gitea: ${toString cfg.ports.gitea}
           Forgejo: ${toString cfg.ports.forgejo}
           SearXNG: ${toString cfg.ports.searxng}
@@ -87,6 +89,20 @@ in
 
         Services stopped during consistency-first manual backup:
           ${concatStringsSep " " statefulServices}
+
+        On-demand productivity apps:
+          Launcher: ${cfg.onDemandLauncher.publicBaseUrl}
+          Backend: ${config.networking.hostName}:${toString cfg.onDemandLauncher.port}, source-restricted to gateway-vm
+          Bundles:
+            gitea: gitea.service, gitea-oidc-config.service
+            stirling-pdf: stirling-pdf.service
+            firefly: phpfpm-firefly-iii.service, firefly-iii-cron.timer
+          Gitea, Stirling PDF, and Firefly III are installed but not wanted by
+          boot targets. Homepage links those cards to the launcher. The launcher
+          refuses actions while backup, restore-check, dump, migration, or
+          deployment lock signals are active. The manual backup helper preserves
+          each on-demand app's pre-backup running/stopped state; destructive
+          restore leaves on-demand apps stopped until relaunched.
 
         Garage is standalone S3 in this pass. It does not back Nextcloud primary
         storage. ${serviceHosts.garage} is the authenticated S3 API, so anonymous
@@ -146,7 +162,8 @@ in
         Gitea OIDC uses the encrypted gitea-oidc-client-secret shared between
         gateway-vm Authentik provisioning and gitea-oidc-config.service.
         Authentik allows productivity-users, and local Gitea username/password
-        login remains enabled for break-glass access.
+        login remains enabled for break-glass access. Gitea is started on demand
+        through the On-Demand Apps Dashboard.
 
         Paperless OIDC uses the encrypted paperless-oidc-client-secret shared
         between gateway-vm Authentik provisioning and this host's paperless-owned

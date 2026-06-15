@@ -1,9 +1,11 @@
 # productivity-vm
 
-`productivity-vm` runs the personal productivity stack, AFFiNE, nginx-backed
-internal apps, Git forges, OpenSpeedTest, iperf3, RustDesk, InvoicePlane,
-Shlink short links, Memos notes, netboot.xyz, standalone Garage and RustFS
-object storage, PostgreSQL, MariaDB, appdata backups, and restore checks.
+`productivity-vm` runs the personal productivity stack, AFFiNE, the
+On-Demand Apps Dashboard, nginx-backed internal apps, Git forges,
+OpenSpeedTest, iperf3,
+RustDesk, InvoicePlane, Shlink short links, Memos notes, netboot.xyz,
+standalone Garage and RustFS object storage, PostgreSQL, MariaDB, appdata
+backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
 `configuration.nix` and imports the stack from
@@ -33,6 +35,7 @@ path backed up by Restic.
 | Service | Canonical route | Alias | Backend |
 | --- | --- | --- | --- |
 | AFFiNE | `https://affine.jax22.com` | `http://affine.h` | `10.2.20.114:3010` |
+| On-Demand Apps Dashboard | `https://ondemand.jax22.com` | none | `10.2.20.114:8092` from `gateway-vm` only |
 | Gitea | `https://gitea.jax22.com` | `http://gitea.h` | `10.2.20.114:3000` |
 | Forgejo | `https://forgejo.jax22.com` | `http://forgejo.h` | `10.2.20.114:3002` |
 | Material for MkDocs | `https://docs.jax22.com` | `http://docs.h` | `10.2.20.114:80` |
@@ -60,6 +63,8 @@ path backed up by Restic.
 | ntfy | `https://ntfy.jax22.com` | `http://ntfy.h` | `10.2.20.114:2586` |
 
 Traefik routes and Homepage cards are declared on `gateway-vm`.
+The On-Demand Apps Dashboard route is protected by Authentik forward-auth for
+`productivity-users`; its backend port is source-restricted to `gateway-vm`.
 netboot.xyz local assets are served at `10.2.20.114:8083`; TFTP is served at
 `10.2.20.114:69/udp` with boot file `netboot.xyz.efi`.
 
@@ -106,6 +111,25 @@ downloaded assets under `/srv/appsdata/netbootxyz`. Configure the LAN DHCP
 server to point option 66 at `10.2.20.114` and option 67 at
 `netboot.xyz.efi`. Gateway Traefik routes only the browser UI; the asset server
 and TFTP listener are direct Productivity LAN services.
+
+## On-Demand Apps
+
+Homepage cards for Gitea, Stirling PDF, and Firefly III open the On-Demand Apps
+Dashboard instead of assuming the app is already running. The dashboard starts the
+allowlisted units, waits for the app health check, redirects to the normal app
+URL, and can stop the app again.
+
+Initial bundles:
+
+- `gitea`: `gitea.service`, then `gitea-oidc-config.service`.
+- `stirling-pdf`: `stirling-pdf.service`.
+- `firefly`: `phpfpm-firefly-iii.service` and `firefly-iii-cron.timer`.
+
+These units remain installed but are not wanted by boot targets. Core services
+such as nginx, PostgreSQL, MariaDB, backups, restore checks, Gateway,
+Homepage, Traefik, and Authentik stay always-on. Dashboard actions are refused
+while backup, restore-check, dump, app migration, or deployment lock signals are
+active under `/run/on-demand-apps-dashboard/maintenance.lock`.
 
 ## Secrets
 
@@ -304,6 +328,9 @@ Recommended consistency-first manual backup:
 scripts/productivity-vm/create-productivity-backup.sh
 ```
 
+The manual backup helper records whether each on-demand app was running before
+the backup and only restarts those apps afterward.
+
 Post-deploy validation:
 
 ```sh
@@ -318,7 +345,8 @@ Destructive restore outline:
 4. Choose a `productivity-vm` appdata snapshot ID.
 5. Restore the snapshot to `/` with `restic --verify`.
 6. Run `systemd-tmpfiles --create`.
-7. Restart PostgreSQL, MariaDB, and productivity services.
+7. Restart PostgreSQL, MariaDB, and always-on productivity services. On-demand
+   apps remain stopped until opened through the On-Demand Apps Dashboard.
 
 Garage is standalone S3 in this pass. It does not back Nextcloud primary
 storage. `garage.jax22.com` is the authenticated S3 API, so anonymous browser
@@ -369,7 +397,7 @@ visible on the Memos sign-in page without disabling existing local auth.
 Gitea uses Authentik native OIDC for `productivity-users`.
 `gitea-oidc-client-secret` is shared between Gateway Authentik provisioning and
 `gitea-oidc-config.service`. Local Gitea password login stays enabled for
-break-glass access.
+break-glass access. Gitea is started on demand through the On-Demand Apps Dashboard.
 
 Forgejo uses Authentik native OIDC for `productivity-users`.
 `forgejo-oidc-client-secret` is shared between Gateway Authentik provisioning

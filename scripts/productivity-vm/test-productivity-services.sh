@@ -15,9 +15,9 @@ KEY_SERVICES=(
   postgresql
   redis-affine
   podman-affine
-  gitea
   forgejo
   nginx
+  on-demand-apps-dashboard
   paperless-scheduler
   paperless-task-queue
   paperless-consumer
@@ -28,8 +28,6 @@ KEY_SERVICES=(
   vaultwarden
   phpfpm-privatebin
   syncthing
-  stirling-pdf
-  phpfpm-firefly-iii
   phpfpm-nextcloud
   podman-openspeedtest
   phpfpm-invoiceplane
@@ -44,6 +42,11 @@ KEY_SERVICES=(
   podman-shlink-web
   podman-rustfs
   ntfy-sh
+)
+ON_DEMAND_SERVICES=(
+  gitea
+  phpfpm-firefly-iii
+  stirling-pdf
 )
 
 HOST_ROUTES=(
@@ -89,9 +92,7 @@ declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
   [rustdesk-relay]=1
   [rustdesk-signal]=1
 )
-declare -A DISABLED_SERVICE=(
-  [stirling-pdf]=1
-)
+declare -A DISABLED_SERVICE=()
 declare -A SKIPPED_SERVICE=()
 
 die() {
@@ -130,6 +131,12 @@ service_unit_is_loaded() {
   colmena exec --on "$HOST" -- "systemctl show '$service.service' -p LoadState --value | grep -Fxq loaded" >/dev/null 2>&1
 }
 
+service_unit_is_active() {
+  local service="$1"
+
+  colmena exec --on "$HOST" -- systemctl is-active --quiet "$service.service" >/dev/null 2>&1
+}
+
 service_is_skipped() {
   local service="$1"
 
@@ -161,6 +168,12 @@ route_is_skipped() {
       ;;
     forgejo.*)
       service_is_skipped forgejo
+      ;;
+    firefly.*)
+      service_is_skipped phpfpm-firefly-iii
+      ;;
+    gitea.*)
+      service_is_skipped gitea
       ;;
     invoiceplane.*)
       service_is_skipped phpfpm-invoiceplane
@@ -215,6 +228,24 @@ for service in "${KEY_SERVICES[@]}"; do
   colmena exec --on "$HOST" -- systemctl is-active --quiet "$service.service"
 done
 
+printf 'Checking on-demand app units...\n'
+for service in "${ON_DEMAND_SERVICES[@]}"; do
+  colmena exec --on "$HOST" -- "systemctl cat '$service.service' >/dev/null"
+  colmena exec --on "$HOST" -- "sh -lc '! systemctl is-enabled --quiet \"\$1\"' sh '$service.service'"
+  if service_unit_is_active "$service"; then
+    printf '%s.service is currently running; app-specific checks will run.\n' "$service"
+  else
+    printf 'Skipping active checks for %s.service because it is stopped on demand.\n' "$service"
+    SKIPPED_SERVICE[$service]=1
+  fi
+done
+colmena exec --on "$HOST" -- "systemctl cat firefly-iii-cron.timer >/dev/null"
+colmena exec --on "$HOST" -- "sh -lc '! systemctl is-enabled --quiet \"\$1\"' sh firefly-iii-cron.timer"
+colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8092/healthz >/dev/null"
+for app in gitea firefly stirling-pdf; do
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8092/apps/$app/status >/dev/null"
+done
+
 printf 'Checking backup and restore validation...\n'
 colmena exec --on "$HOST" -- "sh -lc 'findmnt -rn --target /mnt/backups >/dev/null || mount /mnt/backups'"
 colmena exec --on "$HOST" -- systemctl start productivity-appdata-backup.service
@@ -235,16 +266,18 @@ if ! service_is_skipped podman-affine; then
   colmena exec --on "$HOST" -- test -d /srv/appsdata/affine/storage
   colmena exec --on "$HOST" -- test -d /srv/appsdata/affine/config
 fi
-colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/ >/dev/null"
-if allow_missing_unit gitea-oidc-config.service; then
-  printf 'Skipping Gitea OIDC source checks because gitea-oidc-config.service is not deployed yet.\n'
-else
-  colmena exec --on "$HOST" -- "systemctl show gitea-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show gitea-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
-  colmena exec --on "$HOST" -- "sudo -u postgres psql -d gitea -tAc \"select count(*) from login_source where name = 'authentik' and type = 6 and is_active\" | tr -d '[:space:]' | grep -Fxq 1"
-  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq '/user/oauth2/authentik'"
-  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq 'name=\"user_name\"'"
-  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq 'name=\"password\"'"
-  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://gitea.jax22.com/user/login | grep -Fq '/user/oauth2/authentik'"
+if ! service_is_skipped gitea; then
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/ >/dev/null"
+  if allow_missing_unit gitea-oidc-config.service; then
+    printf 'Skipping Gitea OIDC source checks because gitea-oidc-config.service is not deployed yet.\n'
+  else
+    colmena exec --on "$HOST" -- "systemctl show gitea-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show gitea-oidc-config.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+    colmena exec --on "$HOST" -- "sudo -u postgres psql -d gitea -tAc \"select count(*) from login_source where name = 'authentik' and type = 6 and is_active\" | tr -d '[:space:]' | grep -Fxq 1"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq '/user/oauth2/authentik'"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq 'name=\"user_name\"'"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3000/user/login | grep -Fq 'name=\"password\"'"
+    colmena exec --on "$HOST" -- "curl -fsS --max-time 10 https://gitea.jax22.com/user/login | grep -Fq '/user/oauth2/authentik'"
+  fi
 fi
 if allow_missing_paperless_oidc_environment; then
   printf 'Skipping Paperless OIDC provider checks because paperless-oidc-environment is not deployed yet.\n'
@@ -300,6 +333,9 @@ colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8222/ >/d
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8384/ >/dev/null"
 if ! service_is_skipped stirling-pdf; then
   colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 http://127.0.0.1:8086/); case \"\$status\" in 2*|3*|401) exit 0 ;; *) echo \"unexpected Stirling PDF status: \$status\" >&2; exit 1 ;; esac'"
+fi
+if ! service_is_skipped phpfpm-firefly-iii; then
+  colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 -H \"Host: firefly.jax22.com\" http://127.0.0.1/); case \"\$status\" in 2*|3*) exit 0 ;; *) echo \"unexpected Firefly III status: \$status\" >&2; exit 1 ;; esac'"
 fi
 if ! service_is_skipped podman-openspeedtest; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8989/ >/dev/null"

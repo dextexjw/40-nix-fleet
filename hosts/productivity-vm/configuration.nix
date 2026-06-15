@@ -356,7 +356,4 @@ in
     smb.backupDevice = "//nas.home.arpa/backups";
   };
 
-  services.stirling-pdf.enable = lib.mkForce false;
-  systemd.services.stirling-pdf.enable = lib.mkForce false;
-
 }
