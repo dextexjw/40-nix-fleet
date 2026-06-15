@@ -114,13 +114,14 @@ and TFTP listener are direct Productivity LAN services.
 
 ## On-Demand Apps
 
-Homepage cards for Gitea, Stirling PDF, and Firefly III open the On-Demand Apps
-Dashboard instead of assuming the app is already running. The dashboard starts the
-allowlisted units, waits for the app health check, redirects to the normal app
-URL, and can stop the app again.
+Homepage cards for AFFiNE, Gitea, Stirling PDF, and Firefly III open the
+On-Demand Apps Dashboard instead of assuming the app is already running. The
+dashboard starts the allowlisted units, waits for the app health check, redirects
+to the normal app URL, and can stop the app again.
 
 Initial bundles:
 
+- `affine`: `redis-affine.service`, then `podman-affine.service`.
 - `gitea`: `gitea.service`, then `gitea-oidc-config.service`.
 - `stirling-pdf`: `stirling-pdf.service`.
 - `firefly`: `phpfpm-firefly-iii.service` and `firefly-iii-cron.timer`.
@@ -215,11 +216,11 @@ separate from same-named local users by Nextcloud's unique OIDC user IDs, and
 `allow_multiple_user_backends=1` keeps local username/password login available
 for break-glass access.
 
-AFFiNE runs as `podman-affine.service` on `10.2.20.114:3010`, stores uploads
-and config under `/srv/appsdata/affine`, uses PostgreSQL database `affine`, and
-uses `redis-affine.service` as a host-local volatile Redis cache. The
-`affine-environment` secret supplies `DB_PASSWORD`; the service generates the
-derived `DATABASE_URL` under `/run/affine/environment` at runtime.
+AFFiNE starts on demand as `podman-affine.service` on `10.2.20.114:3010`, stores
+uploads and config under `/srv/appsdata/affine`, uses PostgreSQL database
+`affine`, and uses `redis-affine.service` as a host-local volatile Redis cache.
+The `affine-environment` secret supplies `DB_PASSWORD`; the service generates
+the derived `DATABASE_URL` under `/run/affine/environment` at runtime.
 
 Gateway Authentik provisioning creates the `affine` OIDC client for
 `productivity-users` with callback `https://affine.jax22.com/oauth/callback`.

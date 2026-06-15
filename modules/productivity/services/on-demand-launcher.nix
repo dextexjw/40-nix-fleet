@@ -145,6 +145,8 @@ in
     blockedUnits = mkOption {
       type = types.listOf types.str;
       default = [
+        "affine-postgresql-extensions.service"
+        "affine-postgresql-password.service"
         "firefly-iii-setup.service"
         "gitea-oidc-config.service"
         "nixos-upgrade.service"
@@ -160,6 +162,29 @@ in
     bundles = mkOption {
       type = types.attrsOf bundleType;
       default = {
+        affine = {
+          name = "AFFiNE";
+          description = "Collaborative docs and whiteboards";
+          url = "https://${cfg.serviceHosts.affine}/";
+          startUnits = [
+            "redis-affine.service"
+            "podman-affine.service"
+          ];
+          stopUnits = [
+            "podman-affine.service"
+            "redis-affine.service"
+          ];
+          statusUnits = [
+            "podman-affine.service"
+            "redis-affine.service"
+          ];
+          health = {
+            headers.Host = cfg.serviceHosts.affine;
+            url = "http://127.0.0.1:${toString cfg.ports.affine}/";
+            waitSeconds = 180;
+          };
+        };
+
         firefly = {
           name = "Firefly III";
           description = "Personal finance";
@@ -288,6 +313,8 @@ in
       wantedBy = mkForce [ ];
     };
     systemd.services.phpfpm-firefly-iii.wantedBy = mkForce [ ];
+    systemd.services.podman-affine.wantedBy = mkForce [ ];
+    systemd.services.redis-affine.wantedBy = mkForce [ ];
     systemd.services.stirling-pdf.wantedBy = mkForce [ ];
     systemd.timers.firefly-iii-cron.wantedBy = mkForce [ ];
 

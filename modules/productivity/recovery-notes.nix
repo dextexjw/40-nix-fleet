@@ -94,15 +94,16 @@ in
           Launcher: ${cfg.onDemandLauncher.publicBaseUrl}
           Backend: ${config.networking.hostName}:${toString cfg.onDemandLauncher.port}, source-restricted to gateway-vm
           Bundles:
+            affine: redis-affine.service, podman-affine.service
             gitea: gitea.service, gitea-oidc-config.service
             stirling-pdf: stirling-pdf.service
             firefly: phpfpm-firefly-iii.service, firefly-iii-cron.timer
-          Gitea, Stirling PDF, and Firefly III are installed but not wanted by
-          boot targets. Homepage links those cards to the launcher. The launcher
-          refuses actions while backup, restore-check, dump, migration, or
-          deployment lock signals are active. The manual backup helper preserves
-          each on-demand app's pre-backup running/stopped state; destructive
-          restore leaves on-demand apps stopped until relaunched.
+          AFFiNE, Gitea, Stirling PDF, and Firefly III are installed but not
+          wanted by boot targets. Homepage links those cards to the launcher.
+          The launcher refuses actions while backup, restore-check, dump,
+          migration, or deployment lock signals are active. The manual backup
+          helper preserves each on-demand app's pre-backup running/stopped state;
+          destructive restore leaves on-demand apps stopped until relaunched.
 
         Garage is standalone S3 in this pass. It does not back Nextcloud primary
         storage. ${serviceHosts.garage} is the authenticated S3 API, so anonymous
@@ -190,7 +191,8 @@ in
         and uses the PostgreSQL database named affine. The AFFiNE container runs
         database migrations before each server start through podman-affine.service
         and uses a host-local redis-affine.service instance as volatile cache and
-        job state. affine-environment supplies DB_PASSWORD; the derived
+        job state. AFFiNE is started on demand through the On-Demand Apps
+        Dashboard. affine-environment supplies DB_PASSWORD; the derived
         DATABASE_URL is generated at runtime under /run/affine/environment so it
         is not stored in the Nix store. Authentik provisions the affine OIDC
         client for productivity-users with callback

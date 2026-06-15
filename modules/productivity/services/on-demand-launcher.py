@@ -41,11 +41,19 @@ STATUS_LABELS = {
     "starting": "Starting",
     "stopped": "Stopped",
 }
+STATUS_RING_LABELS = {
+    "failed": "ALERT",
+    "running": "READY",
+    "starting": "WAIT",
+    "stopped": "IDLE",
+    "stopping": "STOP",
+}
 STATE_CAPTIONS = {
     "failed": "Startup needs attention",
     "running": "Ready to open",
     "starting": "Starting and checking health",
     "stopped": "Idle and offline",
+    "stopping": "Stopping and releasing resources",
 }
 INTERACTION_SCRIPT = r"""
 (() => {
@@ -58,6 +66,13 @@ INTERACTION_SCRIPT = r"""
     starting: "Starting",
     stopping: "Stopping",
     stopped: "Stopped",
+  };
+  const STATUS_RING_LABELS = {
+    failed: "ALERT",
+    running: "READY",
+    starting: "WAIT",
+    stopping: "STOP",
+    stopped: "IDLE",
   };
   const STATE_CAPTIONS = {
     failed: "Startup needs attention",
@@ -77,6 +92,10 @@ INTERACTION_SCRIPT = r"""
 
   function statusLabel(status) {
     return STATUS_LABELS[status] || String(status || "").toUpperCase();
+  }
+
+  function statusRingLabel(status) {
+    return STATUS_RING_LABELS[status] || statusLabel(status);
   }
 
   function sleep(ms) {
@@ -166,6 +185,40 @@ INTERACTION_SCRIPT = r"""
     setText(panel, "[data-role='state-copy']", STATE_CAPTIONS[status.status] || statusLabel(status.status));
   }
 
+  function setDocumentText(selector, value) {
+    document.querySelectorAll(selector).forEach((element) => {
+      element.textContent = value;
+    });
+  }
+
+  function updateDashboardSummary() {
+    const panels = Array.from(document.querySelectorAll("[data-app-card]"));
+    if (!panels.length) {
+      return;
+    }
+    const totals = panels.reduce(
+      (summary, panel) => {
+        const state = panel.dataset.status || "stopped";
+        if (state === "running") {
+          summary.running += 1;
+        } else if (state === "stopped") {
+          summary.stopped += 1;
+        }
+        summary.safety = Math.max(summary.safety, Number(panel.dataset.blockedCount || 0));
+        return summary;
+      },
+      { running: 0, safety: 0, stopped: 0 }
+    );
+    setDocumentText("[data-summary='running']", String(totals.running));
+    setDocumentText("[data-summary='stopped']", String(totals.stopped));
+    setDocumentText("[data-summary='safety']", String(totals.safety));
+    setDocumentText("[data-summary='total']", String(panels.length));
+    setDocumentText(
+      "[data-summary='hero-copy']",
+      `${totals.running} running / ${totals.stopped} stopped / ${totals.safety} safety locks`
+    );
+  }
+
   function showActivity(panel, message, stage, title = "Working", mode = "start") {
     const activity = panel.querySelector("[data-activity-panel]");
     if (!activity) {
@@ -218,10 +271,15 @@ INTERACTION_SCRIPT = r"""
 
   function updatePanel(panel, status, busy = false) {
     panel.dataset.status = status.status;
+    panel.dataset.blockedCount = String(status.blocked ? status.blocked.length : Number(panel.dataset.blockedCount || 0));
     const chip = panel.querySelector("[data-role='status-chip']");
     if (chip) {
       chip.className = `status ${status.status}`;
       chip.textContent = statusLabel(status.status);
+    }
+    const statusRing = panel.querySelector("[data-role='status-ring']");
+    if (statusRing) {
+      statusRing.dataset.value = statusRingLabel(status.status);
     }
     const active = status.active_units ?? Number(panel.dataset.activeUnits || 0);
     const total = status.unit_count ?? (status.units ? Object.keys(status.units).length : Number(panel.dataset.unitCount || 0));
@@ -229,8 +287,10 @@ INTERACTION_SCRIPT = r"""
     panel.dataset.unitCount = String(total);
     setText(panel, "[data-role='unit-count']", `${active}/${total} units active`);
     setText(panel, "[data-role='health']", statusLabel(status.status));
+    setText(panel, "[data-role='safety']", status.blocked && status.blocked.length ? "Locked" : "Clear");
     setStateFlow(panel, status);
     setControls(panel, status, busy);
+    updateDashboardSummary();
   }
 
   async function fetchStatus(appId) {
@@ -365,6 +425,10 @@ def status_label(status):
     return STATUS_LABELS.get(status, status.upper())
 
 
+def status_ring_label(status):
+    return STATUS_RING_LABELS.get(status, status_label(status))
+
+
 def active_unit_count(status):
     return sum(
         1
@@ -377,8 +441,13 @@ def state_caption(status):
     return STATE_CAPTIONS.get(status, status_label(status))
 
 
-def render_state_flow(status):
+def render_state_flow(status, include_copy=True):
     current = status["status"]
+    copy_html = (
+        f'\n  <div class="state-copy" data-role="state-copy">{esc(state_caption(current))}</div>'
+        if include_copy
+        else ""
+    )
     return f"""<div class="state-flow {esc(current)}" data-role="state-flow" data-status="{esc(current)}" aria-label="Current state: {esc(status_label(current))}">
   <div class="state-rail" aria-hidden="true">
     <span class="state-fill"></span>
@@ -391,7 +460,7 @@ def render_state_flow(status):
     <span>Starting</span>
     <span>Live</span>
   </div>
-  <div class="state-copy" data-role="state-copy">{esc(state_caption(current))}</div>
+  {copy_html}
 </div>"""
 
 
@@ -475,12 +544,22 @@ def systemctl(*args, check=False):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        timeout=60,
+        timeout=240,
     )
     if check and result.returncode != 0:
         message = result.stderr.strip() or result.stdout.strip() or "systemctl failed"
         raise RuntimeError(message)
     return result
+
+
+def reset_failed_units(units):
+    seen = set()
+    for unit in units:
+        if unit in seen:
+            continue
+        seen.add(unit)
+        if unit_state(unit)["ActiveState"] == "failed":
+            systemctl("reset-failed", unit)
 
 
 def unit_state(unit):
@@ -628,8 +707,10 @@ def render_page(title, body, status=HTTPStatus.OK):
       --accent: #0a8fa3;
       --accent-bright: #16b2c8;
       --danger: #e5484d;
+      --mono: "JetBrains Mono", var(--system-mono);
       --warn: #efe6a0;
       --ok: #8fcf9b;
+      --system-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       color-scheme: dark;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       line-height: 1.45;
@@ -673,7 +754,7 @@ def render_page(title, body, status=HTTPStatus.OK):
 	    }}
 		    .brand-name {{
 		      color: var(--text);
-		      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		      font-family: var(--mono);
 		      font-size: 0.88rem;
 		      font-weight: 800;
 	      letter-spacing: 0;
@@ -684,7 +765,7 @@ def render_page(title, body, status=HTTPStatus.OK):
 	    }}
 	    .topbar-meta {{
 	      color: var(--muted);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 0.72rem;
 	      font-weight: 800;
 	      letter-spacing: 0;
@@ -699,7 +780,7 @@ def render_page(title, body, status=HTTPStatus.OK):
     }}
 	    .eyebrow, .label {{
 	      color: var(--accent-bright);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 0.72rem;
 	      font-weight: 800;
 	      letter-spacing: 0;
@@ -740,7 +821,7 @@ def render_page(title, body, status=HTTPStatus.OK):
 	      max-width: 760px;
 	      margin-top: 10px;
 	      color: var(--text);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 3.4rem;
 	      font-weight: 500;
 	      letter-spacing: 0;
@@ -760,7 +841,7 @@ def render_page(title, body, status=HTTPStatus.OK):
     }}
 	    .hero-number {{
 	      color: var(--text);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 7rem;
 	      font-weight: 300;
 	      line-height: 0.9;
@@ -772,7 +853,7 @@ def render_page(title, body, status=HTTPStatus.OK):
     .hero-caption {{
       margin-top: 8px;
 	      color: var(--muted);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 0.72rem;
 	      letter-spacing: 0;
 	      text-transform: uppercase;
@@ -798,7 +879,7 @@ def render_page(title, body, status=HTTPStatus.OK):
     .summary-value {{
       margin-top: 10px;
       color: var(--text);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-family: var(--mono);
       font-size: 3.4rem;
       font-weight: 300;
       line-height: 1;
@@ -810,15 +891,16 @@ def render_page(title, body, status=HTTPStatus.OK):
     }}
     .app-card {{
       display: grid;
-      gap: 16px;
-      min-height: 320px;
+      grid-template-rows: auto 1fr auto;
+      gap: 14px;
+      min-height: 390px;
       border: 1px solid var(--line);
       background: var(--panel);
-      padding: 16px;
+      padding: 18px;
     }}
     .app-title {{
 	      color: var(--text);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 1.1rem;
 	      font-weight: 700;
 	      letter-spacing: 0;
@@ -833,12 +915,12 @@ def render_page(title, body, status=HTTPStatus.OK):
 	      background: rgba(104, 115, 111, 0.08);
 	      padding: 4px 10px;
 		      color: var(--muted);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 0.72rem;
 	      font-weight: 800;
 	      letter-spacing: 0;
-		      text-transform: uppercase;
-		      white-space: nowrap;
+	      text-transform: uppercase;
+	      white-space: nowrap;
 		    }}
 	    .status::before {{
 	      content: "";
@@ -873,16 +955,134 @@ def render_page(title, body, status=HTTPStatus.OK):
 	      background: rgba(229, 72, 77, 0.08);
 	      color: var(--danger);
 	    }}
+    .status-ring {{
+      display: grid;
+      place-items: center;
+      width: 70px;
+      height: 70px;
+      border: 1px solid rgba(83, 98, 94, 0.72);
+      background:
+        conic-gradient(currentColor 0deg, rgba(104, 115, 111, 0.18) 0),
+        rgba(20, 23, 22, 0.82);
+      border-radius: 50%;
+      color: var(--dim);
+    }}
+    .status-ring::after {{
+      content: attr(data-value);
+      display: grid;
+      place-items: center;
+      width: 46px;
+      height: 46px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 50%;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 800;
+    }}
+    .app-card[data-status="running"] .status-ring {{
+      background:
+        conic-gradient(var(--ok) 360deg, rgba(104, 115, 111, 0.18) 0),
+        rgba(20, 23, 22, 0.82);
+      color: var(--ok);
+    }}
+    .app-card[data-status="starting"] .status-ring,
+    .app-card[data-status="stopping"] .status-ring {{
+      background:
+        conic-gradient(var(--warn) 180deg, rgba(104, 115, 111, 0.18) 0),
+        rgba(20, 23, 22, 0.82);
+      color: var(--warn);
+    }}
+    .app-card[data-status="failed"] .status-ring {{
+      background:
+        conic-gradient(var(--danger) 180deg, rgba(104, 115, 111, 0.18) 0),
+        rgba(20, 23, 22, 0.82);
+      color: var(--danger);
+    }}
+    .state-summary {{
+      display: grid;
+      gap: 7px;
+      min-height: 30px;
+      position: relative;
+    }}
+    .state-summary .status {{
+      width: fit-content;
+    }}
+    .state-summary p {{
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      z-index: 10;
+      width: min(320px, 100%);
+      border: 1px solid var(--line-bright);
+      background: rgba(16, 18, 17, 0.98);
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.32);
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.35;
+      opacity: 0;
+      padding: 9px 10px;
+      pointer-events: none;
+      transform: translateY(-3px);
+      transition: opacity 140ms ease, transform 140ms ease;
+    }}
+    .state-summary .status:hover + p,
+    .state-summary .status:focus + p,
+    .state-summary .status:focus-visible + p {{
+      opacity: 1;
+      transform: translateY(0);
+    }}
+    .card-mid {{
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }}
+    .quick-stats {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border: 1px solid var(--line);
+      background: rgba(24, 28, 27, 0.66);
+    }}
+    .quick-stat {{
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      padding: 9px;
+      border-right: 1px solid var(--line);
+    }}
+    .quick-stat:last-child {{
+      border-right: 0;
+    }}
+    .quick-stat span {{
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }}
+    .quick-stat strong {{
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+      text-transform: uppercase;
+    }}
 	    .state-flow {{
 	      display: grid;
-	      gap: 8px;
+	      gap: 10px;
 	      border: 1px solid var(--line);
-	      background: rgba(24, 28, 27, 0.72);
-	      padding: 12px;
+	      background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.026), transparent 42%),
+          rgba(24, 28, 27, 0.72);
+	      padding: 14px 16px 12px;
 	    }}
 	    .state-rail {{
 	      position: relative;
-	      height: 26px;
+	      height: 32px;
+	      margin: 0 7px;
 	    }}
 	    .state-rail::before, .state-fill {{
 	      content: "";
@@ -890,43 +1090,52 @@ def render_page(title, body, status=HTTPStatus.OK):
 	      top: 50%;
 	      left: 0;
 	      right: 0;
-	      height: 3px;
+	      height: 4px;
 	      transform: translateY(-50%);
 	    }}
 	    .state-rail::before {{
-	      background: rgba(104, 115, 111, 0.38);
+	      background: rgba(104, 115, 111, 0.28);
+	      box-shadow: 0 0 0 1px rgba(104, 115, 111, 0.10);
 	    }}
 	    .state-fill {{
 	      right: auto;
 	      width: 0;
 	      background: var(--accent-bright);
+	      box-shadow: 0 0 10px rgba(22, 178, 200, 0.20);
 	      transition: width 360ms ease, background 180ms ease;
 	    }}
 	    .state-flow.stopped .state-fill {{
 	      width: 0;
 	      background: var(--dim);
+	      box-shadow: none;
 	    }}
 	    .state-flow.starting .state-fill, .state-flow.stopping .state-fill {{
 	      width: 50%;
 	      background: var(--warn);
+	      box-shadow: 0 0 12px rgba(239, 230, 160, 0.22);
 	    }}
 	    .state-flow.running .state-fill {{
 	      width: 100%;
 	      background: var(--ok);
+	      box-shadow: 0 0 12px rgba(143, 207, 155, 0.22);
 	    }}
 	    .state-flow.failed .state-fill {{
 	      width: 50%;
 	      background: var(--danger);
+	      box-shadow: 0 0 12px rgba(229, 72, 77, 0.20);
 	    }}
 	    .state-node {{
 	      position: absolute;
 	      top: 50%;
-	      width: 14px;
-	      height: 14px;
+	      width: 16px;
+	      height: 16px;
 	      border: 2px solid var(--line-bright);
 	      border-radius: 50%;
 	      background: var(--panel);
 	      transform: translate(-50%, -50%);
+	      box-shadow:
+          0 0 0 4px rgba(16, 18, 17, 0.82),
+          0 0 0 5px rgba(83, 98, 94, 0.18);
 	      transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 	    }}
 	    .node-stopped {{
@@ -945,7 +1154,17 @@ def render_page(title, body, status=HTTPStatus.OK):
 	    .state-flow.failed .node-starting {{
 	      background: currentColor;
 	      border-color: currentColor;
-	      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05);
+	      box-shadow:
+          0 0 0 4px rgba(16, 18, 17, 0.82),
+          0 0 0 6px rgba(255, 255, 255, 0.05),
+          0 0 16px rgba(255, 255, 255, 0.10);
+	    }}
+	    .state-flow.starting .node-stopped,
+	    .state-flow.stopping .node-stopped,
+	    .state-flow.running .node-stopped,
+	    .state-flow.running .node-starting {{
+	      border-color: currentColor;
+	      background: rgba(24, 28, 27, 0.92);
 	    }}
 	    .state-flow.running {{
 	      color: var(--ok);
@@ -962,11 +1181,13 @@ def render_page(title, body, status=HTTPStatus.OK):
 	    .state-labels {{
 	      display: grid;
 	      grid-template-columns: repeat(3, minmax(0, 1fr));
+	      gap: 10px;
 	      color: var(--muted);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 0.68rem;
 	      font-weight: 800;
 	      letter-spacing: 0;
+	      line-height: 1.15;
 	      text-transform: uppercase;
 	    }}
 	    .state-labels span:nth-child(2) {{
@@ -974,6 +1195,13 @@ def render_page(title, body, status=HTTPStatus.OK):
 	    }}
 	    .state-labels span:nth-child(3) {{
 	      text-align: right;
+	    }}
+	    .state-flow.stopped .state-labels span:nth-child(1),
+	    .state-flow.starting .state-labels span:nth-child(2),
+	    .state-flow.stopping .state-labels span:nth-child(2),
+	    .state-flow.running .state-labels span:nth-child(3),
+	    .state-flow.failed .state-labels span:nth-child(2) {{
+	      color: var(--text);
 	    }}
 	    .state-copy {{
 	      color: var(--text);
@@ -994,7 +1222,7 @@ def render_page(title, body, status=HTTPStatus.OK):
 	      background: #26312e;
 	      color: var(--text);
       cursor: pointer;
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 0.78rem;
 	      font-weight: 800;
 	      letter-spacing: 0;
@@ -1066,7 +1294,7 @@ def render_page(title, body, status=HTTPStatus.OK):
 	      display: block;
 	      margin-bottom: 8px;
 	      color: var(--text);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 0.82rem;
 	      letter-spacing: 0;
 	      text-transform: uppercase;
@@ -1129,7 +1357,7 @@ def render_page(title, body, status=HTTPStatus.OK):
 	    }}
 		    .activity-stage {{
 		      color: var(--muted);
-		      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		      font-family: var(--mono);
 		      font-size: 0.7rem;
 		      font-weight: 800;
 		      letter-spacing: 0;
@@ -1152,7 +1380,7 @@ def render_page(title, body, status=HTTPStatus.OK):
 	    .detail-title {{
       margin-top: 10px;
 	      color: var(--text);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 3.6rem;
 	      font-weight: 300;
 	      letter-spacing: 0;
@@ -1171,7 +1399,7 @@ def render_page(title, body, status=HTTPStatus.OK):
       border: 1px solid var(--line);
       padding: 10px;
       color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-family: var(--mono);
       font-size: 0.78rem;
     }}
     .unit-name {{
@@ -1183,7 +1411,7 @@ def render_page(title, body, status=HTTPStatus.OK):
     }}
     .footer-note {{
 	      color: var(--dim);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-family: var(--mono);
 	      font-size: 0.68rem;
 	      letter-spacing: 0;
 	      text-transform: uppercase;
@@ -1289,20 +1517,31 @@ def render_index(user=""):
 
     cards = []
     for app, status in statuses:
+        active_units = active_unit_count(status)
+        total_units = len(status["units"])
+        description = app.get("description", "App")
+        safety = "Locked" if status["blocked"] else "Clear"
         cards.append(
-            f"""<article class="app-card" data-app-card data-app-id="{esc(app["id"])}" data-status="{esc(status["status"])}" data-active-units="{esc(active_unit_count(status))}" data-unit-count="{esc(len(status["units"]))}">
+            f"""<article class="app-card" data-app-card data-app-id="{esc(app["id"])}" data-status="{esc(status["status"])}" data-active-units="{esc(active_unit_count(status))}" data-unit-count="{esc(len(status["units"]))}" data-blocked-count="{esc(len(status["blocked"]))}">
   <div class="row">
     <div>
-      <div class="label">App</div>
+      <div class="label">{esc(description)}</div>
       <h2 class="app-title">{esc(app["name"])}</h2>
     </div>
-    <span class="status {esc(status["status"])}" data-role="status-chip">{esc(status_label(status["status"]))}</span>
+    <div class="status-ring" data-role="status-ring" data-value="{esc(status_ring_label(status["status"]))}" aria-hidden="true"></div>
   </div>
-  <div class="row">
-    <span class="footer-note" data-role="unit-count">{esc(active_unit_count(status))}/{esc(len(status["units"]))} units active</span>
+  <div class="card-mid">
+    <div class="state-summary">
+      <span class="status {esc(status["status"])}" data-role="status-chip" tabindex="0">{esc(status_label(status["status"]))}</span>
+      <p data-role="state-copy">{esc(state_caption(status["status"]))}</p>
+    </div>
+    {render_state_flow(status, include_copy=False)}
+    <div class="quick-stats">
+      <div class="quick-stat"><span>Units</span><strong data-role="unit-count">{esc(active_units)}/{esc(total_units)} units active</strong></div>
+      <div class="quick-stat"><span>Health</span><strong data-role="health">{esc(status_label(status["status"]))}</strong></div>
+      <div class="quick-stat"><span>Safety</span><strong data-role="safety">{esc(safety)}</strong></div>
+    </div>
   </div>
-  <p class="muted">{esc(app.get("description", ""))}</p>
-  {render_state_flow(status)}
   {render_activity(status)}
   {render_actions(app, status, user, compact=True)}
 </article>"""
@@ -1313,18 +1552,18 @@ def render_index(user=""):
     <div>
       <div class="eyebrow">Productivity VM</div>
       <h1>On-demand apps</h1>
-      <p class="hero-copy">{esc(running)} running / {esc(stopped)} stopped / {esc(len(blocked))} guards active</p>
+      <p class="hero-copy" data-summary="hero-copy">{esc(running)} running / {esc(stopped)} stopped / {esc(len(blocked))} safety locks</p>
     </div>
     <div class="hero-metric">
-      <div class="hero-number">{esc(running)}<small>/{esc(len(statuses))}</small></div>
+      <div class="hero-number"><span data-summary="running">{esc(running)}</span><small>/<span data-summary="total">{esc(len(statuses))}</span></small></div>
       <div class="hero-caption">apps running</div>
     </div>
   </section>
   {block_html}
   <section class="summary-grid">
-    <div class="summary-tile"><div class="label">Running</div><div class="summary-value">{esc(running)}</div></div>
-    <div class="summary-tile"><div class="label">Stopped</div><div class="summary-value">{esc(stopped)}</div></div>
-    <div class="summary-tile"><div class="label">Guards</div><div class="summary-value">{esc(len(blocked))}</div></div>
+    <div class="summary-tile"><div class="label">Running</div><div class="summary-value" data-summary="running">{esc(running)}</div></div>
+    <div class="summary-tile"><div class="label">Stopped</div><div class="summary-value" data-summary="stopped">{esc(stopped)}</div></div>
+    <div class="summary-tile"><div class="label">Safety</div><div class="summary-value" data-summary="safety">{esc(len(blocked))}</div></div>
   </section>
   <section class="panel">
     <div class="panel-header">
@@ -1350,7 +1589,7 @@ def render_app(app, message=None, status_code=HTTPStatus.OK, user=""):
             + "</ul></section>"
         )
     message_html = f'<section class="notice">{esc(message)}</section>' if message else ""
-    body = f"""<section class="dashboard" data-app-card data-app-id="{esc(app["id"])}" data-status="{esc(status["status"])}" data-active-units="{esc(active_unit_count(status))}" data-unit-count="{esc(len(status["units"]))}">
+    body = f"""<section class="dashboard" data-app-card data-app-id="{esc(app["id"])}" data-status="{esc(status["status"])}" data-active-units="{esc(active_unit_count(status))}" data-unit-count="{esc(len(status["units"]))}" data-blocked-count="{esc(len(status["blocked"]))}">
   {message_html}
   {block_html}
   <section class="detail-layout">
@@ -1567,6 +1806,7 @@ class Handler(BaseHTTPRequestHandler):
                 if action == "stop":
                     for unit in app.get("stop_units", []):
                         systemctl("stop", unit, check=True)
+                    reset_failed_units(app.get("stop_units", []) + app.get("status_units", []))
                     if wants_json:
                         self.send_json(
                             HTTPStatus.OK,

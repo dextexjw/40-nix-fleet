@@ -24,6 +24,7 @@ let
       hostPrefix ? id,
       hostNames ? hostnames hostPrefix,
       homepageHref ? null,
+      homepageEnableSiteMonitor ? true,
       homepageSiteMonitor ? null,
       monitorPath ? "/",
       rootRedirectPath ? null,
@@ -51,9 +52,16 @@ let
           else
             homepageHref;
         inherit icon;
-        siteMonitor =
-          if homepageSiteMonitor == null then "${monitorBase port}${monitorPath}" else homepageSiteMonitor;
-      };
+      }
+      // (
+        if homepageEnableSiteMonitor then
+          {
+            siteMonitor =
+              if homepageSiteMonitor == null then "${monitorBase port}${monitorPath}" else homepageSiteMonitor;
+          }
+        else
+          { }
+      );
     }
     // (
       if authMode == "none" then
@@ -128,26 +136,6 @@ in
       columns = 4;
       style = "row";
       services = [
-        (mkService {
-          id = "affine";
-          name = "AFFiNE";
-          port = 3010;
-          routeDescription = "AFFiNE collaborative workspace";
-          icon = "affine.png";
-          homepageDescription = "Collaborative docs and whiteboards\n${backend 3010}";
-          authMode = "native-oidc";
-          authGroups = [ "productivity-users" ];
-          authOidc = {
-            clientId = "affine";
-            clientSecretFile = "/run/secrets/affine-oidc-client-secret";
-            launchUrl = "https://affine.jax22.com/";
-            redirectUris = [ "https://affine.jax22.com/oauth/callback" ];
-          };
-          smokeHttp = {
-            discard = true;
-            path = "/";
-          };
-        })
         (mkService {
           id = "memos";
           name = "Memos";
@@ -504,7 +492,7 @@ in
           icon = "mdi-power-standby";
           homepageDescription = "Start and stop productivity apps\n${backend 8092}";
           hostNames = [ "ondemand.jax22.com" ];
-          homepageSiteMonitor = publicHostUrl "ondemand" "/healthz";
+          monitorPath = "/healthz";
           authMode = "forward-auth";
           authGroups = [ "productivity-users" ];
           smokeHttp = {
@@ -515,14 +503,36 @@ in
           };
         })
         (mkService {
+          id = "affine";
+          name = "AFFiNE";
+          port = 3010;
+          routeDescription = "AFFiNE collaborative workspace";
+          icon = "affine.png";
+          homepageDescription = "On-demand collaborative workspace\n${backend 3010}";
+          homepageEnableSiteMonitor = false;
+          homepageHref = "${launcherBase}/apps/affine";
+          authMode = "native-oidc";
+          authGroups = [ "productivity-users" ];
+          authOidc = {
+            clientId = "affine";
+            clientSecretFile = "/run/secrets/affine-oidc-client-secret";
+            launchUrl = "https://affine.jax22.com/";
+            redirectUris = [ "https://affine.jax22.com/oauth/callback" ];
+          };
+          smokeHttp = {
+            discard = true;
+            path = "/";
+          };
+        })
+        (mkService {
           id = "gitea";
           name = "Gitea";
           port = 3000;
           routeDescription = "Gitea Git repositories";
           icon = "gitea.png";
           homepageDescription = "On-demand Git repositories\n${backend 3000}";
+          homepageEnableSiteMonitor = false;
           homepageHref = "${launcherBase}/apps/gitea";
-          homepageSiteMonitor = publicServiceUrl "gitea" "/";
           authMode = "native-oidc";
           authGroups = [ "productivity-users" ];
           authOidc = {
@@ -539,8 +549,8 @@ in
           routeDescription = "Stirling PDF toolkit";
           icon = "stirling-pdf.png";
           homepageDescription = "On-demand PDF toolkit\n${backend 8086}";
+          homepageEnableSiteMonitor = false;
           homepageHref = "${launcherBase}/apps/stirling-pdf";
-          homepageSiteMonitor = publicServiceUrl "stirling-pdf" "/";
         })
         (mkService {
           id = "firefly";
@@ -549,8 +559,8 @@ in
           routeDescription = "Firefly III personal finance";
           icon = "firefly-iii.png";
           homepageDescription = "On-demand personal finance\n${backend 80}";
+          homepageEnableSiteMonitor = false;
           homepageHref = "${launcherBase}/apps/firefly";
-          homepageSiteMonitor = publicServiceUrl "firefly" "/";
         })
       ];
     }
