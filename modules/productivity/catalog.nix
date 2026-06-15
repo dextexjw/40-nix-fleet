@@ -504,7 +504,7 @@ in
           icon = "mdi-power-standby";
           homepageDescription = "Start and stop productivity apps\n${backend 8092}";
           hostNames = [ "ondemand.jax22.com" ];
-          homepageSiteMonitor = publicHostUrl "ondemand.jax22.com" "/healthz";
+          homepageSiteMonitor = publicHostUrl "ondemand" "/healthz";
           authMode = "forward-auth";
           authGroups = [ "productivity-users" ];
           smokeHttp = {

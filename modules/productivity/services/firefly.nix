@@ -29,7 +29,7 @@ in
       settings = {
         APP_ENV = "production";
         APP_KEY_FILE = secretPath "firefly-app-key";
-        APP_URL = "http://${serviceHosts.firefly}";
+        APP_URL = "https://${serviceHosts.firefly}";
         DB_CONNECTION = "sqlite";
       };
     };

@@ -36,10 +36,16 @@ CONFIG = load_config()
 APPS = {app["id"]: app for app in CONFIG["apps"]}
 CSRF_SECRET = os.urandom(32)
 STATUS_LABELS = {
-    "failed": "FAILED",
-    "running": "RUNNING",
-    "starting": "STARTING",
-    "stopped": "STOPPED",
+    "failed": "Needs attention",
+    "running": "Live",
+    "starting": "Starting",
+    "stopped": "Stopped",
+}
+STATE_CAPTIONS = {
+    "failed": "Startup needs attention",
+    "running": "Ready to open",
+    "starting": "Starting and checking health",
+    "stopped": "Idle and offline",
 }
 INTERACTION_SCRIPT = r"""
 (() => {
@@ -47,12 +53,27 @@ INTERACTION_SCRIPT = r"""
   const OPEN_DELAY_MS = 700;
   const MAX_POLLS = 120;
   const STATUS_LABELS = {
-    failed: "FAILED",
-    running: "RUNNING",
-    starting: "STARTING",
-    stopped: "STOPPED",
+    failed: "Needs attention",
+    running: "Live",
+    starting: "Starting",
+    stopping: "Stopping",
+    stopped: "Stopped",
   };
-  const STAGES = ["request", "units", "health", "ready"];
+  const STATE_CAPTIONS = {
+    failed: "Startup needs attention",
+    running: "Ready to open",
+    starting: "Starting and checking health",
+    stopping: "Stopping and releasing resources",
+    stopped: "Idle and offline",
+  };
+  const STAGE_TEXT = {
+    error: "Action failed",
+    health: "Waiting for health check",
+    ready: "Ready",
+    request: "Sending request",
+    stopping: "Stopping systemd units",
+    units: "Starting systemd units",
+  };
 
   function statusLabel(status) {
     return STATUS_LABELS[status] || String(status || "").toUpperCase();
@@ -70,6 +91,13 @@ INTERACTION_SCRIPT = r"""
     const element = panel.querySelector(selector);
     if (element) {
       element.textContent = value;
+    }
+  }
+
+  function setButtonLabel(button, value) {
+    const label = button.querySelector(".button-label");
+    if (label) {
+      label.textContent = value;
     }
   }
 
@@ -95,6 +123,16 @@ INTERACTION_SCRIPT = r"""
 
   function setControls(panel, status, busy) {
     const blocked = Boolean(status.blocked && status.blocked.length);
+    const state = status.status || panel.dataset.status || "stopped";
+    panel.querySelectorAll("[data-start-action]").forEach((element) => {
+      element.hidden = state === "running" || state === "stopping";
+    });
+    panel.querySelectorAll("[data-open-action]").forEach((element) => {
+      element.hidden = state !== "running" || busy;
+    });
+    panel.querySelectorAll("[data-stop-action]").forEach((element) => {
+      element.hidden = state === "stopped";
+    });
     panel.querySelectorAll("[data-action-form]").forEach((form) => {
       const button = form.querySelector("button");
       if (!button) {
@@ -104,47 +142,49 @@ INTERACTION_SCRIPT = r"""
       if (busy) {
         button.disabled = true;
       } else if (action === "start") {
-        button.disabled = blocked || status.status === "starting" || status.status === "running";
+        button.disabled = blocked || state === "starting" || state === "running" || state === "stopping";
       } else if (action === "stop") {
-        button.disabled = blocked || status.status === "stopped";
+        button.disabled = blocked || state === "stopped";
       }
       if (!busy) {
         setButtonBusy(form, false);
+        if (action === "start" && state === "starting") {
+          setButtonLabel(button, "Starting");
+        } else if (button.dataset.defaultLabel) {
+          setButtonLabel(button, button.dataset.defaultLabel);
+        }
       }
     });
   }
 
-  function setStage(panel, stage) {
-    const track = panel.querySelector("[data-launch-track]");
-    if (!track) {
-      return;
-    }
-    track.dataset.stage = stage;
-    const currentIndex = STAGES.indexOf(stage);
-    track.querySelectorAll("[data-stage-marker]").forEach((marker) => {
-      const markerIndex = STAGES.indexOf(marker.dataset.stageMarker);
-      marker.classList.toggle("is-active", markerIndex === currentIndex);
-      marker.classList.toggle("is-complete", currentIndex >= 0 && markerIndex < currentIndex);
-      marker.classList.toggle("is-error", stage === "error");
+  function setStateFlow(panel, status) {
+    panel.querySelectorAll("[data-role='state-flow']").forEach((flow) => {
+      flow.className = `state-flow ${status.status}`;
+      flow.dataset.status = status.status;
+      flow.setAttribute("aria-label", `Current state: ${statusLabel(status.status)}`);
     });
+    setText(panel, "[data-role='state-copy']", STATE_CAPTIONS[status.status] || statusLabel(status.status));
   }
 
-  function showLaunch(panel, message, stage) {
-    const launch = panel.querySelector("[data-launch-panel]");
-    if (!launch) {
+  function showActivity(panel, message, stage, title = "Working", mode = "start") {
+    const activity = panel.querySelector("[data-activity-panel]");
+    if (!activity) {
       return;
     }
-    launch.hidden = false;
+    activity.hidden = false;
+    activity.dataset.mode = mode;
+    activity.dataset.stage = stage;
     panel.classList.add("is-launching");
     panel.setAttribute("aria-busy", "true");
-    setText(panel, "[data-launch-message]", message);
-    setStage(panel, stage);
+    setText(panel, "[data-activity-title]", title);
+    setText(panel, "[data-activity-stage]", STAGE_TEXT[stage] || statusLabel(stage));
+    setText(panel, "[data-activity-message]", message);
   }
 
-  function hideLaunch(panel) {
-    const launch = panel.querySelector("[data-launch-panel]");
-    if (launch) {
-      launch.hidden = true;
+  function hideActivity(panel) {
+    const activity = panel.querySelector("[data-activity-panel]");
+    if (activity) {
+      activity.hidden = true;
     }
     panel.classList.remove("is-launching");
     panel.removeAttribute("aria-busy");
@@ -152,13 +192,13 @@ INTERACTION_SCRIPT = r"""
 
   function phaseMessage(status) {
     if (status.status === "running") {
-      return "Ready. Opening the app.";
+      return "Live. Opening the app.";
     }
     if (status.status === "starting") {
-      return "Units are active. Waiting for the health check.";
+      return "Starting. Waiting for the health check.";
     }
     if (status.status === "failed") {
-      return "Startup failed. Check the systemd state below.";
+      return "Startup needs attention. Check the systemd state below.";
     }
     return "Start request accepted. Waiting for systemd.";
   }
@@ -183,15 +223,13 @@ INTERACTION_SCRIPT = r"""
       chip.className = `status ${status.status}`;
       chip.textContent = statusLabel(status.status);
     }
-    const active = status.active_units ?? 0;
-    const total = status.unit_count ?? (status.units ? Object.keys(status.units).length : 0);
+    const active = status.active_units ?? Number(panel.dataset.activeUnits || 0);
+    const total = status.unit_count ?? (status.units ? Object.keys(status.units).length : Number(panel.dataset.unitCount || 0));
+    panel.dataset.activeUnits = String(active);
+    panel.dataset.unitCount = String(total);
     setText(panel, "[data-role='unit-count']", `${active}/${total} units active`);
     setText(panel, "[data-role='health']", statusLabel(status.status));
-    const meter = panel.querySelector("[data-role='meter']");
-    if (meter) {
-      meter.dataset.status = status.status;
-      meter.classList.toggle("is-animated", status.status === "starting");
-    }
+    setStateFlow(panel, status);
     setControls(panel, status, busy);
   }
 
@@ -207,12 +245,14 @@ INTERACTION_SCRIPT = r"""
   }
 
   async function pollUntil(appId, panel, target) {
+    let latestStatus = null;
     for (let attempt = 0; attempt < MAX_POLLS; attempt += 1) {
       await sleep(POLL_MS);
       const status = await fetchStatus(appId);
+      latestStatus = status;
       updatePanel(panel, status, true);
       if (target === "running") {
-        showLaunch(panel, phaseMessage(status), phaseStage(status));
+        showActivity(panel, phaseMessage(status), phaseStage(status), "Starting app", "start");
         if (status.status === "running") {
           window.setTimeout(() => {
             window.location.assign(status.url);
@@ -226,16 +266,19 @@ INTERACTION_SCRIPT = r"""
       } else if (target === "stopped") {
         if (status.status === "stopped") {
           updatePanel(panel, status, false);
-          showLaunch(panel, "Stopped. Controls are up to date.", "ready");
+          showActivity(panel, "Stopped. The app is idle.", "ready", "Stopped", "stop");
           window.setTimeout(() => {
-            hideLaunch(panel);
+            hideActivity(panel);
           }, 900);
           return;
         }
-        showLaunch(panel, "Stopping units. Waiting for systemd state.", "health");
+        showActivity(panel, "Stopping app. Waiting for systemd state.", "stopping", "Stopping app", "stop");
       }
     }
-    showLaunch(panel, "Still waiting. Refresh for the latest systemd state.", "health");
+    if (latestStatus) {
+      updatePanel(panel, latestStatus, false);
+    }
+    showActivity(panel, "Still waiting. Refresh for the latest systemd state.", target === "running" ? "health" : "stopping", "Still working", target === "running" ? "start" : "stop");
   }
 
   async function submitAction(event) {
@@ -252,12 +295,18 @@ INTERACTION_SCRIPT = r"""
     const appId = form.dataset.appId;
     const action = form.dataset.action;
     const target = action === "start" ? "running" : "stopped";
-    setControls(panel, { status: "starting", blocked: [] }, true);
+    if (action === "start") {
+      updatePanel(panel, { status: "starting", blocked: [] }, true);
+    } else {
+      updatePanel(panel, { status: "stopping", blocked: [] }, true);
+    }
     setButtonBusy(form, true);
-    showLaunch(
+    showActivity(
       panel,
       action === "start" ? "Sending start request." : "Sending stop request.",
-      "request"
+      "request",
+      action === "start" ? "Starting app" : "Stopping app",
+      action === "start" ? "start" : "stop"
     );
     try {
       const response = await fetch(form.action, {
@@ -277,12 +326,14 @@ INTERACTION_SCRIPT = r"""
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error || `Request failed with HTTP ${response.status}`);
       }
-      showLaunch(
+      showActivity(
         panel,
         action === "start"
           ? "Systemd accepted the start request."
           : "Systemd accepted the stop request.",
-        "units"
+        action === "start" ? "units" : "stopping",
+        action === "start" ? "Starting app" : "Stopping app",
+        action === "start" ? "start" : "stop"
       );
       await pollUntil(appId, panel, target);
     } catch (error) {
@@ -290,7 +341,7 @@ INTERACTION_SCRIPT = r"""
       if (status) {
         updatePanel(panel, status, false);
       }
-      showLaunch(panel, error.message || "Action failed.", "error");
+      showActivity(panel, error.message || "Action failed.", "error", "Action failed", action === "start" ? "start" : "stop");
       if (status) {
         setControls(panel, status, false);
       }
@@ -301,7 +352,7 @@ INTERACTION_SCRIPT = r"""
 
   document.addEventListener("submit", submitAction);
   document.querySelectorAll("[data-app-card][data-status='starting']").forEach((panel) => {
-    showLaunch(panel, "Units are active. Waiting for the health check.", "health");
+    showActivity(panel, "Starting. Waiting for the health check.", "health", "Starting app", "start");
   });
 })();
 """
@@ -309,12 +360,6 @@ INTERACTION_SCRIPT = r"""
 
 def esc(value):
     return html.escape(str(value), quote=True)
-
-
-def app_code(app):
-    words = [word for word in app["name"].replace("-", " ").split() if word]
-    return "".join(word[0] for word in words)[:3].upper() or app["id"][:3].upper()
-
 
 def status_label(status):
     return STATUS_LABELS.get(status, status.upper())
@@ -328,27 +373,26 @@ def active_unit_count(status):
     )
 
 
-def render_signal_meter(status, segments=28):
-    fill_by_status = {
-        "failed": 24,
-        "running": 22,
-        "starting": 14,
-        "stopped": 4,
-    }
-    fill = min(segments, fill_by_status.get(status["status"], 6))
-    parts = []
-    for index in range(segments):
-        classes = ["meter-segment"]
-        if index < fill:
-            classes.append("is-lit")
-            if status["status"] == "failed":
-                classes.append("is-danger")
-            elif status["status"] == "starting" and index >= fill - 4:
-                classes.append("is-warn")
-            elif status["status"] == "stopped":
-                classes.append("is-dim")
-        parts.append(f'<span class="{" ".join(classes)}"></span>')
-    return "".join(parts)
+def state_caption(status):
+    return STATE_CAPTIONS.get(status, status_label(status))
+
+
+def render_state_flow(status):
+    current = status["status"]
+    return f"""<div class="state-flow {esc(current)}" data-role="state-flow" data-status="{esc(current)}" aria-label="Current state: {esc(status_label(current))}">
+  <div class="state-rail" aria-hidden="true">
+    <span class="state-fill"></span>
+    <span class="state-node node-stopped"></span>
+    <span class="state-node node-starting"></span>
+    <span class="state-node node-running"></span>
+  </div>
+  <div class="state-labels">
+    <span>Stopped</span>
+    <span>Starting</span>
+    <span>Live</span>
+  </div>
+  <div class="state-copy" data-role="state-copy">{esc(state_caption(current))}</div>
+</div>"""
 
 
 def render_unit_grid(status):
@@ -368,49 +412,48 @@ def render_actions(app, status, user, compact=False):
     blocked = bool(status["blocked"])
     start_disabled = " disabled" if blocked or status["status"] == "starting" else ""
     stop_disabled = " disabled" if blocked or status["status"] == "stopped" else ""
-    detail_link = "" if not compact else f'<a class="button ghost" href="/apps/{esc(app["id"])}">Details</a>'
-
-    if status["status"] == "running":
-        primary = f'<a class="button primary" href="{esc(app["url"])}">Open</a>'
-    else:
-        primary = f"""<form method="post" action="/apps/{esc(app["id"])}/start" data-action-form data-action="start" data-app-id="{esc(app["id"])}">
-  <input type="hidden" name="csrf" value="{esc(csrf_token(user, app["id"], "start"))}">
-  <button class="primary" type="submit" data-default-label="Start and Open" data-loading-label="Starting"{start_disabled}>
-    <span class="button-label">Start and Open</span>
-    <span class="spinner" aria-hidden="true"></span>
-  </button>
-</form>"""
+    start_hidden = " hidden" if status["status"] == "running" else ""
+    open_hidden = "" if status["status"] == "running" else " hidden"
+    stop_hidden = " hidden" if status["status"] == "stopped" else ""
+    detail_link = "" if not compact else f'<a class="button ghost" href="/apps/{esc(app["id"])}">Manage</a>'
 
     return f"""<div class="actions">
-  {primary}
+  <form method="post" action="/apps/{esc(app["id"])}/start" data-action-form data-action="start" data-app-id="{esc(app["id"])}" data-start-action{start_hidden}>
+  <input type="hidden" name="csrf" value="{esc(csrf_token(user, app["id"], "start"))}">
+  <button class="primary" type="submit" data-default-label="Start and open" data-loading-label="Starting"{start_disabled}>
+    <span class="button-label">Start and open</span>
+    <span class="spinner" aria-hidden="true"></span>
+  </button>
+</form>
+  <a class="button primary" href="{esc(app["url"])}" data-open-action{open_hidden}>Open app</a>
   {detail_link}
-  <form method="post" action="/apps/{esc(app["id"])}/stop" data-action-form data-action="stop" data-app-id="{esc(app["id"])}">
+  <form method="post" action="/apps/{esc(app["id"])}/stop" data-action-form data-action="stop" data-app-id="{esc(app["id"])}" data-stop-action{stop_hidden}>
     <input type="hidden" name="csrf" value="{esc(csrf_token(user, app["id"], "stop"))}">
-    <button class="secondary" type="submit" data-default-label="Stop" data-loading-label="Stopping"{stop_disabled}>
-      <span class="button-label">Stop</span>
+    <button class="secondary danger-action" type="submit" data-default-label="Stop app" data-loading-label="Stopping"{stop_disabled}>
+      <span class="button-label">Stop app</span>
       <span class="spinner" aria-hidden="true"></span>
     </button>
   </form>
 </div>"""
 
 
-def render_launch_progress(status):
+def render_activity(status):
     hidden = "" if status["status"] == "starting" else " hidden"
+    title = "Starting app" if status["status"] == "starting" else "Working"
     message = (
-        "Units are active. Waiting for the health check."
+        "Starting. Waiting for the health check."
         if status["status"] == "starting"
         else "Ready for action."
     )
-    return f"""<div class="launch-progress"{hidden} data-launch-panel aria-live="polite">
-  <div class="launch-head">
-    <span class="label">Launch State</span>
-    <span class="launch-message" data-launch-message>{esc(message)}</span>
-  </div>
-  <div class="launch-track" data-launch-track data-stage="health">
-    <span class="progress-stage" data-stage-marker="request">Request</span>
-    <span class="progress-stage" data-stage-marker="units">Units</span>
-    <span class="progress-stage" data-stage-marker="health">Health</span>
-    <span class="progress-stage" data-stage-marker="ready">Ready</span>
+    stage = "Waiting for health check" if status["status"] == "starting" else "Ready"
+    return f"""<div class="activity" data-mode="start" data-stage="health"{hidden} data-activity-panel aria-live="polite">
+  <span class="activity-spinner" aria-hidden="true"></span>
+  <div class="activity-copy">
+    <div class="activity-head">
+      <span class="label" data-activity-title>{esc(title)}</span>
+      <span class="activity-stage" data-activity-stage>{esc(stage)}</span>
+    </div>
+    <p data-activity-message>{esc(message)}</p>
   </div>
 </div>"""
 
@@ -591,10 +634,13 @@ def render_page(title, body, status=HTTPStatus.OK):
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       line-height: 1.45;
     }}
-    * {{
-      box-sizing: border-box;
-    }}
-    body {{
+	    * {{
+	      box-sizing: border-box;
+	    }}
+	    [hidden] {{
+	      display: none !important;
+	    }}
+	    body {{
       margin: 0;
       min-height: 100vh;
       background:
@@ -608,42 +654,43 @@ def render_page(title, body, status=HTTPStatus.OK):
       width: min(1180px, calc(100% - 28px));
       margin: 22px auto 36px;
     }}
-    .topbar {{
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+	    .topbar {{
+	      display: flex;
+	      align-items: center;
+	      justify-content: space-between;
       gap: 12px;
       border: 1px solid var(--line);
       background: rgba(20, 23, 22, 0.94);
       min-height: 48px;
-      padding: 12px 16px;
-      margin-bottom: 14px;
-    }}
-    .brand {{
-      display: flex;
-      align-items: baseline;
-      gap: 12px;
-      min-width: 0;
-    }}
-	    .brand-mark {{
-	      color: var(--muted);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-	      font-size: 0.82rem;
-	      font-weight: 800;
-	      letter-spacing: 0;
-	      white-space: nowrap;
+	      padding: 12px 16px;
+	      margin-bottom: 14px;
 	    }}
-	    .brand-name {{
-	      color: var(--accent-bright);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-	      font-size: 0.88rem;
-	      font-weight: 800;
+	    .brand {{
+	      display: flex;
+	      align-items: center;
+	      min-width: 0;
+	      text-decoration: none;
+	    }}
+		    .brand-name {{
+		      color: var(--text);
+		      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		      font-size: 0.88rem;
+		      font-weight: 800;
 	      letter-spacing: 0;
 	      overflow: hidden;
 	      text-overflow: ellipsis;
+		      text-transform: uppercase;
+		      white-space: nowrap;
+	    }}
+	    .topbar-meta {{
+	      color: var(--muted);
+	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-size: 0.72rem;
+	      font-weight: 800;
+	      letter-spacing: 0;
 	      text-transform: uppercase;
 	      white-space: nowrap;
-    }}
+	    }}
     h1, h2, h3, p {{
       margin: 0;
     }}
@@ -777,95 +824,161 @@ def render_page(title, body, status=HTTPStatus.OK):
 	      letter-spacing: 0;
 	      text-transform: uppercase;
 	    }}
-    .app-code {{
-      display: grid;
-      place-items: center;
-      width: 48px;
-      height: 48px;
-      border: 1px solid var(--line-bright);
-      color: var(--text);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 1.35rem;
-      font-weight: 800;
-    }}
-    .status {{
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      border: 1px solid var(--line);
-      padding: 4px 10px;
-	      color: var(--muted);
+	    .status {{
+	      display: inline-flex;
+	      align-items: center;
+	      gap: 8px;
+	      min-height: 28px;
+	      border: 1px solid var(--line);
+	      background: rgba(104, 115, 111, 0.08);
+	      padding: 4px 10px;
+		      color: var(--muted);
 	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 	      font-size: 0.72rem;
 	      font-weight: 800;
 	      letter-spacing: 0;
-	      text-transform: uppercase;
-	      white-space: nowrap;
+		      text-transform: uppercase;
+		      white-space: nowrap;
+		    }}
+	    .status::before {{
+	      content: "";
+	      width: 8px;
+	      height: 8px;
+	      border-radius: 50%;
+	      background: currentColor;
+	      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
 	    }}
-	    .status.stopped {{
-	      border-color: rgba(104, 115, 111, 0.48);
+		    .status.stopped {{
+		      border-color: rgba(104, 115, 111, 0.48);
+		      background: rgba(104, 115, 111, 0.08);
+		      color: var(--muted);
+		    }}
+		    .status.running {{
+		      border-color: rgba(143, 207, 155, 0.48);
+		      background: rgba(143, 207, 155, 0.1);
+		      color: var(--ok);
+	    }}
+	    .status.starting {{
+	      border-color: rgba(239, 230, 160, 0.5);
+	      background: rgba(239, 230, 160, 0.1);
+	      color: var(--warn);
+	    }}
+	    .status.stopping {{
+	      border-color: rgba(239, 230, 160, 0.5);
+	      background: rgba(239, 230, 160, 0.08);
+	      color: var(--warn);
+	    }}
+	    .status.failed {{
+	      border-color: rgba(229, 72, 77, 0.52);
+	      background: rgba(229, 72, 77, 0.08);
+	      color: var(--danger);
+	    }}
+	    .state-flow {{
+	      display: grid;
+	      gap: 8px;
+	      border: 1px solid var(--line);
+	      background: rgba(24, 28, 27, 0.72);
+	      padding: 12px;
+	    }}
+	    .state-rail {{
+	      position: relative;
+	      height: 26px;
+	    }}
+	    .state-rail::before, .state-fill {{
+	      content: "";
+	      position: absolute;
+	      top: 50%;
+	      left: 0;
+	      right: 0;
+	      height: 3px;
+	      transform: translateY(-50%);
+	    }}
+	    .state-rail::before {{
+	      background: rgba(104, 115, 111, 0.38);
+	    }}
+	    .state-fill {{
+	      right: auto;
+	      width: 0;
+	      background: var(--accent-bright);
+	      transition: width 360ms ease, background 180ms ease;
+	    }}
+	    .state-flow.stopped .state-fill {{
+	      width: 0;
+	      background: var(--dim);
+	    }}
+	    .state-flow.starting .state-fill, .state-flow.stopping .state-fill {{
+	      width: 50%;
+	      background: var(--warn);
+	    }}
+	    .state-flow.running .state-fill {{
+	      width: 100%;
+	      background: var(--ok);
+	    }}
+	    .state-flow.failed .state-fill {{
+	      width: 50%;
+	      background: var(--danger);
+	    }}
+	    .state-node {{
+	      position: absolute;
+	      top: 50%;
+	      width: 14px;
+	      height: 14px;
+	      border: 2px solid var(--line-bright);
+	      border-radius: 50%;
+	      background: var(--panel);
+	      transform: translate(-50%, -50%);
+	      transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+	    }}
+	    .node-stopped {{
+	      left: 0;
+	    }}
+	    .node-starting {{
+	      left: 50%;
+	    }}
+	    .node-running {{
+	      left: 100%;
+	    }}
+	    .state-flow.stopped .node-stopped,
+	    .state-flow.starting .node-starting,
+	    .state-flow.stopping .node-starting,
+	    .state-flow.running .node-running,
+	    .state-flow.failed .node-starting {{
+	      background: currentColor;
+	      border-color: currentColor;
+	      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.05);
+	    }}
+	    .state-flow.running {{
+	      color: var(--ok);
+	    }}
+	    .state-flow.starting, .state-flow.stopping {{
+	      color: var(--warn);
+	    }}
+	    .state-flow.failed {{
+	      color: var(--danger);
+	    }}
+	    .state-flow.stopped {{
 	      color: var(--muted);
 	    }}
-	    .status.running {{
-	      border-color: rgba(143, 207, 155, 0.48);
-	      color: var(--ok);
-    }}
-    .status.starting {{
-      border-color: rgba(239, 230, 160, 0.5);
-      color: var(--warn);
-    }}
-    .status.failed {{
-      border-color: rgba(229, 72, 77, 0.52);
-      color: var(--danger);
-    }}
-    .meter {{
-      display: grid;
-      grid-template-columns: repeat(14, minmax(4px, 1fr));
-      gap: 5px;
-      align-items: end;
-    }}
-    .meter-segment {{
-      display: block;
-      height: 22px;
-      border: 1px solid rgba(10, 143, 163, 0.42);
-      background: rgba(10, 143, 163, 0.08);
-    }}
-    .meter-segment.is-lit {{
-      border-color: rgba(22, 178, 200, 0.75);
-      background: rgba(10, 143, 163, 0.72);
-    }}
-    .meter-segment.is-dim {{
-      border-color: rgba(104, 115, 111, 0.55);
-      background: rgba(104, 115, 111, 0.3);
-    }}
-    .meter-segment.is-warn {{
-      border-color: rgba(239, 230, 160, 0.8);
-      background: rgba(239, 230, 160, 0.82);
-    }}
-	    .meter-segment.is-danger {{
-	      border-color: rgba(229, 72, 77, 0.82);
-	      background: rgba(229, 72, 77, 0.78);
+	    .state-labels {{
+	      display: grid;
+	      grid-template-columns: repeat(3, minmax(0, 1fr));
+	      color: var(--muted);
+	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-size: 0.68rem;
+	      font-weight: 800;
+	      letter-spacing: 0;
+	      text-transform: uppercase;
 	    }}
-	    .meter.is-animated .meter-segment.is-lit {{
-	      animation: meterPulse 1.15s ease-in-out infinite alternate;
+	    .state-labels span:nth-child(2) {{
+	      text-align: center;
 	    }}
-    .app-stats {{
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }}
-    .mini-stat {{
-      border: 1px solid var(--line);
-      padding: 10px;
-    }}
-    .mini-stat strong {{
-      display: block;
-      margin-top: 6px;
-      color: var(--text);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 1.45rem;
-      font-weight: 400;
-    }}
+	    .state-labels span:nth-child(3) {{
+	      text-align: right;
+	    }}
+	    .state-copy {{
+	      color: var(--text);
+	      font-size: 0.92rem;
+	    }}
     .actions {{
       display: flex;
       gap: 8px;
@@ -907,10 +1020,14 @@ def render_page(title, body, status=HTTPStatus.OK):
 	      background: var(--accent);
       color: #071112;
     }}
-    button.secondary, .button.secondary, .button.ghost {{
-      background: transparent;
-      color: var(--muted);
-    }}
+	    button.secondary, .button.secondary, .button.ghost {{
+	      background: transparent;
+	      color: var(--muted);
+	    }}
+	    button.danger-action:not(:disabled) {{
+	      border-color: rgba(229, 72, 77, 0.58);
+	      color: #ffb3b5;
+	    }}
 	    button:disabled {{
 	      cursor: not-allowed;
 	      opacity: 0.55;
@@ -945,85 +1062,94 @@ def render_page(title, body, status=HTTPStatus.OK):
       background: #1b211f;
       padding: 14px 16px;
     }}
-    .notice strong {{
-      display: block;
-      margin-bottom: 8px;
-      color: var(--text);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.82rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }}
-	    .notice ul {{
-	      margin: 0;
-	      padding-left: 18px;
-	      color: var(--muted);
+	    .notice strong {{
+	      display: block;
+	      margin-bottom: 8px;
+	      color: var(--text);
+	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	      font-size: 0.82rem;
+	      letter-spacing: 0;
+	      text-transform: uppercase;
 	    }}
-	    .launch-progress {{
-	      display: grid;
-	      gap: 10px;
-	      border: 1px solid rgba(22, 178, 200, 0.42);
-	      background: rgba(10, 143, 163, 0.08);
-	      padding: 12px;
-	    }}
-	    .launch-progress[hidden] {{
-	      display: none;
-	    }}
-	    .launch-head {{
+		    .notice ul {{
+		      margin: 0;
+		      padding-left: 18px;
+		      color: var(--muted);
+		    }}
+		    .activity {{
+		      display: grid;
+		      grid-template-columns: auto minmax(0, 1fr);
+		      gap: 12px;
+		      align-items: center;
+		      border: 1px solid rgba(22, 178, 200, 0.36);
+		      background: rgba(10, 143, 163, 0.07);
+		      padding: 12px;
+		    }}
+		    .activity[data-mode="stop"] {{
+		      border-color: rgba(239, 230, 160, 0.42);
+		      background: rgba(239, 230, 160, 0.07);
+		    }}
+		    .activity[data-stage="error"] {{
+		      border-color: rgba(229, 72, 77, 0.52);
+		      background: rgba(229, 72, 77, 0.08);
+		    }}
+		    .activity[hidden] {{
+		      display: none;
+		    }}
+		    .activity-spinner {{
+		      width: 18px;
+		      height: 18px;
+		      border: 2px solid rgba(243, 240, 197, 0.22);
+		      border-top-color: var(--accent-bright);
+		      border-radius: 50%;
+		      animation: spin 780ms linear infinite;
+		    }}
+		    .activity[data-mode="stop"] .activity-spinner {{
+		      border-top-color: var(--warn);
+		    }}
+		    .activity[data-stage="error"] .activity-spinner {{
+		      border-color: var(--danger);
+		      animation: none;
+		    }}
+		    .activity-copy {{
+		      display: grid;
+		      gap: 4px;
+		      min-width: 0;
+		    }}
+		    .activity-copy p {{
+		      color: var(--text);
+		      font-size: 0.88rem;
+		      overflow-wrap: anywhere;
+		    }}
+	    .activity-head {{
 	      display: flex;
 	      align-items: center;
 	      justify-content: space-between;
 	      gap: 12px;
 	    }}
-	    .launch-message {{
-	      color: var(--text);
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-	      font-size: 0.78rem;
-	      text-align: right;
-	    }}
-	    .launch-track {{
-	      display: grid;
-	      grid-template-columns: repeat(4, minmax(0, 1fr));
-	      gap: 6px;
-	    }}
-	    .progress-stage {{
-	      min-height: 34px;
-	      border: 1px solid var(--line);
-	      color: var(--dim);
-	      display: grid;
-	      place-items: center;
-	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-	      font-size: 0.68rem;
-	      font-weight: 800;
-	      text-transform: uppercase;
-	    }}
-	    .progress-stage.is-complete {{
-	      border-color: rgba(143, 207, 155, 0.52);
-	      color: var(--ok);
-	      background: rgba(143, 207, 155, 0.08);
-	    }}
-	    .progress-stage.is-active {{
-	      border-color: rgba(22, 178, 200, 0.85);
-	      color: var(--text);
-	      background: rgba(10, 143, 163, 0.28);
-	      animation: stagePulse 1.05s ease-in-out infinite alternate;
-	    }}
-	    .progress-stage.is-error {{
-	      border-color: rgba(229, 72, 77, 0.72);
-	      color: var(--danger);
-	      background: rgba(229, 72, 77, 0.08);
-	      animation: none;
-	    }}
+		    .activity-stage {{
+		      color: var(--muted);
+		      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		      font-size: 0.7rem;
+		      font-weight: 800;
+		      letter-spacing: 0;
+		      text-transform: uppercase;
+		      text-align: right;
+		    }}
 	    .app-card.is-launching, .dashboard.is-launching .panel {{
 	      border-color: rgba(22, 178, 200, 0.72);
 	      box-shadow: inset 0 0 0 1px rgba(22, 178, 200, 0.12);
 	    }}
-	    .detail-layout {{
+		    .detail-layout {{
+		      display: grid;
+		      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+	      gap: 14px;
+	    }}
+	    .control-stack {{
 	      display: grid;
-	      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
-      gap: 14px;
-    }}
-    .detail-title {{
+	      gap: 16px;
+	    }}
+	    .detail-title {{
       margin-top: 10px;
 	      color: var(--text);
 	      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -1065,22 +1191,6 @@ def render_page(title, body, status=HTTPStatus.OK):
 	    @keyframes spin {{
 	      to {{
 	        transform: rotate(360deg);
-	      }}
-	    }}
-	    @keyframes stagePulse {{
-	      from {{
-	        filter: brightness(0.88);
-	      }}
-	      to {{
-	        filter: brightness(1.16);
-	      }}
-	    }}
-	    @keyframes meterPulse {{
-	      from {{
-	        opacity: 0.72;
-	      }}
-	      to {{
-	        opacity: 1;
 	      }}
 	    }}
 	    @media (max-width: 900px) {{
@@ -1130,15 +1240,12 @@ def render_page(title, body, status=HTTPStatus.OK):
 	        flex-direction: column;
 	        gap: 4px;
 	      }}
-	      .launch-head {{
+	      .activity-head {{
 	        align-items: flex-start;
 	        flex-direction: column;
 	      }}
-	      .launch-message {{
+	      .activity-stage {{
 	        text-align: left;
-	      }}
-	      .launch-track {{
-	        grid-template-columns: repeat(2, minmax(0, 1fr));
 	      }}
       .actions {{
         display: grid;
@@ -1154,10 +1261,9 @@ def render_page(title, body, status=HTTPStatus.OK):
 	  <main>
 	    <nav class="topbar" aria-label="Dashboard">
       <a class="brand" href="/">
-        <span class="brand-mark">JAX22</span>
-        <span class="brand-name">On-Demand Apps Dashboard</span>
+        <span class="brand-name">On-demand apps</span>
       </a>
-      <a class="button ghost" href="/">Apps</a>
+      <span class="topbar-meta">productivity-vm</span>
 	    </nav>
 	    {body}
 	  </main>
@@ -1184,25 +1290,20 @@ def render_index(user=""):
     cards = []
     for app, status in statuses:
         cards.append(
-            f"""<article class="app-card" data-app-card data-app-id="{esc(app["id"])}" data-status="{esc(status["status"])}">
+            f"""<article class="app-card" data-app-card data-app-id="{esc(app["id"])}" data-status="{esc(status["status"])}" data-active-units="{esc(active_unit_count(status))}" data-unit-count="{esc(len(status["units"]))}">
   <div class="row">
     <div>
-      <div class="label">App Bundle</div>
+      <div class="label">App</div>
       <h2 class="app-title">{esc(app["name"])}</h2>
     </div>
-    <div class="app-code">{esc(app_code(app))}</div>
+    <span class="status {esc(status["status"])}" data-role="status-chip">{esc(status_label(status["status"]))}</span>
   </div>
   <div class="row">
-    <span class="status {esc(status["status"])}" data-role="status-chip">{esc(status_label(status["status"]))}</span>
     <span class="footer-note" data-role="unit-count">{esc(active_unit_count(status))}/{esc(len(status["units"]))} units active</span>
   </div>
-  <div class="meter{' is-animated' if status["status"] == "starting" else ''}" data-role="meter" data-status="{esc(status["status"])}" aria-hidden="true">{render_signal_meter(status)}</div>
   <p class="muted">{esc(app.get("description", ""))}</p>
-  <div class="app-stats">
-    <div class="mini-stat"><span class="label">Health</span><strong data-role="health">{esc(status_label(status["status"]))}</strong></div>
-    <div class="mini-stat"><span class="label">Units</span><strong>{esc(len(status["units"]))}</strong></div>
-  </div>
-  {render_launch_progress(status)}
+  {render_state_flow(status)}
+  {render_activity(status)}
   {render_actions(app, status, user, compact=True)}
 </article>"""
         )
@@ -1210,8 +1311,8 @@ def render_index(user=""):
     body = f"""<section class="dashboard">
   <section class="panel hero">
     <div>
-      <div class="eyebrow">Productivity-VM Control Surface</div>
-      <h1>On-Demand Apps Dashboard</h1>
+      <div class="eyebrow">Productivity VM</div>
+      <h1>On-demand apps</h1>
       <p class="hero-copy">{esc(running)} running / {esc(stopped)} stopped / {esc(len(blocked))} guards active</p>
     </div>
     <div class="hero-metric">
@@ -1227,7 +1328,7 @@ def render_index(user=""):
   </section>
   <section class="panel">
     <div class="panel-header">
-      <div class="eyebrow">Allowlisted Bundles</div>
+	      <div class="eyebrow">Apps</div>
       <div class="footer-note">systemd + health checks</div>
     </div>
     <div class="panel-body">
@@ -1235,7 +1336,7 @@ def render_index(user=""):
     </div>
   </section>
 </section>"""
-    return render_page("On-Demand Apps Dashboard", body)
+    return render_page("On-demand apps", body)
 
 
 def render_app(app, message=None, status_code=HTTPStatus.OK, user=""):
@@ -1249,34 +1350,30 @@ def render_app(app, message=None, status_code=HTTPStatus.OK, user=""):
             + "</ul></section>"
         )
     message_html = f'<section class="notice">{esc(message)}</section>' if message else ""
-    body = f"""<section class="dashboard" data-app-card data-app-id="{esc(app["id"])}" data-status="{esc(status["status"])}">
+    body = f"""<section class="dashboard" data-app-card data-app-id="{esc(app["id"])}" data-status="{esc(status["status"])}" data-active-units="{esc(active_unit_count(status))}" data-unit-count="{esc(len(status["units"]))}">
   {message_html}
   {block_html}
   <section class="detail-layout">
     <section class="panel hero">
       <div>
-        <div class="eyebrow">App Bundle</div>
+	        <div class="eyebrow">App</div>
         <h1 class="detail-title">{esc(app["name"])}</h1>
         <p class="hero-copy">{esc(app.get("description", ""))}</p>
-      </div>
-      <div class="hero-metric">
-        <div class="app-code">{esc(app_code(app))}</div>
-        <div style="height:14px"></div>
-        <span class="status {esc(status["status"])}" data-role="status-chip">{esc(status_label(status["status"]))}</span>
-      </div>
+	      </div>
+	      <div class="hero-metric">
+	        <span class="status {esc(status["status"])}" data-role="status-chip">{esc(status_label(status["status"]))}</span>
+	      </div>
     </section>
     <section class="panel">
       <div class="panel-header">
         <div class="eyebrow">Controls</div>
         <div class="footer-note" data-role="unit-count">{esc(active_unit_count(status))}/{esc(len(status["units"]))} units active</div>
       </div>
-      <div class="panel-body">
-        <div class="meter{' is-animated' if status["status"] == "starting" else ''}" data-role="meter" data-status="{esc(status["status"])}" aria-hidden="true">{render_signal_meter(status)}</div>
-        <div style="height:16px"></div>
-        {render_launch_progress(status)}
-        <div style="height:16px"></div>
-        {render_actions(app, status, user)}
-      </div>
+	      <div class="panel-body control-stack">
+	        {render_state_flow(status)}
+	        {render_activity(status)}
+	        {render_actions(app, status, user)}
+	      </div>
     </section>
   </section>
   <section class="panel">
