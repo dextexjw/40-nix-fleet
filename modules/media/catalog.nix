@@ -107,7 +107,7 @@ in
           port = 3000;
           routeDescription = "BookOrbit reading library";
           icon = "bookorbit.png";
-          homepageDescription = "Reading library ${backend 3000}";
+          homepageDescription = "${backend 3000}";
           authMode = "native-oidc";
           authGroups = [ "media-users" ];
           authOidc = {
