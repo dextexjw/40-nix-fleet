@@ -590,7 +590,7 @@ def systemctl(*args, check=False):
     command = ["systemctl", *args]
     helper = CONFIG.get("systemctl_helper")
     if helper and args and args[0] in PRIVILEGED_SYSTEMCTL_ACTIONS:
-        command = ["sudo", "-n", helper, args[0], *args[1:]]
+        command = [helper, args[0], *args[1:]]
     result = subprocess.run(
         command,
         check=False,

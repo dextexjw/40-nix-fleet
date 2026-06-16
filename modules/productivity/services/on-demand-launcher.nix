@@ -120,6 +120,11 @@ let
       attrValues launcherCfg.bundles
     )
   );
+  systemctlAllowedActions = [
+    "reset-failed"
+    "start"
+    "stop"
+  ];
 
   systemctlHelper = pkgs.writeShellScript "on-demand-apps-systemctl" ''
     set -euo pipefail
@@ -376,21 +381,6 @@ in
       isSystemUser = true;
     };
 
-    security.sudo.extraRules = [
-      {
-        users = [ "on-demand-apps-dashboard" ];
-        commands = [
-          {
-            command = toString systemctlHelper;
-            options = [
-              "NOPASSWD"
-              "NOSETENV"
-            ];
-          }
-        ];
-      }
-    ];
-
     systemd.services.gitea.wantedBy = mkForce [ ];
     systemd.services.gitea-oidc-config = mkIf cfg.gitea.oidc.enable {
       wantedBy = mkForce [ ];
@@ -405,6 +395,23 @@ in
       "d /run/on-demand-apps-dashboard 0755 root root - -"
     ];
 
+    security.polkit.enable = true;
+    security.polkit.extraConfig = ''
+      polkit.addRule(function(action, subject) {
+        var allowedActions = ${builtins.toJSON systemctlAllowedActions};
+        var allowedUnits = ${builtins.toJSON systemctlAllowedUnits};
+
+        if (
+          action.id == "org.freedesktop.systemd1.manage-units" &&
+          subject.user == "on-demand-apps-dashboard" &&
+          allowedActions.indexOf(action.lookup("verb")) >= 0 &&
+          allowedUnits.indexOf(action.lookup("unit")) >= 0
+        ) {
+          return polkit.Result.YES;
+        }
+      });
+    '';
+
     systemd.services.on-demand-apps-dashboard = {
       description = "On-demand apps dashboard";
       after = [ "network-online.target" ];
@@ -412,7 +419,6 @@ in
       wantedBy = [ "multi-user.target" ];
       path = [
         pkgs.coreutils
-        pkgs.sudo
         pkgs.systemd
       ];
       serviceConfig = {
