@@ -148,7 +148,7 @@ in
           port = 6767;
           routeDescription = "Bazarr subtitle management";
           icon = "bazarr.png";
-          homepageDescription = "Subtitles ${backend 6767}";
+          homepageDescription = "${backend 6767}";
         })
         (mkService {
           id = "qbittorrent";
