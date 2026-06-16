@@ -29,6 +29,7 @@ let
       monitorPath ? "/",
       rootRedirectPath ? null,
       smokeHttp ? null,
+      checkmate ? { },
       authMode ? "none",
       authGroups ? [ ],
       authOidc ? { },
@@ -47,10 +48,7 @@ let
       homepage = {
         description = homepageDescription;
         href =
-          if homepageHref == null then
-            "${urlScheme primaryHostName}://${primaryHostName}/"
-          else
-            homepageHref;
+          if homepageHref == null then "${urlScheme primaryHostName}://${primaryHostName}/" else homepageHref;
         inherit icon;
       }
       // (
@@ -82,6 +80,14 @@ let
         {
           smoke.http = smokeHttp;
         }
+    )
+    // (
+      if checkmate == { } then
+        { }
+      else
+        {
+          inherit checkmate;
+        }
     );
 
   mkRouteOnly =
@@ -94,6 +100,7 @@ let
       hostNames ? hostnames hostPrefix,
       rootRedirectPath ? null,
       smokeHttp ? null,
+      checkmate ? { },
       authMode ? "none",
       authGroups ? [ ],
       authOidc ? { },
@@ -125,6 +132,14 @@ let
       else
         {
           smoke.http = smokeHttp;
+        }
+    )
+    // (
+      if checkmate == { } then
+        { }
+      else
+        {
+          inherit checkmate;
         }
     );
 in
@@ -171,6 +186,7 @@ in
             launchUrl = "https://paperless.jax22.com/";
             redirectUris = [ "https://paperless.jax22.com/accounts/oidc/authentik/login/callback/" ];
           };
+          smokeHttp.path = "/accounts/login/";
         })
         (mkService {
           id = "forgejo";
@@ -278,6 +294,7 @@ in
           homepageDescription = "Push notifications\n${backend 2586}";
           monitorPath = "/v1/health";
           authMode = "none";
+          smokeHttp.path = "/v1/health";
         })
         (mkService {
           id = "docs";
@@ -294,6 +311,7 @@ in
           routeDescription = "FreshRSS reader";
           icon = "freshrss.png";
           homepageDescription = "RSS reader\n${backend 80}";
+          smokeHttp.path = "/i/";
         })
         (mkService {
           id = "privatebin";
@@ -319,6 +337,7 @@ in
             redirectUris = [ "https://nextcloud.jax22.com/apps/user_oidc/code" ];
             subMode = "user_uuid";
           };
+          smokeHttp.path = "/status.php";
         })
         (mkService {
           id = "invoiceplane";
@@ -352,6 +371,7 @@ in
           icon = "garage.png";
           homepageDescription = "S3-compatible object storage\n${backend 3900}";
           hostPrefix = "s3.garage";
+          checkmate.enable = false;
         })
         {
           id = "garage";
@@ -523,6 +543,7 @@ in
             discard = true;
             path = "/";
           };
+          checkmate.enable = false;
         })
         (mkService {
           id = "gitea";
@@ -541,6 +562,7 @@ in
             launchUrl = "https://gitea.jax22.com/";
             redirectUris = [ "https://gitea.jax22.com/user/oauth2/authentik/callback" ];
           };
+          checkmate.enable = false;
         })
         (mkService {
           id = "stirling-pdf";
@@ -551,6 +573,7 @@ in
           homepageDescription = "On-demand PDF toolkit\n${backend 8086}";
           homepageEnableSiteMonitor = false;
           homepageHref = "${launcherBase}/apps/stirling-pdf";
+          checkmate.enable = false;
         })
         (mkService {
           id = "firefly";
@@ -561,6 +584,7 @@ in
           homepageDescription = "On-demand personal finance\n${backend 80}";
           homepageEnableSiteMonitor = false;
           homepageHref = "${launcherBase}/apps/firefly";
+          checkmate.enable = false;
         })
       ];
     }
