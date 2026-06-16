@@ -38,7 +38,7 @@ in
   # ============================================================================
 
   fleet.host.name = "productivity-vm";
-  users.motd = "productivity-vm: Git, docs, paperless, RSS, search, vault, files, S3, netboot.xyz, notifications, and appdata backups";
+  users.motd = "productivity-vm: AFFiNE, Git, docs, paperless, RSS, search, vault, files, S3, netboot.xyz, notifications, and appdata backups";
 
   networking.hosts.${hosts.gateway-vm.ip} = routeHosts;
 
@@ -50,6 +50,12 @@ in
     defaultSopsFile = secretsFile;
     age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
     secrets = {
+      affine-environment = {
+        restartUnits = [
+          "affine-postgresql-password.service"
+          "podman-affine.service"
+        ];
+      };
       admin-password-hash = {
         neededForUsers = true;
       };
@@ -298,6 +304,15 @@ in
   };
 
   # ============================================================================
+  # SYSTEM
+  # ============================================================================
+
+  zramSwap = {
+    enable = true;
+    memoryPercent = 50;
+  };
+
+  # ============================================================================
   # SERVICES
   # ============================================================================
 
@@ -340,8 +355,5 @@ in
     };
     smb.backupDevice = "//nas.home.arpa/backups";
   };
-
-  services.stirling-pdf.enable = lib.mkForce false;
-  systemd.services.stirling-pdf.enable = lib.mkForce false;
 
 }

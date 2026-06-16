@@ -89,6 +89,7 @@
           colmena.packages.${system}.colmena
           pkgs.age
           pkgs.deadnix
+          pkgs.dnsutils
           pkgs.nixfmt
           pkgs.restic
           pkgs.shellcheck

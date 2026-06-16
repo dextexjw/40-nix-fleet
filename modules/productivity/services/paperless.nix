@@ -108,6 +108,17 @@ let
   '';
   paperlessHostNames = [ serviceHosts.paperless ] ++ serviceHostAliases.paperless;
   paperlessOrigin = hostName: "${if hasSuffix ".h" hostName then "http" else "https"}://${hostName}";
+  paperlessPackageWithDisabledTest =
+    pkg:
+    (pkg.overridePythonAttrs (oldAttrs: {
+      # Upstream 2.20.15 has one failing mail-rule test under nixpkgs Python 3.13;
+      # keep the rest of the package test suite enabled.
+      disabledTests = (oldAttrs.disabledTests or [ ]) ++ [ "test_error_skip_rule" ];
+    }))
+    // {
+      override = args: paperlessPackageWithDisabledTest (pkg.override args);
+    };
+  paperlessPackage = paperlessPackageWithDisabledTest pkgs.paperless-ngx;
 in
 {
   config = mkIf cfg.enable {
@@ -122,6 +133,7 @@ in
       environmentFile = mkIf oidcCfg.enable oidcCfg.environmentFile;
       mediaDir = "${appdata}/paperless/media";
       passwordFile = secretPath "paperless-admin-password";
+      package = paperlessPackage;
       settings = {
         PAPERLESS_ALLOWED_HOSTS = concatStringsSep "," paperlessHostNames;
         PAPERLESS_CSRF_TRUSTED_ORIGINS = concatStringsSep "," (map paperlessOrigin paperlessHostNames);

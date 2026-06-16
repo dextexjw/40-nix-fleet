@@ -21,26 +21,15 @@ let
   checkmateInterval = 60000;
   capturePort = 59232;
   routeScheme = hostName: if builtins.match ".*[.]h" hostName != null then "http" else "https";
-  routeServices = builtins.filter (service: service ? route) exposureCatalog.serviceEntries;
+  routeServices = builtins.filter (
+    service: service ? route && !(service ? checkmate && (service.checkmate.enable or true) == false)
+  ) exposureCatalog.serviceEntries;
   routeHosts = lib.unique (lib.concatMap (service: service.route.hosts) routeServices);
-  parseBackend =
-    service:
-    let
-      parsed = builtins.match "https?://([^/:]+):([0-9]+).*" service.route.url;
-    in
-    if parsed == null then
-      throw "unable to parse backend URL for ${service.id}: ${service.route.url}"
-    else
-      {
-        host = builtins.elemAt parsed 0;
-        port = builtins.fromJSON (builtins.elemAt parsed 1);
-      };
   mkServiceMonitor =
     service:
     let
       smokeHttp = if service ? smoke && service.smoke ? http then service.smoke.http else null;
       primaryHost = builtins.head service.route.hosts;
-      backend = parseBackend service;
       checkmateUrl =
         if service ? checkmate && service.checkmate ? url then
           service.checkmate.url
@@ -53,21 +42,10 @@ let
       id = service.id;
       interval = checkmateInterval;
       name = service.name;
-    }
-    // (
-      if smokeHttp != null then
-        {
-          port = null;
-          type = "http";
-          url = checkmateUrl;
-        }
-      else
-        {
-          port = backend.port;
-          type = "port";
-          url = backend.host;
-        }
-    );
+      port = null;
+      type = "http";
+      url = checkmateUrl;
+    };
   hostNames = lib.sort (left: right: left < right) (builtins.attrNames hosts);
   mkHardwareMonitor =
     name:

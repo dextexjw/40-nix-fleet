@@ -4,6 +4,7 @@
     ./common.nix
     ./mounts.nix
     ./services/postgresql.nix
+    ./services/affine.nix
     ./services/gitea.nix
     ./services/forgejo.nix
     ./services/paperless.nix
@@ -27,6 +28,7 @@
     ./services/rustfs.nix
     ./services/mkdocs.nix
     ./services/nginx.nix
+    ./services/on-demand-launcher.nix
     ./backup.nix
     ./firewall.nix
     ./recovery-notes.nix

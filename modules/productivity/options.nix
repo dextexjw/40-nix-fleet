@@ -10,6 +10,7 @@ let
   cfg = config.fleet.productivity.stack;
   appdata = cfg.appdataRoot;
   serviceHostPrefixes = {
+    affine = "affine";
     docs = "docs";
     firefly = "firefly";
     forgejo = "forgejo";
@@ -37,6 +38,7 @@ let
     vaultwarden = "vaultwarden";
   };
   serviceHostKeys = [
+    "affine"
     "gitea"
     "forgejo"
     "docs"
@@ -108,6 +110,8 @@ in
     ports = mkOption {
       type = types.attrsOf types.port;
       default = {
+        affine = 3010;
+        affineRedis = 6379;
         forgejo = 3002;
         garageAdmin = 3903;
         garageRpc = 3901;
@@ -133,6 +137,70 @@ in
         vaultwarden = 8222;
       };
       description = "LAN-facing web or API ports for non-nginx productivity services.";
+    };
+
+    affine = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run AFFiNE on productivity-vm.";
+      };
+
+      databaseName = mkOption {
+        type = types.str;
+        default = "affine";
+        description = "PostgreSQL database used by AFFiNE.";
+      };
+
+      databaseUser = mkOption {
+        type = types.str;
+        default = "affine";
+        description = "PostgreSQL role used by AFFiNE.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://${cfg.serviceHosts.affine}";
+        description = "Canonical external AFFiNE URL used for generated links.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/toeverything/affine@sha256:295420d621d0d36e701e07072e467579c17e6fe74095d954eeb6f6df3453213d";
+        description = "Pinned AFFiNE OCI image reference.";
+      };
+
+      redisDatabase = mkOption {
+        type = types.int;
+        default = 0;
+        description = "Redis database index used by AFFiNE.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/affine";
+        description = "Persistent AFFiNE state directory.";
+      };
+
+      resources = {
+        cpus = mkOption {
+          type = types.str;
+          default = "1.5";
+          description = "Podman CPU limit for the AFFiNE server and migration container.";
+        };
+
+        memory = mkOption {
+          type = types.str;
+          default = "1536m";
+          description = "Podman memory limit for the AFFiNE server and migration container.";
+        };
+
+        memorySwap = mkOption {
+          type = types.str;
+          default = "2048m";
+          description = "Podman total memory plus swap limit for the AFFiNE server and migration container.";
+        };
+      };
     };
 
     netbootxyz = {

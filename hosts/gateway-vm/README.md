@@ -13,7 +13,8 @@ Important host values:
 - FQDN: `gateway-vm.home.arpa`
 - IP: `10.2.20.112`
 - Gateway: `10.2.20.1`
-- DNS: `10.2.20.1`
+- DNS: public recursive resolvers for internet names, with `10.2.20.1`
+  route-only for `home.arpa`
 - Time zone: `America/New_York`
 - Admin user: `smoke`
 - VM disk: `/dev/sda`
@@ -61,6 +62,11 @@ Service access:
 Technitium admin HTTP is available directly at `http://10.2.20.112:5380` and
 through Traefik at `https://technitium.jax22.com/` and `http://technitium.h/`.
 
+Gateway itself uses systemd-resolved split DNS. Public recursive resolvers handle
+ordinary internet names so Nix and Colmena do not depend on the LAN resolver for
+`cache.nixos.org`; `10.2.20.1` remains scoped to `home.arpa` for NAS and VM
+hostnames.
+
 Homepage is declared in Nix and generated into `/etc/homepage-dashboard`.
 Gateway renders Homepage service groups and Traefik routes from the pure
 owner-side exposure catalog in `hosts/*/exposure.nix` and
@@ -80,14 +86,20 @@ Persistent state lives under `/srv/appsdata/authentik`, including PostgreSQL,
 Redis, uploaded media, and discovered certificates. The bootstrap admin password,
 bootstrap API token, secret key, and PostgreSQL password are SOPS secrets.
 
-Authentik is not attached as a Traefik forwardAuth proxy in front of fleet
-applications. Browser routes are ordinary Traefik routes unless the application
-has its own auth or a native SSO integration is configured. Role groups are
-`fleet-admins`, `media-users`, `productivity-users`, and `monitoring-users`;
-they are provisioned in Authentik for native app integrations.
+Authentik is attached as a Traefik forwardAuth proxy only for routes that
+explicitly declare it in the exposure catalog. The current forward-auth route is
+the On-Demand Apps Dashboard at `https://ondemand.jax22.com/`, limited
+to `productivity-users` plus the fleet-wide `fleet-admins` admin override.
+Ordinary app routes remain plain Traefik routes unless
+the application has its own auth or a native SSO integration is configured. Role
+groups are `fleet-admins`, `media-users`, `productivity-users`, and
+`monitoring-users`; they are provisioned in Authentik for native app
+integrations.
 Native OIDC integrations are provisioned from the route catalog. Beszel uses
 the `beszel` client, allows `monitoring-users`, and uses
-`https://beszel.jax22.com/api/oauth2-redirect` as the callback. Memos uses the
+`https://beszel.jax22.com/api/oauth2-redirect` as the callback. AFFiNE uses the
+`affine` client, allows `productivity-users`, and uses
+`https://affine.jax22.com/oauth/callback` as the callback. Memos uses the
 `memos` client, allows `productivity-users`, and uses
 `https://memos.jax22.com/auth/callback` as the callback. Forgejo uses the
 `forgejo` client, allows `productivity-users`, and uses
@@ -108,11 +120,17 @@ provisioning remains catalog-driven on `gateway-vm`; the BookOrbit app-side
 provider and local break-glass account are declared on `media-vm` by
 `bookorbit-declarative-config.service`.
 
+Forward-auth proxy integrations are also provisioned from the exposure catalog.
+Use this only for small control surfaces or apps without a usable native SSO
+path. The On-Demand Apps Dashboard uses a generated Authentik proxy provider
+attached to the embedded outpost and Traefik's generated
+`authentik-forward-auth` middleware.
+
 Future Authentik integrations should follow this pattern:
 
-1. Prefer native OIDC. Do not put Authentik forwardAuth in front of ordinary
-   browser routes unless the target app has no usable native SSO path and the
-   proxy-only behavior is deliberately designed.
+1. Prefer native OIDC. Use Authentik forwardAuth only when the target app has no
+   usable native SSO path or the route is a small control surface with a
+   deliberately designed proxy-only access model.
 2. Declare the integration in the service exposure catalog, not manually in
    Authentik. For catalog helpers such as `mkService`, set `authMode`,
    `authGroups`, and `authOidc`; for hand-written entries, set the equivalent
@@ -270,6 +288,7 @@ Required secrets:
 - `authentik-bootstrap-username`
 - `authentik-postgresql-password`
 - `authentik-secret-key`
+- `affine-oidc-client-secret`
 - `beszel-oidc-client-secret`
 - `bookorbit-oidc-client-secret`
 - `forgejo-oidc-client-secret`

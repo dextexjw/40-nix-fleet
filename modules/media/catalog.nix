@@ -107,7 +107,7 @@ in
           port = 3000;
           routeDescription = "BookOrbit reading library";
           icon = "bookorbit.png";
-          homepageDescription = "Reading library ${backend 3000}";
+          homepageDescription = "${backend 3000}";
           authMode = "native-oidc";
           authGroups = [ "media-users" ];
           authOidc = {
@@ -148,7 +148,7 @@ in
           port = 6767;
           routeDescription = "Bazarr subtitle management";
           icon = "bazarr.png";
-          homepageDescription = "Subtitles ${backend 6767}";
+          homepageDescription = "${backend 6767}";
         })
         (mkService {
           id = "qbittorrent";

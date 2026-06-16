@@ -20,7 +20,7 @@ in
   groups = [
     {
       name = "Monitoring";
-      order = 40;
+      order = 15;
       columns = 4;
       style = "row";
       services = [

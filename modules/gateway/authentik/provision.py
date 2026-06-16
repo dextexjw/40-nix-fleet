@@ -6,6 +6,7 @@ from django.db import transaction
 from authentik.core.models import Application, Group, PropertyMapping, User
 from authentik.crypto.models import CertificateKeyPair
 from authentik.flows.models import Flow
+from authentik.outposts.apps import MANAGED_OUTPOST
 from authentik.outposts.models import Outpost
 from authentik.policies.models import PolicyBinding, PolicyEngineMode
 from authentik.providers.oauth2.constants import SubModes
@@ -16,7 +17,7 @@ from authentik.providers.oauth2.models import (
     RedirectURIMatchingMode,
     ScopeMapping,
 )
-from authentik.providers.proxy.models import ProxyProvider
+from authentik.providers.proxy.models import ProxyMode, ProxyProvider
 
 with open("@groupProvisioningJson@", "r", encoding="utf-8") as groups_file:
     declared_groups = json.load(groups_file)["groups"]
@@ -172,6 +173,44 @@ def ensure_oidc_provider(app, authorization_flow, invalidation_flow, mappings):
     return provider
 
 
+def ensure_forward_auth_provider(app, authorization_flow, invalidation_flow):
+    slug = app["slug"]
+    hosts = app.get("hosts") or []
+    if not hosts:
+        raise ValueError(f"forward-auth application {slug} does not declare hosts")
+
+    provider_name = f"fleet-{slug}-proxy"
+    external_host = f"https://{hosts[0]}"
+    provider = ProxyProvider.objects.filter(name=provider_name).first()
+    created = provider is None
+    if provider is None:
+        provider = ProxyProvider(name=provider_name)
+
+    provider.authorization_flow = authorization_flow
+    provider.invalidation_flow = invalidation_flow
+    provider.external_host = external_host
+    provider.internal_host = ""
+    provider.internal_host_ssl_validation = True
+    provider.mode = ProxyMode.FORWARD_SINGLE
+    provider.skip_path_regex = ""
+    provider.intercept_header_auth = True
+    provider.basic_auth_enabled = False
+    provider.cookie_domain = ""
+    provider.save()
+    provider.set_oauth_defaults()
+    provider.save()
+    print(f"{'created' if created else 'updated'} proxy provider {provider_name}")
+    return provider
+
+
+def ensure_embedded_outpost_provider(provider):
+    outpost = Outpost.objects.filter(managed=MANAGED_OUTPOST).first()
+    if outpost is None:
+        raise ValueError("Authentik embedded outpost was not found")
+    outpost.providers.add(provider)
+    print(f"attached provider {provider.name} to embedded outpost")
+
+
 def ensure_application(slug, name, launch_url, provider):
     app = Application.objects.filter(slug=slug).first()
     created = app is None
@@ -239,16 +278,20 @@ with transaction.atomic():
         ensure_group(group)
     ensure_bootstrap_admin_groups()
 
-    desired_provider_names = []
+    desired_oidc_provider_names = []
+    desired_proxy_provider_names = []
     for app in declared_applications:
         slug = app["slug"]
         name = app["name"]
         mode = app["mode"]
         if mode == "forward-auth":
-            print(
-                f"forwardAuth proxy provisioning is disabled for {name} ({slug}); "
-                "remove or replace this declaration with native app SSO"
-            )
+            provider = ensure_forward_auth_provider(app, authorization_flow, invalidation_flow)
+            application = ensure_application(slug, name, provider.external_host, provider)
+            ensure_embedded_outpost_provider(provider)
+            desired_proxy_provider_names.append(provider.name)
+            binding_groups = list(dict.fromkeys(declared_admin_groups + app.get("groups", [])))
+            for order, group in enumerate(binding_groups):
+                ensure_binding(application, group, order)
             continue
         if mode == "native-oidc":
             provider = ensure_oidc_provider(app, authorization_flow, invalidation_flow, mappings)
@@ -257,7 +300,7 @@ with transaction.atomic():
                 f"https://{app['hosts'][0]}" if app.get("hosts") else ""
             )
             application = ensure_application(slug, name, launch_url, provider)
-            desired_provider_names.append(provider.name)
+            desired_oidc_provider_names.append(provider.name)
             binding_groups = list(dict.fromkeys(declared_admin_groups + app.get("groups", [])))
             for order, group in enumerate(binding_groups):
                 ensure_binding(application, group, order)
@@ -266,5 +309,5 @@ with transaction.atomic():
             f"declared native Authentik application {name} ({slug}, mode={mode}); "
             "app-specific configuration is handled outside OIDC provisioning"
         )
-    remove_stale_proxy_providers(desired_provider_names)
-    remove_stale_oidc_providers(desired_provider_names)
+    remove_stale_proxy_providers(desired_proxy_provider_names)
+    remove_stale_oidc_providers(desired_oidc_provider_names)

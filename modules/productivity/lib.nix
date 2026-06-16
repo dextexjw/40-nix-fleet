@@ -10,6 +10,7 @@ let
   cfg = config.fleet.productivity.stack;
   appdata = cfg.appdataRoot;
   serviceHostPrefixes = {
+    affine = "affine";
     docs = "docs";
     firefly = "firefly";
     forgejo = "forgejo";
@@ -37,6 +38,7 @@ let
     vaultwarden = "vaultwarden";
   };
   serviceHostKeys = [
+    "affine"
     "gitea"
     "forgejo"
     "docs"
@@ -133,6 +135,8 @@ let
   ];
 
   statefulServices = [
+    "redis-affine.service"
+    "podman-affine.service"
     "gitea.service"
     "forgejo.service"
     "nginx.service"

@@ -27,10 +27,11 @@ in
         productivity-vm service model
         =============================
 
-        productivity-vm runs Gitea, Forgejo, Material for MkDocs, Paperless-ngx,
-        FreshRSS, SearXNG, Vaultwarden, PrivateBin, Syncthing, Stirling PDF,
-        Firefly III, Nextcloud, OpenSpeedTest, InvoicePlane, Memos, netboot.xyz, iperf3,
-        RustDesk, Shlink, Garage, RustFS, ntfy, nginx, PostgreSQL, MariaDB, and
+        productivity-vm runs AFFiNE, the On-Demand Apps Dashboard, Gitea, Forgejo,
+        Material for MkDocs, Paperless-ngx, FreshRSS, SearXNG, Vaultwarden,
+        PrivateBin, Syncthing, Stirling PDF, Firefly III, Nextcloud,
+        OpenSpeedTest, InvoicePlane, Memos, netboot.xyz, iperf3, RustDesk,
+        Shlink, Garage, RustFS, ntfy, nginx, PostgreSQL, MariaDB, Redis, and
         Restic appdata backups.
 
         Persistent state root:
@@ -46,6 +47,8 @@ in
       ${serviceRouteLines}
 
         Direct LAN ports:
+          AFFiNE: ${toString cfg.ports.affine}
+          On-Demand Apps Dashboard: ${toString cfg.onDemandLauncher.port} (gateway-vm only)
           Gitea: ${toString cfg.ports.gitea}
           Forgejo: ${toString cfg.ports.forgejo}
           SearXNG: ${toString cfg.ports.searxng}
@@ -71,9 +74,9 @@ in
 
         Backup validation:
           mount ${cfg.smb.backupMount}
-          systemctl start productivity-appdata-backup.service
+          systemctl start productivity-consistency-backup.service
           systemctl start productivity-appdata-restore-check.service
-          systemctl status productivity-appdata-backup.service productivity-appdata-restore-check.service
+          systemctl status productivity-consistency-backup.service productivity-appdata-backup.service productivity-appdata-restore-check.service
 
         Restore outline:
           1. Deploy productivity-vm once to create users, secrets, mounts, and units.
@@ -86,6 +89,22 @@ in
 
         Services stopped during consistency-first manual backup:
           ${concatStringsSep " " statefulServices}
+
+        On-demand productivity apps:
+          Launcher: ${cfg.onDemandLauncher.publicBaseUrl}
+          Backend: ${config.networking.hostName}:${toString cfg.onDemandLauncher.port}, source-restricted to gateway-vm
+          Bundles:
+            affine: redis-affine.service, podman-affine.service
+            gitea: gitea.service, gitea-oidc-config.service
+            stirling-pdf: stirling-pdf.service
+            firefly: phpfpm-firefly-iii.service, firefly-iii-cron.timer
+          AFFiNE, Gitea, Stirling PDF, and Firefly III are installed but not
+          wanted by boot targets. Homepage links those cards to the launcher.
+          The launcher refuses actions while backup, restore-check, dump,
+          migration, or deployment lock signals are active. The scheduled
+          consistency backup and manual backup helper preserve each on-demand
+          app's pre-backup running/stopped state; destructive restore leaves
+          on-demand apps stopped until relaunched.
 
         Garage is standalone S3 in this pass. It does not back Nextcloud primary
         storage. ${serviceHosts.garage} is the authenticated S3 API, so anonymous
@@ -145,7 +164,8 @@ in
         Gitea OIDC uses the encrypted gitea-oidc-client-secret shared between
         gateway-vm Authentik provisioning and gitea-oidc-config.service.
         Authentik allows productivity-users, and local Gitea username/password
-        login remains enabled for break-glass access.
+        login remains enabled for break-glass access. Gitea is started on demand
+        through the On-Demand Apps Dashboard.
 
         Paperless OIDC uses the encrypted paperless-oidc-client-secret shared
         between gateway-vm Authentik provisioning and this host's paperless-owned
@@ -167,6 +187,20 @@ in
         gateway-vm Authentik provisioning and this host's root-only generated
         RustFS environment file. Re-run rustfs-oidc-policy.service after RustFS
         appdata restores or RustFS root credential rotation.
+
+        AFFiNE stores uploaded blobs and custom config under ${appdata}/affine
+        and uses the PostgreSQL database named affine. The AFFiNE container runs
+        database migrations before each server start through podman-affine.service
+        and uses a host-local redis-affine.service instance as volatile cache and
+        job state. AFFiNE is started on demand through the On-Demand Apps
+        Dashboard. affine-environment supplies DB_PASSWORD; the derived
+        DATABASE_URL is generated at runtime under /run/affine/environment so it
+        is not stored in the Nix store. Authentik provisions the affine OIDC
+        client for productivity-users with callback
+        https://affine.jax22.com/oauth/callback. Finish the app-side OIDC setup
+        in AFFiNE Admin Panel > Settings > OAuth with issuer
+        https://auth.jax22.com/application/o/affine, client ID affine, and the
+        encrypted affine-oidc-client-secret.
     '';
   };
 }
