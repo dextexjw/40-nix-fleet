@@ -431,6 +431,9 @@ in
       '';
 
       serviceConfig = {
+        Restart = "on-failure";
+        RestartSec = "30s";
+        TimeoutStartSec = "5min";
         Type = "oneshot";
       };
     };
