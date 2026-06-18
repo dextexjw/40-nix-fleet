@@ -60,8 +60,6 @@ path backed up by Restic.
 | Garage static web | `https://s3.garage.jax22.com` | `http://s3.garage.h` | `10.2.20.114:3902` |
 | RustFS S3 API | `https://s3.rustfs.jax22.com` | `http://s3.rustfs.h` | `10.2.20.114:9000` |
 | RustFS console | `https://rustfs.jax22.com` | `http://rustfs.h` | `10.2.20.114:9001` |
-| ntfy | `https://ntfy.jax22.com` | `http://ntfy.h` | `10.2.20.114:2586` |
-
 Traefik routes and Homepage cards are declared on `gateway-vm`.
 The On-Demand Apps Dashboard route is protected by Authentik forward-auth for
 `productivity-users` plus the fleet-wide `fleet-admins` admin override; its
@@ -93,7 +91,6 @@ Important appdata paths:
 - `/srv/appsdata/rustdesk`
 - `/srv/appsdata/garage`
 - `/srv/appsdata/rustfs`
-- `/srv/appsdata/ntfy`
 - `/srv/appsdata/mariadb`
 - `/srv/appsdata/mariadb-dumps`
 - `/srv/appsdata/postgresql`

@@ -9,6 +9,7 @@ REPOSITORY="/mnt/backups/restic/appdata/monitoring-vm"
 SOURCE="/srv/appsdata"
 SERVICES=(
   beszel-hub.service
+  ntfy-sh.service
   podman-checkmate.service
   podman-checkmate-mongodb.service
 )

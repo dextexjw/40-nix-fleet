@@ -38,7 +38,7 @@ in
   # ============================================================================
 
   fleet.host.name = "productivity-vm";
-  users.motd = "productivity-vm: AFFiNE, Git, docs, paperless, RSS, search, vault, files, S3, netboot.xyz, notifications, and appdata backups";
+  users.motd = "productivity-vm: AFFiNE, Git, docs, paperless, RSS, search, vault, files, S3, netboot.xyz, and appdata backups";
 
   networking.hosts.${hosts.gateway-vm.ip} = routeHosts;
 

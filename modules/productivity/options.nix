@@ -23,7 +23,6 @@ let
     memos = "memos";
     netbootxyz = "netbootxyz";
     nextcloud = "nextcloud";
-    ntfy = "ntfy";
     openspeedtest = "openspeedtest";
     paperless = "paperless";
     privatebin = "privatebin";
@@ -63,7 +62,6 @@ let
     "rustfsConsole"
     "shlink"
     "shlinkWeb"
-    "ntfy"
   ];
   mkServiceHostNames =
     domains:
@@ -123,7 +121,6 @@ in
         netbootxyzAsset = 8083;
         netbootxyzTftp = 69;
         netbootxyzWebUi = 3001;
-        ntfy = 2586;
         openspeedtest = 8989;
         rustdeskRelay = 21117;
         rustdeskSignal = 21116;

@@ -71,6 +71,7 @@ in
     ../common.nix
     ./hardware-configuration.nix
     ../../modules/monitoring/checkmate-provisioning.nix
+    ../../modules/monitoring/ntfy.nix
     ../../modules/monitoring/stack.nix
   ];
 
@@ -79,7 +80,7 @@ in
   # ============================================================================
 
   fleet.host.name = "monitoring-vm";
-  users.motd = "monitoring-vm: Checkmate, Beszel, host agents, and appdata backups";
+  users.motd = "monitoring-vm: Checkmate, Beszel, ntfy notifications, host agents, and appdata backups";
 
   # ============================================================================
   # SECRETS
@@ -151,6 +152,7 @@ in
       enable = true;
     };
     enable = true;
+    ntfy.gatewayAddress = hosts.gateway-vm.ip;
     secrets.enable = secretsEnabled;
     inherit serviceDomains;
     smb.backupDevice = "//nas.home.arpa/backups";

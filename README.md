@@ -7,8 +7,8 @@ The current fleet is intentionally small:
 
 - `gateway-vm` runs Traefik ingress, Technitium DNS, NetBird, and Tailscale.
 - `media-vm` runs Jellyfin, Audiobookshelf, Kavita, declaratively provisioned BookOrbit, ARR apps, Gluetun-gated downloads, SMB media mounts, and appdata backups.
-- `productivity-vm` runs AFFiNE, Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, speed tests, remote desktop relay, invoicing, notes, short links, S3-compatible object storage, notifications, netboot.xyz, and appdata backups.
-- `monitoring-vm` runs Checkmate, Beszel, fleet monitoring agents, and appdata backups.
+- `productivity-vm` runs AFFiNE, Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, speed tests, remote desktop relay, invoicing, notes, short links, S3-compatible object storage, netboot.xyz, and appdata backups.
+- `monitoring-vm` runs Checkmate, Beszel, ntfy notifications, fleet monitoring agents, and appdata backups.
 
 Treat this repo as the source of truth for hosts, services, secrets workflow,
 and recovery notes. The fleet-wide service standard is captured in
@@ -22,7 +22,7 @@ should follow that blueprint before being treated as production-ready.
 | `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway` | Ingress, DNS, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
 | `media-vm` | `10.2.20.113` | `media` | Media services, BookOrbit, Gluetun-gated downloads, SMB media, Restic appdata backups | [`hosts/media-vm/README.md`](hosts/media-vm/README.md) |
 | `productivity-vm` | `10.2.20.114` | `productivity` | AFFiNE, productivity services, documents, Git forges, speed tests, remote desktop relay, invoicing, notes, short links, object storage, netboot, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
-| `monitoring-vm` | `10.2.20.115` | `monitoring` | Checkmate, Beszel, fleet monitoring agents, Restic appdata backups | [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md) |
+| `monitoring-vm` | `10.2.20.115` | `monitoring` | Checkmate, Beszel, ntfy notifications, fleet monitoring agents, Restic appdata backups | [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md) |
 
 Inventory lives in `hosts.nix`. Per-host configuration and host-specific
 runbooks live under `hosts/<name>/`.
@@ -39,7 +39,7 @@ runbooks live under `hosts/<name>/`.
 - `modules/gateway/`: Traefik, Technitium, NetBird, Tailscale, and gateway backup modules.
 - `modules/media/`: the `media-vm` service modules, SMB mounts, backups, and recovery notes.
 - `modules/productivity/`: the `productivity-vm` service modules, netboot.xyz, PostgreSQL, backups, and recovery notes.
-- `modules/monitoring/`: Checkmate, Beszel, fleet monitoring agents, and available Prometheus/Grafana/node exporter modules.
+- `modules/monitoring/`: Checkmate, Beszel, ntfy, fleet monitoring agents, and available Prometheus/Grafana/node exporter modules.
 - `modules/networking/reverse-proxy.nix`: available nginx virtual hosts module.
 - `modules/security/self-signed-ca.nix`: internal self-signed CA and per-domain cert generation.
 - `modules/dev/`: available Jenkins and Gitea modules.

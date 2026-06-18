@@ -21,7 +21,6 @@ let
     cfg.ports.garageWeb
     cfg.ports.gitea
     cfg.ports.memos
-    cfg.ports.ntfy
     cfg.ports.openspeedtest
     cfg.ports.rustfsApi
     cfg.ports.rustfsConsole

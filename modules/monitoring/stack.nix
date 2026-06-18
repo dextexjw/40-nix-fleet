@@ -13,6 +13,12 @@ let
   appdata = cfg.appdataRoot;
   mountUnit = "${utils.escapeSystemdPath cfg.smb.backupMount}.mount";
   serviceHosts = cfg.serviceHosts;
+  statefulServices = [
+    "beszel-hub.service"
+    "podman-checkmate.service"
+    "podman-checkmate-mongodb.service"
+  ]
+  ++ optional cfg.ntfy.enable "ntfy-sh.service";
   serviceRouteLines = concatStringsSep "\n" (
     concatMap
       (
@@ -24,6 +30,7 @@ let
       [
         "beszel"
         "checkmate"
+        "ntfy"
       ]
   );
   secretPath =
@@ -144,6 +151,7 @@ in
       default = {
         beszel = "beszel.${head cfg.serviceDomains}";
         checkmate = "checkmate.${head cfg.serviceDomains}";
+        ntfy = "ntfy.${head cfg.serviceDomains}";
       };
       description = "Canonical internal hostnames for monitoring services.";
     };
@@ -153,6 +161,7 @@ in
       default = {
         beszel = tail (map (domain: "beszel.${domain}") cfg.serviceDomains);
         checkmate = tail (map (domain: "checkmate.${domain}") cfg.serviceDomains);
+        ntfy = tail (map (domain: "ntfy.${domain}") cfg.serviceDomains);
       };
       description = "Alias hostnames for monitoring services.";
     };
@@ -164,6 +173,7 @@ in
         capture = 59232;
         checkmate = 52345;
         mongo = 27017;
+        ntfy = 2586;
       };
       description = "Monitoring service ports.";
     };
@@ -240,6 +250,43 @@ in
           in
           "${scheme}://${host}";
         description = "Browser-facing Checkmate URL used for client API and CORS settings.";
+      };
+    };
+
+    ntfy = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run ntfy push notifications on monitoring-vm.";
+      };
+
+      gatewayAddress = mkOption {
+        type = types.str;
+        default = "10.2.20.112";
+        description = "Gateway VM address allowed to reach ntfy's backend listener.";
+      };
+
+      publicUrl = mkOption {
+        type = types.str;
+        default =
+          let
+            host = cfg.serviceHosts.ntfy;
+            scheme = if hasSuffix ".h" host then "http" else "https";
+          in
+          "${scheme}://${host}";
+        description = "Public ntfy URL used as the canonical server base URL.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/ntfy";
+        description = "Persistent ntfy data directory.";
+      };
+
+      upstreamBaseUrl = mkOption {
+        type = types.str;
+        default = "https://ntfy.sh";
+        description = "Upstream ntfy server used for mobile push forwarding.";
       };
     };
 
@@ -356,6 +403,12 @@ in
       "d '${appdata}/checkmate' 0750 root monitoring - -"
       "d '${appdata}/checkmate/mongo' 0750 root monitoring - -"
       "d '${appdata}/checkmate/uploads' 0750 root monitoring - -"
+    ]
+    ++ optionals cfg.ntfy.enable [
+      "d '${cfg.ntfy.stateDir}' 0750 ntfy-sh ntfy-sh - -"
+      "z '${cfg.ntfy.stateDir}' 0750 ntfy-sh ntfy-sh - -"
+      "d '${cfg.ntfy.stateDir}/attachments' 0750 ntfy-sh ntfy-sh - -"
+      "z '${cfg.ntfy.stateDir}/attachments' 0750 ntfy-sh ntfy-sh - -"
     ];
 
     systemd.automounts = [
@@ -523,7 +576,7 @@ in
           exit 1
         fi
 
-        services=(beszel-hub.service podman-checkmate.service podman-checkmate-mongodb.service)
+        services=(${concatStringsSep " " (map escapeShellArg statefulServices)})
         active_services=()
         for service in "''${services[@]}"; do
           if systemctl is-active --quiet "$service"; then
@@ -670,13 +723,16 @@ in
       cfg.ports.beszel
       cfg.ports.checkmate
     ];
+    networking.firewall.extraCommands = optionalString cfg.ntfy.enable ''
+      iptables -A nixos-fw -p tcp -s ${cfg.ntfy.gatewayAddress} --dport ${toString cfg.ports.ntfy} -j nixos-fw-accept
+    '';
 
     environment.etc."fleet/monitoring-vm.md".text = ''
             monitoring-vm service model
             ===========================
 
-            monitoring-vm runs Checkmate, Beszel Hub, Beszel Agent, Checkmate
-            Capture, and Restic appdata backups.
+            monitoring-vm runs Checkmate, Beszel Hub, ntfy, Beszel Agent,
+            Checkmate Capture, and Restic appdata backups.
 
             Persistent state root:
               ${appdata}
@@ -693,6 +749,7 @@ in
             Direct LAN ports:
               Checkmate: ${toString cfg.ports.checkmate}
               Beszel: ${toString cfg.ports.beszel}
+              ntfy: ${toString cfg.ports.ntfy} (gateway-vm only)
               Checkmate Capture: ${toString cfg.ports.capture}
               Beszel Agent: 45876
 
@@ -701,7 +758,7 @@ in
               Targets: /etc/fleet/checkmate-targets.json
               Last summary: /var/lib/checkmate-provisioning/last-summary.json
               Managed identity: fleet-declared plus fleet-service:<id> or fleet-host:<host>
-              Expected managed monitors: 44
+              Expected managed monitors: 41
               Stale managed monitors are paused, not deleted.
 
             Beszel SSO:
@@ -718,12 +775,18 @@ in
 
             Restore outline:
               1. Deploy monitoring-vm once to create users, secrets, mounts, and units.
-              2. Stop monitoring-appdata-backup.timer, beszel-hub.service, podman-checkmate.service, and podman-checkmate-mongodb.service.
+              2. Stop monitoring-appdata-backup.timer, beszel-hub.service, podman-checkmate.service, podman-checkmate-mongodb.service, and ntfy-sh.service.
               3. Mount ${cfg.smb.backupMount}.
               4. Choose a monitoring-vm/appsdata snapshot ID.
               5. Restore the snapshot to / with restic --verify.
               6. Run systemd-tmpfiles --create.
-              7. Restart Beszel Hub, Checkmate MongoDB, Checkmate, and the backup timer.
+              7. Restart Beszel Hub, Checkmate MongoDB, Checkmate, ntfy, and the backup timer.
+
+            ntfy:
+              Public URL: ${cfg.ntfy.publicUrl}
+              State: ${cfg.ntfy.stateDir}
+              Health: http://127.0.0.1:${toString cfg.ports.ntfy}/v1/health
+              Mobile push forwarding uses upstream-base-url ${cfg.ntfy.upstreamBaseUrl}.
     '';
   };
 }

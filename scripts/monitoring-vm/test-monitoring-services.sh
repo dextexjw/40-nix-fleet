@@ -13,6 +13,7 @@ KEY_UNITS=(
   beszel-agent.service
   beszel-hub.service
   checkmate-capture.service
+  ntfy-sh.service
   podman-checkmate.service
   podman-checkmate-mongodb.service
   monitoring-appdata-backup.timer
@@ -35,6 +36,7 @@ done
 printf 'Checking monitoring listeners...\n'
 colmena exec --on "$HOST" -- "sudo ss -ltn '( sport = :52345 )' | grep -Eq '([[:space:]]|^)(10[.]2[.]20[.]115|0[.]0[.]0[.]0|\\*|\\[::\\]):52345'"
 colmena exec --on "$HOST" -- "sudo ss -ltn '( sport = :8090 )' | grep -Eq '([[:space:]]|^)(10[.]2[.]20[.]115|0[.]0[.]0[.]0|\\*|\\[::\\]):8090'"
+colmena exec --on "$HOST" -- "sudo ss -ltn '( sport = :2586 )' | grep -Eq '([[:space:]]|^)(10[.]2[.]20[.]115|0[.]0[.]0[.]0|\\*|\\[::\\]):2586'"
 colmena exec --on "$HOST" -- "sudo ss -ltn '( sport = :59232 )' | grep -Eq '([[:space:]]|^)(10[.]2[.]20[.]115|0[.]0[.]0[.]0|\\*|\\[::\\]):59232'"
 colmena exec --on "$HOST" -- "sudo ss -ltn '( sport = :45876 )' | grep -q ':45876'"
 colmena exec --on "$HOST" -- "sudo ss -ltn '( sport = :27017 )' | grep -Eq '([[:space:]]|^)(127[.]0[.]0[.]1|\\[::1\\]):27017'"
@@ -42,6 +44,7 @@ colmena exec --on "$HOST" -- "sudo ss -ltn '( sport = :27017 )' | grep -Eq '([[:
 printf 'Checking direct HTTP endpoints...\n'
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:52345/ >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8090/ >/dev/null"
+colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:2586/v1/health >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:59232/health >/dev/null"
 
 printf 'Checking Beszel OIDC configuration...\n'
@@ -52,12 +55,14 @@ printf 'Checking routed host-header behavior on monitoring-vm backends...\n'
 for domain in "${SERVICE_DOMAINS[@]}"; do
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: checkmate.${domain}' http://127.0.0.1:52345/ >/dev/null"
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: beszel.${domain}' http://127.0.0.1:8090/ >/dev/null"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: ntfy.${domain}' http://127.0.0.1:2586/v1/health >/dev/null"
 done
 
 printf 'Checking declarative Checkmate provisioning state...\n'
 colmena exec --on "$HOST" -- "getent hosts homepage.jax22.com | grep -q '10[.]2[.]20[.]112'"
 colmena exec --on "$HOST" -- "jq -e '.expectedServiceMonitors == (.serviceMonitors | length) and .expectedHardwareMonitors == (.hardwareMonitors | length) and .expectedManagedMonitors == (.expectedServiceMonitors + .expectedHardwareMonitors)' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'any(.serviceMonitors[]; .id == \"memos\") and any(.serviceMonitors[]; .id == \"openspeedtest\") and all(.serviceMonitors[]; (.id | test(\"^libr(e)?speed$\") | not))' /etc/fleet/checkmate-targets.json >/dev/null"
+colmena exec --on "$HOST" -- "jq -e 'any(.serviceMonitors[]; .id == \"ntfy\" and .type == \"http\" and .url == \"https://ntfy.jax22.com/v1/health\")' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'any(.serviceMonitors[]; .id == \"gluetun\" and .type == \"http\" and .url == \"https://gluetun.gateway.jax22.com/\") and any(.serviceMonitors[]; .id == \"media-gluetun\" and .type == \"http\" and .url == \"https://gluetun.media.jax22.com/\")' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'all(.hardwareMonitors[]; .url | endswith(\"/api/v1/metrics\"))' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "systemctl show checkmate-provisioning.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show checkmate-provisioning.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"

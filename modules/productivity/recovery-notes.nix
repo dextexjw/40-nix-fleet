@@ -31,7 +31,7 @@ in
         Material for MkDocs, Paperless-ngx, FreshRSS, SearXNG, Vaultwarden,
         PrivateBin, Syncthing, Stirling PDF, Firefly III, Nextcloud,
         OpenSpeedTest, InvoicePlane, Memos, netboot.xyz, iperf3, RustDesk,
-        Shlink, Garage, RustFS, ntfy, nginx, PostgreSQL, MariaDB, Redis, and
+        Shlink, Garage, RustFS, nginx, PostgreSQL, MariaDB, Redis, and
         Restic appdata backups.
 
         Persistent state root:
@@ -69,7 +69,6 @@ in
           RustFS console: ${toString cfg.ports.rustfsConsole}
           Shlink API and redirect service: ${toString cfg.ports.shlink}
           Shlink Web Client: ${toString cfg.ports.shlinkWeb}
-          ntfy: ${toString cfg.ports.ntfy}
           nginx-backed services: 80
 
         Backup validation:

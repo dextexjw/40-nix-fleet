@@ -23,7 +23,6 @@
     ./services/garage.nix
     ./services/memos.nix
     ./services/netbootxyz.nix
-    ./services/ntfy.nix
     ./services/shlink.nix
     ./services/rustfs.nix
     ./services/mkdocs.nix

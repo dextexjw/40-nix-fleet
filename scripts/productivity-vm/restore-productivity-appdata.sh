@@ -7,7 +7,7 @@ REPOSITORY="/mnt/backups/restic/appdata/productivity-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
 SNAPSHOT="${1:-}"
-SERVICES="forgejo nginx paperless-scheduler paperless-task-queue paperless-consumer paperless-web freshrss-updater phpfpm-freshrss searx vaultwarden phpfpm-privatebin syncthing phpfpm-nextcloud garage podman-memos podman-netbootxyz podman-shlink podman-shlink-web podman-rustfs ntfy-sh"
+SERVICES="forgejo nginx paperless-scheduler paperless-task-queue paperless-consumer paperless-web freshrss-updater phpfpm-freshrss searx vaultwarden phpfpm-privatebin syncthing phpfpm-nextcloud garage podman-memos podman-netbootxyz podman-shlink podman-shlink-web podman-rustfs"
 ON_DEMAND_SERVICES="gitea-oidc-config gitea firefly-iii-cron.timer firefly-iii-cron phpfpm-firefly-iii stirling-pdf"
 
 die() {
@@ -132,7 +132,6 @@ chmod 0755 "\$source_path"
 [ -d "\$source_path/memos-backups" ] && chown -R 10002:10002 "\$source_path/memos-backups"
 [ -d "\$source_path/rustfs" ] && chown -R 10001:10001 "\$source_path/rustfs"
 [ -d "\$source_path/shlink" ] && chown -R root:productivity "\$source_path/shlink"
-[ -d "\$source_path/ntfy" ] && chown -R ntfy-sh:ntfy-sh "\$source_path/ntfy"
 [ -d "\$source_path/postgresql" ] && chown -R postgres:postgres "\$source_path/postgresql"
 [ -d "\$source_path/postgresql-dumps" ] && chown -R postgres:postgres "\$source_path/postgresql-dumps"
 find "\$source_path" -type f -name '*.pid' -delete

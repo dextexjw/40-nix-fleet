@@ -7,7 +7,7 @@ REPOSITORY="/mnt/backups/restic/appdata/monitoring-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
 SNAPSHOT="${1:-}"
-SERVICES="beszel-hub podman-checkmate podman-checkmate-mongodb"
+SERVICES="beszel-hub ntfy-sh podman-checkmate podman-checkmate-mongodb"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -110,6 +110,7 @@ chown root:root "\$source_path"
 chmod 0755 "\$source_path"
 [ -d "\$source_path/beszel-hub" ] && chown -R beszel-hub:beszel-hub "\$source_path/beszel-hub"
 [ -d "\$source_path/checkmate" ] && chown -R root:monitoring "\$source_path/checkmate"
+[ -d "\$source_path/ntfy" ] && chown -R ntfy-sh:ntfy-sh "\$source_path/ntfy"
 find "\$source_path" -type f -name '*.pid' -delete
 
 echo 'Reapplying declared directories and restarting monitoring services...'

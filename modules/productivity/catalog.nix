@@ -286,17 +286,6 @@ in
           homepageDescription = "File synchronization\n${backend 8384}";
         })
         (mkService {
-          id = "ntfy";
-          name = "ntfy";
-          port = 2586;
-          routeDescription = "ntfy push notifications";
-          icon = "ntfy.png";
-          homepageDescription = "Push notifications\n${backend 2586}";
-          monitorPath = "/v1/health";
-          authMode = "none";
-          smokeHttp.path = "/v1/health";
-        })
-        (mkService {
           id = "docs";
           name = "Docs";
           port = 80;

@@ -39,7 +39,6 @@ KEY_SERVICES=(
   podman-shlink
   podman-shlink-web
   podman-rustfs
-  ntfy-sh
 )
 ON_DEMAND_SERVICES=(
   redis-affine
@@ -73,7 +72,6 @@ HOST_ROUTES=(
   rustfs
   s
   shlink
-  ntfy
 )
 
 declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
@@ -387,8 +385,6 @@ fi
 if ! service_is_skipped podman-shlink-web; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8089/ >/dev/null"
 fi
-colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:2586/v1/health >/dev/null"
-
 printf 'Checking Garage layout and endpoints...\n'
 garage_status="$(colmena exec --on "$HOST" -- garage status 2>&1)"
 printf '%s\n' "$garage_status"
@@ -421,9 +417,6 @@ for route_prefix in "${HOST_ROUTES[@]}"; do
         ;;
       forgejo.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:3002/ >/dev/null"
-        ;;
-      ntfy.*)
-        colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:2586/v1/health >/dev/null"
         ;;
       openspeedtest.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8989/ >/dev/null"

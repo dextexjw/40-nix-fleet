@@ -1,7 +1,7 @@
 # monitoring-vm
 
-`monitoring-vm` runs Checkmate, Beszel Hub, fleet monitoring agents, appdata
-backups, and restore checks.
+`monitoring-vm` runs Checkmate, Beszel Hub, ntfy notifications, fleet
+monitoring agents, appdata backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
 `configuration.nix` and imports the monitoring stack plus Checkmate
@@ -31,6 +31,7 @@ path backed up by Restic.
 | --- | --- | --- | --- |
 | Checkmate | `https://checkmate.jax22.com` | `http://checkmate.h` | `10.2.20.115:52345` |
 | Beszel | `https://beszel.jax22.com` | `http://beszel.h` | `10.2.20.115:8090` |
+| ntfy | `https://ntfy.jax22.com` | `http://ntfy.h` | `10.2.20.115:2586` |
 | Checkmate Capture | direct agent API only | none | `10.2.20.115:59232` |
 | Beszel Agent | direct agent API only | none | `10.2.20.115:45876` |
 
@@ -45,9 +46,10 @@ Important appdata paths:
 - `/srv/appsdata/checkmate`
 - `/srv/appsdata/checkmate/mongo`
 - `/srv/appsdata/checkmate/uploads`
+- `/srv/appsdata/ntfy`
 
-Checkmate MongoDB is stopped during the automatic Restic backup so the
-repository captures a consistent database state.
+Checkmate MongoDB and ntfy are stopped during the automatic Restic backup so
+the repository captures consistent service state.
 
 ## Secrets
 
@@ -81,6 +83,11 @@ patches Beszel's PocketBase `users` collection before the hub starts. The
 redirect URI is `https://beszel.jax22.com/api/oauth2-redirect`. Local password
 login remains enabled unless
 `fleet.monitoring.stack.beszel.oidc.disablePasswordAuth` is set.
+
+ntfy is served through Gateway at `https://ntfy.jax22.com` and keeps its
+auth/cache/attachment state under `/srv/appsdata/ntfy`. Mobile push forwarding
+depends on the server `base-url` staying `https://ntfy.jax22.com` and
+`upstream-base-url` staying `https://ntfy.sh`.
 
 Normal edit flow:
 
@@ -166,8 +173,8 @@ into `/etc/fleet/checkmate-targets.json`.
 - Target file: `/etc/fleet/checkmate-targets.json`
 - Last run summary: `/var/lib/checkmate-provisioning/last-summary.json`
 - Managed identity: `fleet-declared` plus `fleet-service:<id>` or `fleet-host:<host>`
-- Expected managed monitors: `44`
-- Service route monitors: `40`
+- Expected managed monitors: `41`
+- Service route monitors: `37`
 - Host hardware monitors: `4`
 
 Service HTTP monitors use the real routed `https://*.jax22.com` hostnames.
@@ -213,9 +220,9 @@ scripts/monitoring-vm/test-monitoring-services.sh
 Destructive restore outline:
 
 1. Deploy `monitoring-vm` once to create users, secrets, mounts, and units.
-2. Stop the backup timer and monitoring services.
+2. Stop the backup timer and monitoring services, including `ntfy-sh.service`.
 3. Mount `/mnt/backups`.
 4. Choose a `monitoring-vm` appdata snapshot ID.
 5. Restore the snapshot to `/` with `restic --verify`.
 6. Run `systemd-tmpfiles --create`.
-7. Restart Beszel Hub, Checkmate MongoDB, Checkmate, and the backup timer.
+7. Restart Beszel Hub, Checkmate MongoDB, Checkmate, ntfy, and the backup timer.

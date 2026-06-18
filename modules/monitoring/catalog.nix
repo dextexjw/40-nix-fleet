@@ -72,6 +72,22 @@ in
             path = "/";
           };
         }
+        {
+          id = "ntfy";
+          name = "ntfy";
+          route = {
+            description = "ntfy push notifications";
+            hosts = hostnames "ntfy";
+            url = backend 2586;
+          };
+          homepage = {
+            description = "Push notifications\n${backend 2586}";
+            href = "${routeUrl "ntfy"}/";
+            icon = "ntfy.png";
+            siteMonitor = "${backend 2586}/v1/health";
+          };
+          smoke.http.path = "/v1/health";
+        }
       ];
     }
   ];

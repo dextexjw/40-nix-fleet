@@ -33,7 +33,6 @@ SERVICES=(
   podman-shlink.service
   podman-shlink-web.service
   podman-rustfs.service
-  ntfy-sh.service
 )
 ON_DEMAND_STOP_UNITS=(
   podman-affine.service

@@ -23,7 +23,6 @@ let
     memos = "memos";
     netbootxyz = "netbootxyz";
     nextcloud = "nextcloud";
-    ntfy = "ntfy";
     openspeedtest = "openspeedtest";
     paperless = "paperless";
     privatebin = "privatebin";
@@ -63,7 +62,6 @@ let
     "rustfsConsole"
     "shlink"
     "shlinkWeb"
-    "ntfy"
   ];
   mkServiceHostNames =
     domains:
@@ -167,7 +165,6 @@ let
     "podman-shlink.service"
     "podman-shlink-web.service"
     "podman-rustfs.service"
-    "ntfy-sh.service"
   ];
 in
 {
