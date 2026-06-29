@@ -266,6 +266,12 @@ in
         description = "Gateway VM address allowed to reach ntfy's backend listener.";
       };
 
+      gatewayAddresses = mkOption {
+        type = types.listOf types.str;
+        default = [ cfg.ntfy.gatewayAddress ];
+        description = "Gateway VM addresses allowed to reach ntfy's backend listener.";
+      };
+
       publicUrl = mkOption {
         type = types.str;
         default =
@@ -723,9 +729,12 @@ in
       cfg.ports.beszel
       cfg.ports.checkmate
     ];
-    networking.firewall.extraCommands = optionalString cfg.ntfy.enable ''
-      iptables -A nixos-fw -p tcp -s ${cfg.ntfy.gatewayAddress} --dport ${toString cfg.ports.ntfy} -j nixos-fw-accept
-    '';
+    networking.firewall.extraCommands = optionalString cfg.ntfy.enable (
+      concatMapStringsSep "\n" (
+        gatewayAddress:
+        "iptables -A nixos-fw -p tcp -s ${gatewayAddress} --dport ${toString cfg.ports.ntfy} -j nixos-fw-accept"
+      ) cfg.ntfy.gatewayAddresses
+    );
 
     environment.etc."fleet/monitoring-vm.md".text = ''
             monitoring-vm service model
@@ -743,13 +752,13 @@ in
             Password file:
               ${resticPasswordFile}
 
-            Internal routes through gateway-vm:
+            Internal routes through Gateway nodes:
       ${serviceRouteLines}
 
             Direct LAN ports:
               Checkmate: ${toString cfg.ports.checkmate}
               Beszel: ${toString cfg.ports.beszel}
-              ntfy: ${toString cfg.ports.ntfy} (gateway-vm only)
+              ntfy: ${toString cfg.ports.ntfy} (Gateway nodes only)
               Checkmate Capture: ${toString cfg.ports.capture}
               Beszel Agent: 45876
 

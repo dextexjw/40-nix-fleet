@@ -10,6 +10,7 @@ let
 
   loadHostExposure =
     {
+      gatewayHost,
       hosts,
       serviceDomain,
       serviceDomains,
@@ -17,6 +18,7 @@ let
     }:
     import (hostExposurePath name) {
       inherit
+        gatewayHost
         hosts
         lib
         serviceDomain
@@ -163,7 +165,7 @@ let
   };
 
   mkDnsRows =
-    gatewayHost: service:
+    dnsExpectedAddress: service:
     let
       route = service.route or null;
       smoke = service.smoke or { };
@@ -175,7 +177,7 @@ let
           route.hosts
         else
           [ ];
-      expected = smoke.dnsExpected or gatewayHost.ip;
+      expected = smoke.dnsExpected or dnsExpectedAddress;
     in
     map (host: [
       "dns"
@@ -363,17 +365,19 @@ in
   load =
     {
       hosts,
+      gatewayHost ? (import ./gateway-cluster.nix { inherit hosts; }).primaryHost,
+      dnsExpectedAddress ? (import ./gateway-cluster.nix { inherit hosts; }).clientAddress,
       serviceDomain ? head serviceDomains,
       serviceDomains ? [ serviceDomain ],
     }:
     let
-      gatewayHost = hosts.gateway-vm;
       hostNames = sort (left: right: left < right) (attrNames hosts);
       exposureHostNames = filter (name: builtins.pathExists (hostExposurePath name)) hostNames;
       hostExposures = map (
         name:
         loadHostExposure {
           inherit
+            gatewayHost
             hosts
             name
             serviceDomain
@@ -434,7 +438,7 @@ in
         ]
       ]
       ++ concatMap mkHomepageGroupRows homepageGroups
-      ++ concatMap (mkDnsRows gatewayHost) serviceEntries
+      ++ concatMap (mkDnsRows dnsExpectedAddress) serviceEntries
       ++ concatMap mkHttpRows serviceEntries
       ++ concatMap mkHttpsRows serviceEntries
       ++ concatMap mkAuthentikOidcRows serviceEntries

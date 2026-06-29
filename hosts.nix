@@ -27,6 +27,29 @@
     };
   };
 
+  gateway2-vm = {
+    arch = "x86_64-linux";
+    domain = "home.arpa";
+    fqdn = "gateway2.home.arpa";
+    ip = "10.2.20.122";
+    gateway = "10.2.20.1";
+    nameservers = [
+      "10.2.20.1"
+    ];
+    user = "smoke";
+    tags = [
+      "gateway"
+    ];
+    timezone = "America/New_York";
+    vm = {
+      cores = 2;
+      disk = "/dev/sda";
+      id = "122";
+      name = "gateway2-vm";
+      ramGB = 3;
+    };
+  };
+
   media-vm = {
     arch = "x86_64-linux";
     domain = "home.arpa";

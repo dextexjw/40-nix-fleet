@@ -2,6 +2,7 @@
 
 FLEET_REQUIRED_SECRET_HOSTS=(
   gateway-vm
+  gateway2-vm
   media-vm
   monitoring-vm
   productivity-vm
@@ -106,6 +107,9 @@ required_secret_keys_for_host() {
 
   case "$host" in
     gateway-vm)
+      printf '%s\n' "${GATEWAY_REQUIRED_SECRET_KEYS[@]}"
+      ;;
+    gateway2-vm)
       printf '%s\n' "${GATEWAY_REQUIRED_SECRET_KEYS[@]}"
       ;;
     media-vm)

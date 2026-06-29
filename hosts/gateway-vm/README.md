@@ -12,6 +12,7 @@ Important host values:
 
 - FQDN: `gateway-vm.home.arpa`
 - IP: `10.2.20.112`
+- Gateway VIP: `10.2.20.102`
 - Gateway: `10.2.20.1`
 - DNS: public recursive resolvers for internet names, with `10.2.20.1`
   route-only for `home.arpa`
@@ -38,14 +39,14 @@ Gateway state is backed up with Restic to
 
 Service access:
 
-- Traefik HTTP ingress: `http://10.2.20.112`
-- Traefik HTTPS ingress: `https://10.2.20.112` for `jax22.com` routes with Let’s Encrypt DNS-01 certificates
+- Traefik HTTP ingress: `http://10.2.20.102` through the Gateway VIP, or `http://10.2.20.112` directly on this node
+- Traefik HTTPS ingress: `https://10.2.20.102` through the Gateway VIP for `jax22.com` routes with Let’s Encrypt DNS-01 certificates
 - Traefik dashboard: `http://10.2.20.112:8080/dashboard/`
 - Traefik Prometheus metrics: `http://10.2.20.112:8080/metrics`
 - Authentik: `https://auth.jax22.com/` through Traefik and `http://auth.h/` as an unprotected LAN alias; backend only on `127.0.0.1:9000`
 - Homepage: `https://homepage.jax22.com/` through Traefik, `http://homepage.h/` as an alias, and `http://10.2.20.112:8082/` directly
-- DNS: `10.2.20.112:53` over TCP and UDP
-- DNS-over-TLS: `10.2.20.112:853`
+- DNS: `10.2.20.102:53` over TCP and UDP through the Gateway VIP, or `10.2.20.112:53` directly on this node
+- DNS-over-TLS: `10.2.20.102:853` through the Gateway VIP
 - Technitium admin HTTP: `http://10.2.20.112:5380`
 - Technitium HTTPS and DNS-over-HTTPS: `https://10.2.20.112:53443`
 - Gluetun HTTP proxy: `http://10.2.20.112:8888`
@@ -215,13 +216,14 @@ The netboot.xyz container runs on `productivity-vm` as
 `productivity-vm`.
 
 Technitium serves the `jax22.com` and `.h` service zones. Wildcard DNS resolves
-`*.jax22.com` and `*.h` to `gateway-vm` at `10.2.20.112`, where Traefik routes
-known hostnames to their backends. Traefik uses Cloudflare DNS-01 for the
+`*.jax22.com` and `*.h` to the Gateway VIP `10.2.20.102`, where Traefik routes
+known hostnames to their backends on whichever Gateway node currently owns the
+VIP. Traefik uses Cloudflare DNS-01 for the
 public `jax22.com`, `gateway.jax22.com`, and `media.jax22.com` wildcard
 certificates; `.h` cannot be issued by Let’s Encrypt and remains HTTP-only.
 VM hostnames stay under `home.arpa` and are managed outside this Gateway
-service zone. Clients must use `10.2.20.112` as DNS, or the LAN DNS/DHCP server
-must forward/delegate `jax22.com` and `.h` to `10.2.20.112` on DNS port 53, for
+service zone. Clients must use `10.2.20.102` as DNS, or the LAN DNS/DHCP server
+must forward/delegate `jax22.com` and `.h` to `10.2.20.102` on DNS port 53, for
 these names to resolve. `jax22.com` is split-horizon for homelab clients, so
 unrelated public records must be added or delegated deliberately if needed on
 the LAN. Technitium's `5380` port is only the admin HTTP UI.
@@ -231,13 +233,15 @@ whether the client is asking Gateway DNS:
 
 ```sh
 dig gluetun.gateway.jax22.com
+dig @10.2.20.102 gluetun.gateway.jax22.com
 dig @10.2.20.112 gluetun.gateway.jax22.com
 dig gluetun.gateway.h
+dig @10.2.20.102 gluetun.gateway.h
 dig @10.2.20.112 gluetun.gateway.h
 ```
 
-The first command must query `10.2.20.112`, or the LAN DNS server must have a
-conditional forward/delegation for the service zone to `10.2.20.112` on DNS
+The first command must query `10.2.20.102`, or the LAN DNS server must have a
+conditional forward/delegation for the service zone to `10.2.20.102` on DNS
 port 53. A temporary single-client workaround is adding the specific service
 hostname to that client's hosts file.
 

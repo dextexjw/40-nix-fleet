@@ -35,7 +35,7 @@ path backed up by Restic.
 | Service | Canonical route | Alias | Backend |
 | --- | --- | --- | --- |
 | AFFiNE | `https://affine.jax22.com` | `http://affine.h` | `10.2.20.114:3010` |
-| On-Demand Apps Dashboard | `https://ondemand.jax22.com` | none | `10.2.20.114:8092` from `gateway-vm` only |
+| On-Demand Apps Dashboard | `https://ondemand.jax22.com` | none | `10.2.20.114:8092` from Gateway nodes only |
 | Gitea | `https://gitea.jax22.com` | `http://gitea.h` | `10.2.20.114:3000` |
 | Forgejo | `https://forgejo.jax22.com` | `http://forgejo.h` | `10.2.20.114:3002` |
 | Material for MkDocs | `https://docs.jax22.com` | `http://docs.h` | `10.2.20.114:80` |
@@ -60,10 +60,10 @@ path backed up by Restic.
 | Garage static web | `https://s3.garage.jax22.com` | `http://s3.garage.h` | `10.2.20.114:3902` |
 | RustFS S3 API | `https://s3.rustfs.jax22.com` | `http://s3.rustfs.h` | `10.2.20.114:9000` |
 | RustFS console | `https://rustfs.jax22.com` | `http://rustfs.h` | `10.2.20.114:9001` |
-Traefik routes and Homepage cards are declared on `gateway-vm`.
+Traefik routes and Homepage cards are declared on the Gateway nodes.
 The On-Demand Apps Dashboard route is protected by Authentik forward-auth for
 `productivity-users` plus the fleet-wide `fleet-admins` admin override; its
-backend port is source-restricted to `gateway-vm`.
+backend port is source-restricted to `gateway-vm` and `gateway2-vm`.
 netboot.xyz local assets are served at `10.2.20.114:8083`; TFTP is served at
 `10.2.20.114:69/udp` with boot file `netboot.xyz.efi`.
 

@@ -1,4 +1,5 @@
 {
+  gatewayHost ? hosts.gateway-vm,
   hosts,
   serviceDomain,
   serviceDomains ? [ serviceDomain ],
@@ -6,7 +7,7 @@
 }:
 
 let
-  host = hosts.gateway-vm;
+  host = gatewayHost;
   hostname = name: "${name}.${builtins.head serviceDomains}";
   hostnames = name: map (domain: "${name}.${domain}") serviceDomains;
   urlScheme = hostName: if builtins.match ".*[.]h" hostName != null then "http" else "https";

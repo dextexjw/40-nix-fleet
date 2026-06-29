@@ -46,6 +46,12 @@ in
       description = "Mount point for gateway backup storage.";
     };
 
+    hostName = mkOption {
+      type = types.str;
+      default = config.networking.hostName;
+      description = "Restic host identity used for gateway state snapshots.";
+    };
+
     passwordFile = mkOption {
       type = types.path;
       description = "Runtime Restic password file.";
@@ -60,7 +66,7 @@ in
 
     repository = mkOption {
       type = types.str;
-      default = "/mnt/backup/restic/appdata/gateway-vm";
+      default = "${cfg.mountPoint}/restic/appdata/${cfg.hostName}";
       description = "Restic repository path for gateway state.";
     };
 
@@ -192,7 +198,7 @@ in
     };
 
     systemd.services.gateway-state-backup = {
-      description = "Back up gateway-vm /srv/appsdata";
+      description = "Back up ${cfg.hostName} /srv/appsdata";
       after = [
         "network-online.target"
         (mountUnit cfg.mountPoint)
@@ -231,7 +237,7 @@ in
           restic init
         else
           restic snapshots \
-            --host gateway-vm \
+            --host '${cfg.hostName}' \
             --path '${cfg.source}' \
             --tag '${cfg.tag}' \
             --latest 1 \
@@ -240,14 +246,14 @@ in
         fi
 
         restic backup '${cfg.source}' \
-          --host gateway-vm \
+          --host '${cfg.hostName}' \
           --one-file-system \
           --exclude-caches \
           --retry-lock 30m \
           --tag '${cfg.tag}'
 
         restic forget \
-          --host gateway-vm \
+          --host '${cfg.hostName}' \
           --path '${cfg.source}' \
           --prune \
           --retry-lock 30m \
@@ -266,7 +272,7 @@ in
     };
 
     systemd.services.gateway-state-restore-check = {
-      description = "Validate gateway-vm /srv/appsdata Restic restore";
+      description = "Validate ${cfg.hostName} /srv/appsdata Restic restore";
       after = [
         "network-online.target"
         (mountUnit cfg.mountPoint)
@@ -325,7 +331,7 @@ in
 
         restic check --retry-lock 30m
         restic restore latest \
-          --host gateway-vm \
+          --host '${cfg.hostName}' \
           --path '${cfg.source}' \
           --tag '${cfg.tag}' \
           --target "$restore_root" \

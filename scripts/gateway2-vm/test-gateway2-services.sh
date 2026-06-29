@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HOST="gateway-vm"
-HOST_IP="10.2.20.112"
+HOST="gateway2-vm"
+HOST_IP="10.2.20.122"
 VIP_IP="10.2.20.102"
 REMOTE_USER="smoke"
 EXPOSURE_SMOKE_FILE="/etc/fleet/gateway-exposure-smoke.tsv"
@@ -238,4 +238,4 @@ printf 'Running gateway state backup and restore validation...\n'
 ssh_gateway_vm "sudo systemctl start gateway-state-backup.service" || die "gateway-state-backup.service failed"
 ssh_gateway_vm "sudo systemctl start gateway-state-restore-check.service" || die "gateway-state-restore-check.service failed"
 
-printf 'gateway-vm validation completed.\n'
+printf 'gateway2-vm validation completed.\n'

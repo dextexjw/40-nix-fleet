@@ -35,7 +35,7 @@ path backed up by Restic.
 | Checkmate Capture | direct agent API only | none | `10.2.20.115:59232` |
 | Beszel Agent | direct agent API only | none | `10.2.20.115:45876` |
 
-Traefik routes and Homepage cards are declared on `gateway-vm` from
+Traefik routes and Homepage cards are declared on the Gateway nodes from
 `hosts/monitoring-vm/exposure.nix`.
 
 ## State Paths
@@ -180,6 +180,7 @@ into `/etc/fleet/checkmate-targets.json`.
 Service HTTP monitors use the real routed `https://*.jax22.com` hostnames.
 `monitoring-vm` declares those names in `/etc/hosts` to point at `gateway-vm`
 so Checkmate can reach Traefik with the expected SNI and route hostnames.
+The ntfy backend firewall allows both `gateway-vm` and `gateway2-vm`.
 Hardware monitors target each Capture agent's `/api/v1/metrics` endpoint.
 
 The provisioning service creates missing managed monitors, patches changed

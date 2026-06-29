@@ -5,7 +5,10 @@ flake and deployed with Colmena.
 
 The current fleet is intentionally small:
 
-- `gateway-vm` runs Traefik ingress, Technitium DNS, NetBird, and Tailscale.
+- `gateway-vm` runs Traefik ingress, Technitium DNS, NetBird, and Tailscale as
+  the preferred owner of the `10.2.20.102` Gateway VIP.
+- `gateway2-vm` runs the same Gateway stack as the pve2 failover node for the
+  `10.2.20.102` Gateway VIP.
 - `media-vm` runs Jellyfin, Audiobookshelf, Kavita, declaratively provisioned BookOrbit, ARR apps, Gluetun-gated downloads, SMB media mounts, and appdata backups.
 - `productivity-vm` runs AFFiNE, Git forges, docs, documents, RSS, search, vault, file sync, finance, cloud files, speed tests, remote desktop relay, invoicing, notes, short links, S3-compatible object storage, netboot.xyz, and appdata backups.
 - `monitoring-vm` runs Checkmate, Beszel, ntfy notifications, fleet monitoring agents, and appdata backups.
@@ -19,7 +22,8 @@ should follow that blueprint before being treated as production-ready.
 
 | Host | IP | Tags | Role | Runbook |
 | --- | --- | --- | --- | --- |
-| `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway` | Ingress, DNS, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
+| `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway` | Preferred Gateway VIP owner, ingress, DNS, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
+| `gateway2-vm` | `10.2.20.122` | `gateway` | Gateway VIP failover node on pve2 | [`hosts/gateway2-vm/README.md`](hosts/gateway2-vm/README.md) |
 | `media-vm` | `10.2.20.113` | `media` | Media services, BookOrbit, Gluetun-gated downloads, SMB media, Restic appdata backups | [`hosts/media-vm/README.md`](hosts/media-vm/README.md) |
 | `productivity-vm` | `10.2.20.114` | `productivity` | AFFiNE, productivity services, documents, Git forges, speed tests, remote desktop relay, invoicing, notes, short links, object storage, netboot, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
 | `monitoring-vm` | `10.2.20.115` | `monitoring` | Checkmate, Beszel, ntfy notifications, fleet monitoring agents, Restic appdata backups | [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md) |
@@ -31,8 +35,11 @@ runbooks live under `hosts/<name>/`.
 
 - `flake.nix`: inputs, development shell, and Colmena hive.
 - `hosts.nix`: host IPs, users, tags, nameservers, and VM constants.
+- `lib/gateway-cluster.nix`: Gateway cluster members, primary node, member IPs,
+  and the shared `10.2.20.102` client VIP.
 - `hosts/common.nix`: shared Nix, SSH, user, firewall, package, and node-exporter defaults.
-- `hosts/gateway-vm/`: gateway host configuration, hardware profile, and runbook.
+- `hosts/gateway-vm/`: primary gateway configuration, hardware profile, exposure catalog, and runbook.
+- `hosts/gateway2-vm/`: second gateway hardware profile and runbook; service configuration is shared with `gateway-vm`.
 - `hosts/media-vm/`: media host configuration, hardware profile, and runbook.
 - `hosts/productivity-vm/`: productivity host configuration, hardware profile, and runbook.
 - `hosts/monitoring-vm/`: monitoring host configuration, hardware profile, exposure catalog, and runbook.
@@ -56,6 +63,7 @@ and how to deploy safely.
 Use the host READMEs as operational runbooks:
 
 - [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md): direct ports, Traefik routes, state backup, bootstrap, and validation.
+- [`hosts/gateway2-vm/README.md`](hosts/gateway2-vm/README.md): pve2 infra handoff, Gateway2 bootstrap, state seed, backup, and validation.
 - [`hosts/media-vm/README.md`](hosts/media-vm/README.md): service URLs, media/appdata paths, SMB mounts, secrets, bootstrap, upgrade, backup, restore, and validation.
 - [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md): service URLs, appdata paths, secrets, bootstrap, upgrade, backup, restore, and validation.
 - [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md): service URLs, appdata paths, secrets, bootstrap, upgrade, backup, restore, and validation.
@@ -82,6 +90,8 @@ scripts/check.sh
 nix flake check
 colmena build --on media-vm
 colmena apply --on media-vm dry-activate
+colmena build --on gateway2-vm
+colmena apply --on gateway2-vm dry-activate
 colmena build --on productivity-vm
 colmena apply --on productivity-vm dry-activate
 colmena build --on monitoring-vm
@@ -107,6 +117,7 @@ Deploy one host:
 ```sh
 colmena apply --on media-vm switch
 colmena apply --on gateway-vm switch
+colmena apply --on gateway2-vm switch
 colmena apply --on productivity-vm switch
 colmena apply --on monitoring-vm switch
 ```
@@ -132,6 +143,7 @@ a matching SOPS recipient before switching:
 ```sh
 scripts/media-vm/deploy-media.sh
 scripts/gateway-vm/deploy-gateway.sh
+scripts/gateway2-vm/deploy-gateway2.sh
 scripts/productivity-vm/deploy-productivity.sh
 scripts/monitoring-vm/deploy-monitoring.sh
 ```
@@ -174,6 +186,7 @@ install or host key change, capture the host recipient, add the printed
 ```sh
 ssh smoke@10.2.20.113 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
 ssh smoke@10.2.20.112 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
+ssh smoke@10.2.20.122 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
 ssh smoke@10.2.20.114 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
 ssh smoke@10.2.20.115 'sudo ssh-keygen -y -f /etc/ssh/ssh_host_ed25519_key' | ssh-to-age
 sops updatekeys secrets/secrets.yaml
@@ -214,9 +227,11 @@ backup, restore, or recovery behavior changes.
 - Do not paste decrypted secrets into commits, issues, chat, logs, or shell history.
 - The base firewall opens SSH and service modules open their own required ports.
 - `gateway-vm` serves declarative `jax22.com` and `.h` service zones in
-  Technitium; clients must use `10.2.20.112` for DNS, or the LAN DNS/DHCP
-  server must forward or delegate those zones to `10.2.20.112` on DNS port 53,
+  Technitium; clients should use the Gateway VIP `10.2.20.102` for DNS, or the
+  LAN DNS/DHCP server must forward or delegate those zones to `10.2.20.102` on DNS port 53,
   before browser URLs like `traefik.jax22.com` or `traefik.h` will resolve.
+  `gateway-vm` and `gateway2-vm` both serve the same service catalog and
+  keepalived elects one owner for `10.2.20.102`.
   `jax22.com` is split-horizon for homelab clients, so unrelated public records
   must be handled separately if they are needed on the LAN. Technitium's `5380`
   port is only the admin HTTP UI. VM hostnames stay under `home.arpa` and are

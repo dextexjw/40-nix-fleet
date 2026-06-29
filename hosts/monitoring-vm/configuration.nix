@@ -6,6 +6,7 @@
 
 let
   hosts = import ../../hosts.nix;
+  gatewayCluster = import ../../lib/gateway-cluster.nix { inherit hosts; };
   host = hosts.monitoring-vm;
   serviceDomains = (import ../../lib/service-domains.nix).all;
   serviceDomain = builtins.head serviceDomains;
@@ -152,7 +153,7 @@ in
       enable = true;
     };
     enable = true;
-    ntfy.gatewayAddress = hosts.gateway-vm.ip;
+    ntfy.gatewayAddresses = gatewayCluster.addresses;
     secrets.enable = secretsEnabled;
     inherit serviceDomains;
     smb.backupDevice = "//nas.home.arpa/backups";
@@ -179,5 +180,5 @@ in
   # NETWORKING & FIREWALL
   # ============================================================================
 
-  networking.hosts.${hosts.gateway-vm.ip} = routeHosts;
+  networking.hosts.${gatewayCluster.clientAddress} = routeHosts;
 }

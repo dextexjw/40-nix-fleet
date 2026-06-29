@@ -56,6 +56,7 @@
         };
 
         imports = [
+          { _module.args.fleetHostName = name; }
           sops-nix.nixosModules.sops
           (hostConfigurationPath name)
         ];

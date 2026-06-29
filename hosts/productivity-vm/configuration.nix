@@ -6,6 +6,7 @@
 
 let
   hosts = import ../../hosts.nix;
+  gatewayCluster = import ../../lib/gateway-cluster.nix { inherit hosts; };
   host = hosts.productivity-vm;
   serviceDomains = (import ../../lib/service-domains.nix).all;
   serviceDomain = builtins.head serviceDomains;
@@ -40,7 +41,7 @@ in
   fleet.host.name = "productivity-vm";
   users.motd = "productivity-vm: AFFiNE, Git, docs, paperless, RSS, search, vault, files, S3, netboot.xyz, and appdata backups";
 
-  networking.hosts.${hosts.gateway-vm.ip} = routeHosts;
+  networking.hosts.${gatewayCluster.clientAddress} = routeHosts;
 
   # ============================================================================
   # SECRETS
@@ -333,6 +334,7 @@ in
       adminTokenFile = config.sops.secrets.memos-admin-pat.path;
       clientSecretFile = config.sops.secrets.memos-oidc-client-secret.path;
     };
+    onDemandLauncher.gatewayAddresses = gatewayCluster.addresses;
     netbootxyz = {
       enable = true;
       assetBindAddress = host.ip;

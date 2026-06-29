@@ -31,9 +31,12 @@ let
     cfg.ports.syncthing
     cfg.ports.vaultwarden
   ];
-  mkGatewayAccept = port: ''
-    iptables -A nixos-fw -p tcp -s ${cfg.onDemandLauncher.gatewayAddress} --dport ${toString port} -j nixos-fw-accept
-  '';
+  mkGatewayAccept =
+    port:
+    concatMapStringsSep "\n" (
+      gatewayAddress:
+      "iptables -A nixos-fw -p tcp -s ${gatewayAddress} --dport ${toString port} -j nixos-fw-accept"
+    ) cfg.onDemandLauncher.gatewayAddresses;
 in
 {
   config = mkIf cfg.enable {

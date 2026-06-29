@@ -1,6 +1,6 @@
 {
   imports = [
     ./hardware-configuration.nix
-    ./shared.nix
+    ../gateway-vm/shared.nix
   ];
 }

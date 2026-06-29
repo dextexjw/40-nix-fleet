@@ -43,12 +43,12 @@ in
         Password file:
           ${resticPasswordFile}
 
-        Internal routes through gateway-vm:
+        Internal routes through Gateway nodes:
       ${serviceRouteLines}
 
         Direct LAN ports:
           AFFiNE: ${toString cfg.ports.affine}
-          On-Demand Apps Dashboard: ${toString cfg.onDemandLauncher.port} (gateway-vm only)
+          On-Demand Apps Dashboard: ${toString cfg.onDemandLauncher.port} (Gateway nodes only)
           Gitea: ${toString cfg.ports.gitea}
           Forgejo: ${toString cfg.ports.forgejo}
           SearXNG: ${toString cfg.ports.searxng}
@@ -91,7 +91,7 @@ in
 
         On-demand productivity apps:
           Launcher: ${cfg.onDemandLauncher.publicBaseUrl}
-          Backend: ${config.networking.hostName}:${toString cfg.onDemandLauncher.port}, source-restricted to gateway-vm
+          Backend: ${config.networking.hostName}:${toString cfg.onDemandLauncher.port}, source-restricted to Gateway nodes
           Bundles:
             affine: redis-affine.service, podman-affine.service
             gitea: gitea.service, gitea-oidc-config.service

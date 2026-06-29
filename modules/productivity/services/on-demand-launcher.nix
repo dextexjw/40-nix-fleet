@@ -337,6 +337,12 @@ in
       description = "Gateway address allowed to reach the dashboard backend port.";
     };
 
+    gatewayAddresses = mkOption {
+      type = types.listOf types.str;
+      default = [ cfg.onDemandLauncher.gatewayAddress ];
+      description = "Gateway addresses allowed to reach the dashboard backend port.";
+    };
+
     maintenanceLock = mkOption {
       type = types.path;
       default = "/run/on-demand-apps-dashboard/maintenance.lock";
@@ -450,8 +456,11 @@ in
       };
     };
 
-    networking.firewall.extraCommands = mkIf launcherCfg.openFirewall ''
-      iptables -A nixos-fw -p tcp -s ${launcherCfg.gatewayAddress} --dport ${toString launcherCfg.port} -j nixos-fw-accept
-    '';
+    networking.firewall.extraCommands = mkIf launcherCfg.openFirewall (
+      concatMapStringsSep "\n" (
+        gatewayAddress:
+        "iptables -A nixos-fw -p tcp -s ${gatewayAddress} --dport ${toString launcherCfg.port} -j nixos-fw-accept"
+      ) launcherCfg.gatewayAddresses
+    );
   };
 }
