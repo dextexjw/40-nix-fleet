@@ -93,6 +93,7 @@
           pkgs.dnsutils
           pkgs.nixfmt
           pkgs.restic
+          pkgs.ripgrep
           pkgs.shellcheck
           pkgs.sops
           pkgs.ssh-to-age

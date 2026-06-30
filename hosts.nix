@@ -118,4 +118,27 @@
       ramGB = 8;
     };
   };
+
+  testbed-vm = {
+    arch = "x86_64-linux";
+    domain = "home.arpa";
+    fqdn = "testbed.home.arpa";
+    ip = "10.2.20.129";
+    gateway = "10.2.20.1";
+    nameservers = [
+      "10.2.20.1"
+    ];
+    user = "smoke";
+    tags = [
+      "testbed"
+    ];
+    timezone = "America/New_York";
+    vm = {
+      cores = 2;
+      disk = "/dev/sda";
+      id = "129";
+      name = "testbed-vm";
+      ramGB = 4;
+    };
+  };
 }

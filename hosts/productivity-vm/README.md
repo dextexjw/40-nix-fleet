@@ -142,6 +142,8 @@ Required productivity secrets:
 
 - `affine-environment`
 - `authentik-bootstrap-email`
+- `firefly-admin-password`
+- `firefly-admin-username`
 - `firefly-app-key`
 - `forgejo-oidc-client-secret`
 - `gitea-oidc-client-secret`

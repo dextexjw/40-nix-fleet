@@ -6,6 +6,7 @@ FLEET_REQUIRED_SECRET_HOSTS=(
   media-vm
   monitoring-vm
   productivity-vm
+  testbed-vm
 )
 
 FLEET_COMMON_REQUIRED_SECRET_KEYS=(
@@ -31,6 +32,7 @@ GATEWAY_REQUIRED_SECRET_KEYS=(
   gluetun-control-api-key
   gluetun-openvpn-password
   gluetun-openvpn-username
+  listmonk-oidc-client-secret
   memos-oidc-client-secret
   nextcloud-oidc-client-secret
   paperless-oidc-client-secret
@@ -74,6 +76,8 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   "${FLEET_COMMON_REQUIRED_SECRET_KEYS[@]}"
   affine-environment
   authentik-bootstrap-email
+  firefly-admin-password
+  firefly-admin-username
   firefly-app-key
   forgejo-oidc-client-secret
   freshrss-admin-password
@@ -102,6 +106,15 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   vaultwarden-environment
 )
 
+TESTBED_REQUIRED_SECRET_KEYS=(
+  "${FLEET_COMMON_REQUIRED_SECRET_KEYS[@]}"
+  listmonk-admin-password
+  listmonk-admin-username
+  listmonk-oidc-client-secret
+  restic-password
+  smb-credentials
+)
+
 required_secret_keys_for_host() {
   local host="$1"
 
@@ -120,6 +133,9 @@ required_secret_keys_for_host() {
       ;;
     productivity-vm)
       printf '%s\n' "${PRODUCTIVITY_REQUIRED_SECRET_KEYS[@]}"
+      ;;
+    testbed-vm)
+      printf '%s\n' "${TESTBED_REQUIRED_SECRET_KEYS[@]}"
       ;;
     *)
       printf 'error: unknown host for required secrets: %s\n' "$host" >&2
