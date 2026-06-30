@@ -109,6 +109,13 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
 TESTBED_REQUIRED_SECRET_KEYS=(
   "${FLEET_COMMON_REQUIRED_SECRET_KEYS[@]}"
   fizzy-secret-key-base
+  keeper-better-auth-secret
+  keeper-encryption-key
+  keeper-google-client-id
+  keeper-google-client-secret
+  keeper-microsoft-client-id
+  keeper-microsoft-client-secret
+  keeper-postgres-password
   listmonk-admin-password
   listmonk-admin-username
   listmonk-oidc-client-secret

@@ -60,6 +60,30 @@ in
           };
         }
         {
+          id = "keeper";
+          name = "Keeper";
+          route = {
+            description = "Keeper calendar sync testbed";
+            hosts = publicHostnames "keeper";
+            url = backend 3000;
+          };
+          homepage = {
+            description = "Calendar sync testbed\n${backend 3000}";
+            href = publicOnlyServiceUrl "keeper";
+            icon = "mdi-calendar-sync-outline";
+            siteMonitor = "${backend 3000}/";
+          };
+          auth = {
+            mode = "forward-auth";
+            groups = [ "fleet-admins" ];
+          };
+          checkmate.url = "https://keeper.jax22.com/";
+          smoke.http = {
+            discard = true;
+            path = "/";
+          };
+        }
+        {
           id = "listmonk";
           name = "Listmonk";
           route = {

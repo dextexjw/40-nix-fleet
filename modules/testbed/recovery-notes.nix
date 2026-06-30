@@ -25,9 +25,10 @@ in
           testbed-vm service model
           ========================
 
-          testbed-vm runs Fizzy with local SQLite storage, Listmonk with local
-          PostgreSQL, local Mailpit SMTP capture, Authentik integration, and
-          Restic appdata backups.
+          testbed-vm runs Fizzy with local SQLite storage, Keeper calendar sync
+          with local PostgreSQL and Redis, Listmonk with local PostgreSQL,
+          local Mailpit SMTP capture, Authentik integration, and Restic appdata
+          backups.
 
           Persistent state root:
             ${appdata}
@@ -38,6 +39,10 @@ in
 
           Listmonk state:
             ${cfg.listmonk.stateDir}
+
+          Keeper state:
+            ${cfg.keeper.stateDir}
+            ${cfg.keeper.stateDir}/redis
 
           Backup repository:
             ${cfg.backup.repository}
@@ -50,6 +55,9 @@ in
 
           Direct LAN ports:
             Fizzy: ${toString cfg.ports.fizzy} (Gateway nodes only)
+            Keeper Web: ${toString cfg.ports.keeper} (Gateway nodes only)
+            Keeper API: ${toString cfg.ports.keeperApi} (local host only)
+            Keeper Redis: ${toString cfg.ports.keeperRedis} (local host only)
             Listmonk: ${toString cfg.ports.listmonk} (Gateway nodes only)
             Mailpit UI/API: ${toString cfg.ports.mailpit} (Gateway nodes only)
             Mailpit SMTP: ${toString cfg.ports.mailpitSmtp} (local host firewall closed)
@@ -69,6 +77,11 @@ in
             through Authentik forward-auth for fleet-admins. It contains sign-in
             links, so no unauthenticated LAN alias is declared.
 
+            Keeper browser access is routed as https://keeper.jax22.com/
+            through Authentik forward-auth for fleet-admins. No keeper.h LAN
+            alias is declared because Gateway forward-auth only protects TLS
+            hosts.
+
           Mail model:
             Fizzy and Listmonk send to local Mailpit on 127.0.0.1:${toString cfg.ports.mailpitSmtp}.
             Mailpit accepts dummy local SMTP AUTH for Fizzy compatibility; no
@@ -87,7 +100,7 @@ in
             4. Choose a testbed-vm/appsdata snapshot ID.
             5. Restore the snapshot to / with restic --verify.
             6. Run systemd-tmpfiles --create.
-            7. Restart PostgreSQL, Mailpit, Listmonk, Fizzy, OIDC provisioning, and the backup timer.
+            7. Restart PostgreSQL, Keeper Redis, Mailpit, Listmonk, Fizzy, Keeper, OIDC provisioning, and the backup timer.
 
           Services stopped during consistency-first manual backup:
             ${concatStringsSep " " statefulServices}
@@ -100,10 +113,10 @@ in
             scripts/testbed-vm/deploy-testbed.sh
             scripts/testbed-vm/test-testbed-services.sh
 
-          Keep Fizzy secret keys, Listmonk admin credentials, OIDC client
-          secrets, SMB credentials, and Restic passwords in encrypted secrets
-          only; do not write them into Nix files, generated configs, recovery
-          notes, logs, or chat.
+          Keep Fizzy secret keys, Keeper auth/encryption/database/OAuth secrets,
+          Listmonk admin credentials, OIDC client secrets, SMB credentials, and
+          Restic passwords in encrypted secrets only; do not write them into Nix
+          files, generated configs, recovery notes, logs, or chat.
     '';
   };
 }

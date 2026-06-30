@@ -9,8 +9,10 @@ REPOSITORY="/mnt/backups/restic/appdata/testbed-vm"
 SOURCE="/srv/appsdata"
 SERVICES=(
   podman-fizzy.service
+  podman-keeper.service
   listmonk.service
   mailpit-testbed.service
+  redis-keeper.service
   postgresql.service
 )
 
@@ -51,6 +53,7 @@ restart_services() {
   for ((i=${#SERVICES[@]} - 1; i >= 0; i--)); do
     ssh_testbed_vm "sudo systemctl start '${SERVICES[$i]}' || true"
   done
+  ssh_testbed_vm "sudo systemctl start keeper-postgresql-password.service || true"
   ssh_testbed_vm "sudo systemctl start listmonk-oidc-config.service || true"
   ssh_testbed_vm "sudo systemctl start testbed-appdata-backup.timer"
 }

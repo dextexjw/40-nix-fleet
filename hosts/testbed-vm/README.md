@@ -1,14 +1,18 @@
 # testbed-vm
 
-`testbed-vm` runs Fizzy as a project-board testbed and Listmonk as a newsletter
-and mailing-list testbed. Mail is captured locally by Mailpit so test messages
-cannot leave the lab until a real SMTP integration is intentionally added.
+`testbed-vm` runs Fizzy as a project-board testbed, Keeper as a calendar-sync
+testbed, and Listmonk as a newsletter and mailing-list testbed. Mail is
+captured locally by Mailpit so test messages cannot leave the lab until a real
+SMTP integration is intentionally added.
 
 ## Service URLs
 
 - Fizzy public route: `https://fizzy.jax22.com/`
 - Fizzy LAN alias: `http://fizzy.h/`
 - Fizzy direct backend: `http://10.2.20.129:9010/` from Gateway nodes only
+- Keeper public route: `https://keeper.jax22.com/`
+- Keeper direct backend: `http://10.2.20.129:3000/` from Gateway nodes only
+- Keeper API health: `http://127.0.0.1:3001/api/health` on `testbed-vm` only
 - Listmonk public route: `https://listmonk.jax22.com/`
 - Listmonk LAN alias: `http://listmonk.h/`
 - Listmonk direct backend: `http://10.2.20.129:9000/` from Gateway nodes only
@@ -20,6 +24,7 @@ cannot leave the lab until a real SMTP integration is intentionally added.
 
 - Appdata root: `/srv/appsdata`
 - Fizzy SQLite, queue/cache databases, and uploads: `/srv/appsdata/fizzy/storage`
+- Keeper Redis state and local service data: `/srv/appsdata/keeper`
 - Listmonk uploads and service state: `/srv/appsdata/listmonk`
 - PostgreSQL data: `/srv/appsdata/postgresql`
 - PostgreSQL dump: `/srv/appsdata/postgresql-dumps/latest.sql.gz`
@@ -34,6 +39,13 @@ Required SOPS keys:
 - `beszel-agent-token`
 - `checkmate-capture-environment`
 - `fizzy-secret-key-base`
+- `keeper-better-auth-secret`
+- `keeper-encryption-key`
+- `keeper-google-client-id`
+- `keeper-google-client-secret`
+- `keeper-microsoft-client-id`
+- `keeper-microsoft-client-secret`
+- `keeper-postgres-password`
 - `listmonk-admin-username`
 - `listmonk-admin-password`
 - `listmonk-oidc-client-secret`
@@ -52,6 +64,11 @@ for `fleet-admins` and is also linked from Homepage.
 
 Listmonk uses a SOPS-backed local admin account for break-glass access. Native
 OIDC is provisioned through Authentik client `listmonk` for `fleet-admins`.
+
+Keeper uses SOPS-backed auth, encryption, and PostgreSQL secrets, plus optional
+Google and Microsoft OAuth client fields. Browser access is protected by
+Authentik forward-auth at `https://keeper.jax22.com/`. No `keeper.h` route is
+declared because Gateway forward-auth only protects TLS hosts.
 
 After first install or host key rotation:
 
@@ -93,9 +110,9 @@ exists:
 scripts/testbed-vm/restore-testbed-appdata.sh <snapshot-id>
 ```
 
-The restore script stops Fizzy, Listmonk, PostgreSQL, Mailpit, and the backup
-timer, restores `/srv/appsdata`, reapplies declared directories and ownership,
-and restarts service units.
+The restore script stops Fizzy, Keeper, Listmonk, PostgreSQL, Mailpit, and the
+backup timer, restores `/srv/appsdata`, reapplies declared directories and
+ownership, and restarts service units.
 
 ## Validation
 
@@ -103,6 +120,6 @@ and restarts service units.
 scripts/testbed-vm/test-testbed-services.sh
 ```
 
-The helper checks Fizzy, Listmonk, PostgreSQL, Mailpit, OIDC provisioning,
-local HTTP, Gateway-routed URLs, Homepage output, backup and restore validation,
-and recent Restic snapshots.
+The helper checks Fizzy, Keeper, Listmonk, PostgreSQL, Redis, Mailpit, OIDC
+provisioning, local HTTP, Gateway-routed URLs, Homepage output, backup and
+restore validation, and recent Restic snapshots.

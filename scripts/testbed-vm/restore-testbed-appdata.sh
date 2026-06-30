@@ -7,7 +7,7 @@ REPOSITORY="/mnt/backups/restic/appdata/testbed-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
 SNAPSHOT="${1:-}"
-SERVICES="podman-fizzy listmonk mailpit-testbed postgresql"
+SERVICES="podman-fizzy podman-keeper listmonk mailpit-testbed redis-keeper postgresql"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -110,6 +110,8 @@ chown root:root "\$source_path"
 chmod 0755 "\$source_path"
 [ -d "\$source_path/listmonk" ] && chown -R listmonk:listmonk "\$source_path/listmonk"
 [ -d "\$source_path/fizzy" ] && chown -R 1000:1000 "\$source_path/fizzy"
+[ -d "\$source_path/keeper" ] && chown -R root:root "\$source_path/keeper"
+[ -d "\$source_path/keeper/redis" ] && chown -R redis-keeper:redis-keeper "\$source_path/keeper/redis"
 [ -d "\$source_path/postgresql" ] && chown -R postgres:postgres "\$source_path/postgresql"
 [ -d "\$source_path/postgresql-dumps" ] && chown -R postgres:postgres "\$source_path/postgresql-dumps"
 find "\$source_path" -type f -name '*.pid' -delete
@@ -117,7 +119,9 @@ find "\$source_path" -type f -name '*.pid' -delete
 echo 'Reapplying declared directories and restarting testbed services...'
 systemd-tmpfiles --create
 systemctl start postgresql
-systemctl start mailpit-testbed listmonk podman-fizzy
+systemctl start redis-keeper
+systemctl start keeper-postgresql-password
+systemctl start mailpit-testbed listmonk podman-keeper podman-fizzy
 systemctl start listmonk-oidc-config.service
 systemctl start testbed-appdata-backup.timer
 systemctl start testbed-appdata-restore-check.service

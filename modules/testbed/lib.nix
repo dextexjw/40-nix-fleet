@@ -11,11 +11,13 @@ let
   appdata = cfg.appdataRoot;
   serviceHostPrefixes = {
     fizzy = "fizzy";
+    keeper = "keeper";
     listmonk = "listmonk";
     mailpit = "mailpit";
   };
   serviceHostKeys = [
     "fizzy"
+    "keeper"
     "listmonk"
     "mailpit"
   ];
@@ -49,6 +51,8 @@ let
 
   statefulServices = [
     "podman-fizzy.service"
+    "podman-keeper.service"
+    "redis-keeper.service"
     "listmonk.service"
     "postgresql.service"
     "mailpit-testbed.service"

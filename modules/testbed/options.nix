@@ -10,6 +10,7 @@ let
   cfg = config.fleet.testbed.stack;
   serviceHostPrefixes = {
     fizzy = "fizzy";
+    keeper = "keeper";
     listmonk = "listmonk";
     mailpit = "mailpit";
   };
@@ -64,6 +65,9 @@ in
       type = types.attrsOf types.port;
       default = {
         fizzy = 9010;
+        keeper = 3000;
+        keeperApi = 3001;
+        keeperRedis = 6380;
         listmonk = 9000;
         mailpit = 8025;
         mailpitSmtp = 1025;
@@ -100,6 +104,50 @@ in
         type = types.path;
         default = "${cfg.appdataRoot}/fizzy";
         description = "Persistent Fizzy state directory.";
+      };
+    };
+
+    keeper = {
+      blockPrivateResolution = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Block Keeper outbound fetches from resolving to private or reserved networks.";
+      };
+
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run the Keeper calendar sync testbed service.";
+      };
+
+      environmentFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/keeper-environment";
+        description = "Runtime environment file containing Keeper secrets and integration settings.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://keeper.jax22.com";
+        description = "Canonical external Keeper URL.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/ridafkih/keeper-services:2.12";
+        description = "Pinned Keeper services OCI image.";
+      };
+
+      privateResolutionWhitelist = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "Hostnames or IP addresses exempt from Keeper private-resolution blocking.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/keeper";
+        description = "Persistent Keeper state directory.";
       };
     };
 

@@ -23,6 +23,7 @@ in
   config = mkIf cfg.enable {
     networking.firewall.extraCommands = concatStringsSep "\n" [
       (mkGatewayAccept cfg.ports.fizzy)
+      (mkGatewayAccept cfg.ports.keeper)
       (mkGatewayAccept cfg.ports.listmonk)
       (mkGatewayAccept cfg.ports.mailpit)
     ];

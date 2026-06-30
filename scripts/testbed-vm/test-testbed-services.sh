@@ -17,15 +17,19 @@ command -v colmena >/dev/null 2>&1 || die "colmena is missing; run nix develop f
 cd "$ROOT"
 
 printf 'Checking key testbed services...\n'
-for service in postgresql listmonk mailpit-testbed podman-fizzy; do
+for service in postgresql redis-keeper listmonk mailpit-testbed podman-fizzy podman-keeper; do
   colmena exec --on "$HOST" -- systemctl is-active --quiet "$service.service"
 done
+colmena exec --on "$HOST" -- "test \"\$(systemctl show -P Result keeper-postgresql-password.service)\" = success"
 colmena exec --on "$HOST" -- "test \"\$(systemctl show -P Result listmonk-oidc-config.service)\" = success"
 
 printf 'Checking testbed appdata and local listeners...\n'
 colmena exec --on "$HOST" -- test -d /srv/appsdata/fizzy/storage
 colmena exec --on "$HOST" -- "test \"\$(stat -c '%u:%g' /srv/appsdata/fizzy/storage)\" = 1000:1000"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:9010/up >/dev/null"
+colmena exec --on "$HOST" -- test -d /srv/appsdata/keeper/redis
+colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:3000/ >/dev/null"
+colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3001/api/health >/dev/null"
 colmena exec --on "$HOST" -- test -d /srv/appsdata/listmonk/uploads
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:9000/admin/login | grep -Fq 'Authentik'"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:8025/api/v1/messages >/dev/null"
@@ -49,6 +53,9 @@ colmena exec --on gateway-vm -- "status=\$(curl -sS -o /dev/null -w '%{http_code
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 -H 'Host: fizzy.h' http://127.0.0.1/up >/dev/null"
 colmena exec --on gateway-vm -- "grep -Fq 'https://fizzy.jax22.com/' /etc/homepage-dashboard/services.yaml"
 colmena exec --on gateway-vm -- "grep -Fq 'http://${HOST_IP}:9010/up' /etc/homepage-dashboard/services.yaml"
+colmena exec --on gateway-vm -- "status=\$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 --resolve keeper.jax22.com:443:127.0.0.1 https://keeper.jax22.com/); case \"\$status\" in 30[1278]|401|403) exit 0 ;; *) echo \"unexpected Keeper auth status \$status\" >&2; exit 1 ;; esac"
+colmena exec --on gateway-vm -- "grep -Fq 'https://keeper.jax22.com/' /etc/homepage-dashboard/services.yaml"
+colmena exec --on gateway-vm -- "grep -Fq 'http://${HOST_IP}:3000/' /etc/homepage-dashboard/services.yaml"
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve listmonk.jax22.com:443:127.0.0.1 https://listmonk.jax22.com/admin/login | grep -Fq 'Authentik'"
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 -H 'Host: listmonk.h' http://127.0.0.1/admin/login | grep -Fq 'Authentik'"
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve auth.jax22.com:443:127.0.0.1 https://auth.jax22.com/application/o/listmonk/.well-known/openid-configuration | grep -Fq '\"issuer\"'"

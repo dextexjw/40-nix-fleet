@@ -38,7 +38,7 @@ in
   # ============================================================================
 
   fleet.host.name = "testbed-vm";
-  users.motd = "testbed-vm: Fizzy project board testbed, Listmonk newsletter testbed, Mailpit SMTP capture, and appdata backups";
+  users.motd = "testbed-vm: Fizzy project board testbed, Keeper calendar sync testbed, Listmonk newsletter testbed, Mailpit SMTP capture, and appdata backups";
 
   networking.hosts.${gatewayCluster.clientAddress} = routeHosts;
 
@@ -70,6 +70,33 @@ in
       };
       fizzy-secret-key-base = {
         restartUnits = [ "podman-fizzy.service" ];
+      };
+      keeper-better-auth-secret = {
+        restartUnits = [ "podman-keeper.service" ];
+      };
+      keeper-encryption-key = {
+        restartUnits = [ "podman-keeper.service" ];
+      };
+      keeper-google-client-id = {
+        restartUnits = [ "podman-keeper.service" ];
+      };
+      keeper-google-client-secret = {
+        restartUnits = [ "podman-keeper.service" ];
+      };
+      keeper-microsoft-client-id = {
+        restartUnits = [ "podman-keeper.service" ];
+      };
+      keeper-microsoft-client-secret = {
+        restartUnits = [ "podman-keeper.service" ];
+      };
+      keeper-postgres-password = {
+        owner = "postgres";
+        group = "postgres";
+        mode = "0400";
+        restartUnits = [
+          "keeper-postgresql-password.service"
+          "podman-keeper.service"
+        ];
       };
       listmonk-admin-password = {
         restartUnits = [ "listmonk.service" ];
@@ -107,6 +134,26 @@ in
       mode = "0400";
       restartUnits = [ "listmonk.service" ];
     };
+    templates."keeper-environment" = {
+      content = ''
+        BETTER_AUTH_SECRET=${config.sops.placeholder."keeper-better-auth-secret"}
+        BETTER_AUTH_URL=https://keeper.jax22.com
+        DATABASE_URL=postgresql://keeper:${
+          config.sops.placeholder."keeper-postgres-password"
+        }@127.0.0.1:5432/keeper
+        ENCRYPTION_KEY=${config.sops.placeholder."keeper-encryption-key"}
+        GOOGLE_CLIENT_ID=${config.sops.placeholder."keeper-google-client-id"}
+        GOOGLE_CLIENT_SECRET=${config.sops.placeholder."keeper-google-client-secret"}
+        MICROSOFT_CLIENT_ID=${config.sops.placeholder."keeper-microsoft-client-id"}
+        MICROSOFT_CLIENT_SECRET=${config.sops.placeholder."keeper-microsoft-client-secret"}
+        REDIS_URL=redis://127.0.0.1:${toString config.fleet.testbed.stack.ports.keeperRedis}
+        TRUSTED_ORIGINS=https://keeper.jax22.com
+      '';
+      owner = "root";
+      group = "root";
+      mode = "0400";
+      restartUnits = [ "podman-keeper.service" ];
+    };
   };
 
   # ============================================================================
@@ -133,6 +180,11 @@ in
         config.sops.templates."fizzy-environment".path
       else
         "/run/secrets/fizzy-environment";
+    keeper.environmentFile =
+      if secretsEnabled then
+        config.sops.templates."keeper-environment".path
+      else
+        "/run/secrets/keeper-environment";
     listmonk = {
       adminEnvironmentFile =
         if secretsEnabled then

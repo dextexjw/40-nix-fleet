@@ -13,7 +13,10 @@ let
     inherit config lib pkgs;
   };
   inherit (testbedLib) cfg appdata resticPasswordFile;
-  backupGuardedServices = [ "podman-fizzy.service" ];
+  backupGuardedServices = [
+    "podman-fizzy.service"
+    "podman-keeper.service"
+  ];
 in
 {
   config = mkIf cfg.enable {
