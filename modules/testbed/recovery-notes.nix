@@ -25,11 +25,16 @@ in
           testbed-vm service model
           ========================
 
-          testbed-vm runs Listmonk with local PostgreSQL, local MailHog SMTP
-          capture, Authentik native OIDC, and Restic appdata backups.
+          testbed-vm runs Fizzy with local SQLite storage, Listmonk with local
+          PostgreSQL, local Mailpit SMTP capture, Authentik integration, and
+          Restic appdata backups.
 
           Persistent state root:
             ${appdata}
+
+          Fizzy state:
+            ${cfg.fizzy.stateDir}
+            ${cfg.fizzy.stateDir}/storage
 
           Listmonk state:
             ${cfg.listmonk.stateDir}
@@ -44,20 +49,30 @@ in
       ${serviceRouteLines}
 
           Direct LAN ports:
+            Fizzy: ${toString cfg.ports.fizzy} (Gateway nodes only)
             Listmonk: ${toString cfg.ports.listmonk} (Gateway nodes only)
-            MailHog UI/API: ${toString cfg.ports.mailhog} (local host firewall closed)
-            MailHog SMTP: ${toString cfg.ports.mailhogSmtp} (local host firewall closed)
+            Mailpit UI/API: ${toString cfg.ports.mailpit} (Gateway nodes only)
+            Mailpit SMTP: ${toString cfg.ports.mailpitSmtp} (local host firewall closed)
 
           Auth model:
+            Fizzy public HTTPS access uses Authentik forward-auth for
+            fleet-admins. The fizzy.h LAN alias is unprotected. Fizzy itself
+            uses email-link sign-in through local Mailpit.
+
             Listmonk exposes public subscription, campaign, media, webhook, and
             tracking endpoints through Gateway. Admin access uses Listmonk native
             OIDC with Authentik client listmonk for fleet-admins and redirect URI
             https://listmonk.jax22.com/auth/oidc. A SOPS-backed local Listmonk
             admin remains available for break-glass access.
 
+            Mailpit browser access is routed as https://mailpit.jax22.com/
+            through Authentik forward-auth for fleet-admins. It contains sign-in
+            links, so no unauthenticated LAN alias is declared.
+
           Mail model:
-            Listmonk sends to local MailHog on 127.0.0.1:${toString cfg.ports.mailhogSmtp}.
-            No real SMTP credentials are declared on this host.
+            Fizzy and Listmonk send to local Mailpit on 127.0.0.1:${toString cfg.ports.mailpitSmtp}.
+            Mailpit accepts dummy local SMTP AUTH for Fizzy compatibility; no
+            real SMTP relay credentials are declared on this host.
 
           Backup validation:
             mount ${cfg.smb.backupMount}
@@ -72,7 +87,7 @@ in
             4. Choose a testbed-vm/appsdata snapshot ID.
             5. Restore the snapshot to / with restic --verify.
             6. Run systemd-tmpfiles --create.
-            7. Restart PostgreSQL, Listmonk, MailHog, OIDC provisioning, and the backup timer.
+            7. Restart PostgreSQL, Mailpit, Listmonk, Fizzy, OIDC provisioning, and the backup timer.
 
           Services stopped during consistency-first manual backup:
             ${concatStringsSep " " statefulServices}
@@ -85,9 +100,10 @@ in
             scripts/testbed-vm/deploy-testbed.sh
             scripts/testbed-vm/test-testbed-services.sh
 
-          Keep Listmonk admin credentials, OIDC client secrets, SMB credentials,
-          and Restic passwords in encrypted secrets only; do not write them into
-          Nix files, generated configs, recovery notes, logs, or chat.
+          Keep Fizzy secret keys, Listmonk admin credentials, OIDC client
+          secrets, SMB credentials, and Restic passwords in encrypted secrets
+          only; do not write them into Nix files, generated configs, recovery
+          notes, logs, or chat.
     '';
   };
 }

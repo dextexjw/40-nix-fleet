@@ -13,6 +13,7 @@ let
     inherit config lib pkgs;
   };
   inherit (testbedLib) cfg appdata resticPasswordFile;
+  backupGuardedServices = [ "podman-fizzy.service" ];
 in
 {
   config = mkIf cfg.enable {
@@ -73,6 +74,21 @@ in
       script = ''
         set -euo pipefail
 
+        restarted_services=
+        cleanup() {
+          for service in $restarted_services; do
+            systemctl start "$service" || true
+          done
+        }
+        trap cleanup EXIT
+
+        for service in ${concatStringsSep " " backupGuardedServices}; do
+          if systemctl is-active --quiet "$service"; then
+            systemctl stop "$service"
+            restarted_services="$restarted_services $service"
+          fi
+        done
+
         if ! findmnt -rn --target '${cfg.smb.backupMount}' >/dev/null; then
           echo '${cfg.smb.backupMount} is not mounted; refusing to run backup'
           exit 1
@@ -115,6 +131,9 @@ in
           --prune \
           --retry-lock 30m \
           --tag appsdata
+
+        trap - EXIT
+        cleanup
       '';
     };
 

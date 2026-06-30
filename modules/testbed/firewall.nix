@@ -21,6 +21,10 @@ let
 in
 {
   config = mkIf cfg.enable {
-    networking.firewall.extraCommands = mkGatewayAccept cfg.ports.listmonk;
+    networking.firewall.extraCommands = concatStringsSep "\n" [
+      (mkGatewayAccept cfg.ports.fizzy)
+      (mkGatewayAccept cfg.ports.listmonk)
+      (mkGatewayAccept cfg.ports.mailpit)
+    ];
   };
 }

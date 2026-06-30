@@ -108,6 +108,7 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
 
 TESTBED_REQUIRED_SECRET_KEYS=(
   "${FLEET_COMMON_REQUIRED_SECRET_KEYS[@]}"
+  fizzy-secret-key-base
   listmonk-admin-password
   listmonk-admin-username
   listmonk-oidc-client-secret

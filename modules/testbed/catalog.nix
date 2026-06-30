@@ -7,6 +7,12 @@
 let
   backend = port: "http://${host.ip}:${toString port}";
   hostnames = name: map (domain: "${name}.${domain}") serviceDomains;
+  publicHostnames =
+    name:
+    let
+      candidates = builtins.filter (hostName: builtins.match ".*[.]h" hostName == null) (hostnames name);
+    in
+    if candidates == [ ] then hostnames name else candidates;
   urlScheme = hostName: if builtins.match ".*[.]h" hostName != null then "http" else "https";
   publicServiceUrl =
     hostPrefix:
@@ -14,6 +20,12 @@ let
       primaryHostName = builtins.head (hostnames hostPrefix);
     in
     "${urlScheme primaryHostName}://${primaryHostName}/";
+  publicOnlyServiceUrl =
+    hostPrefix:
+    let
+      primaryHostName = builtins.head (publicHostnames hostPrefix);
+    in
+    "https://${primaryHostName}/";
 in
 {
   groups = [
@@ -23,6 +35,30 @@ in
       columns = 4;
       style = "row";
       services = [
+        {
+          id = "fizzy";
+          name = "Fizzy";
+          route = {
+            description = "Fizzy project board testbed";
+            hosts = hostnames "fizzy";
+            url = backend 9010;
+          };
+          homepage = {
+            description = "Project board testbed\n${backend 9010}";
+            href = publicServiceUrl "fizzy";
+            icon = "mdi-view-dashboard-outline";
+            siteMonitor = "${backend 9010}/up";
+          };
+          auth = {
+            mode = "forward-auth";
+            groups = [ "fleet-admins" ];
+          };
+          checkmate.url = "https://fizzy.jax22.com/up";
+          smoke.http = {
+            discard = true;
+            path = "/up";
+          };
+        }
         {
           id = "listmonk";
           name = "Listmonk";
@@ -51,6 +87,29 @@ in
           smoke.http = {
             discard = true;
             path = "/admin/login";
+          };
+        }
+        {
+          id = "mailpit";
+          name = "Mailpit";
+          route = {
+            description = "Local SMTP capture inbox for testbed sign-in mail";
+            hosts = publicHostnames "mailpit";
+            url = backend 8025;
+          };
+          homepage = {
+            description = "Captured testbed email\n${backend 8025}";
+            href = publicOnlyServiceUrl "mailpit";
+            icon = "mailpit.png";
+            siteMonitor = "${backend 8025}/api/v1/messages";
+          };
+          auth = {
+            mode = "forward-auth";
+            groups = [ "fleet-admins" ];
+          };
+          smoke.http = {
+            discard = true;
+            path = "/api/v1/messages";
           };
         }
       ];

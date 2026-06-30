@@ -1,19 +1,25 @@
 # testbed-vm
 
-`testbed-vm` runs Listmonk as a newsletter and mailing-list testbed. Mail is
-captured locally by MailHog so campaigns cannot leave the lab until a real SMTP
-integration is intentionally added.
+`testbed-vm` runs Fizzy as a project-board testbed and Listmonk as a newsletter
+and mailing-list testbed. Mail is captured locally by Mailpit so test messages
+cannot leave the lab until a real SMTP integration is intentionally added.
 
 ## Service URLs
 
+- Fizzy public route: `https://fizzy.jax22.com/`
+- Fizzy LAN alias: `http://fizzy.h/`
+- Fizzy direct backend: `http://10.2.20.129:9010/` from Gateway nodes only
 - Listmonk public route: `https://listmonk.jax22.com/`
 - Listmonk LAN alias: `http://listmonk.h/`
-- Direct backend: `http://10.2.20.129:9000/` from Gateway nodes only
-- MailHog UI/API: `http://127.0.0.1:8025/` on `testbed-vm` only
+- Listmonk direct backend: `http://10.2.20.129:9000/` from Gateway nodes only
+- Mailpit public route: `https://mailpit.jax22.com/`
+- Mailpit direct backend: `http://10.2.20.129:8025/` from Gateway nodes only
+- Mailpit SMTP capture: `127.0.0.1:1025` on `testbed-vm` only
 
 ## State
 
 - Appdata root: `/srv/appsdata`
+- Fizzy SQLite, queue/cache databases, and uploads: `/srv/appsdata/fizzy/storage`
 - Listmonk uploads and service state: `/srv/appsdata/listmonk`
 - PostgreSQL data: `/srv/appsdata/postgresql`
 - PostgreSQL dump: `/srv/appsdata/postgresql-dumps/latest.sql.gz`
@@ -27,11 +33,22 @@ Required SOPS keys:
 - `beszel-agent-key`
 - `beszel-agent-token`
 - `checkmate-capture-environment`
+- `fizzy-secret-key-base`
 - `listmonk-admin-username`
 - `listmonk-admin-password`
 - `listmonk-oidc-client-secret`
 - `restic-password`
 - `smb-credentials`
+
+Fizzy uses a SOPS-backed `SECRET_KEY_BASE` and sends sign-in mail to local
+Mailpit. Mailpit accepts dummy local SMTP AUTH because Fizzy's upstream mailer
+requires an auth mode when SMTP is configured; these are not real relay
+credentials. The public `fizzy.jax22.com` route is protected by Authentik
+forward-auth for `fleet-admins`; the `fizzy.h` LAN alias is unprotected.
+
+To view captured Fizzy sign-in emails from a browser, open
+`https://mailpit.jax22.com/`. The route is protected by Authentik forward-auth
+for `fleet-admins` and is also linked from Homepage.
 
 Listmonk uses a SOPS-backed local admin account for break-glass access. Native
 OIDC is provisioned through Authentik client `listmonk` for `fleet-admins`.
@@ -76,9 +93,9 @@ exists:
 scripts/testbed-vm/restore-testbed-appdata.sh <snapshot-id>
 ```
 
-The restore script stops Listmonk, PostgreSQL, MailHog, and the backup timer,
-restores `/srv/appsdata`, reapplies declared directories, and restarts service
-units.
+The restore script stops Fizzy, Listmonk, PostgreSQL, Mailpit, and the backup
+timer, restores `/srv/appsdata`, reapplies declared directories and ownership,
+and restarts service units.
 
 ## Validation
 
@@ -86,5 +103,6 @@ units.
 scripts/testbed-vm/test-testbed-services.sh
 ```
 
-The helper checks Listmonk, PostgreSQL, MailHog, OIDC provisioning, local HTTP,
-Gateway-routed URLs, backup and restore validation, and recent Restic snapshots.
+The helper checks Fizzy, Listmonk, PostgreSQL, Mailpit, OIDC provisioning,
+local HTTP, Gateway-routed URLs, Homepage output, backup and restore validation,
+and recent Restic snapshots.

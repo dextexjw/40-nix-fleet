@@ -19,6 +19,8 @@ in
 
     systemd.tmpfiles.rules = [
       "d ${appdata} 0755 root root - -"
+      "d ${cfg.fizzy.stateDir} 0750 1000 1000 - -"
+      "d ${cfg.fizzy.stateDir}/storage 0750 1000 1000 - -"
       "d ${cfg.listmonk.stateDir} 0750 listmonk listmonk - -"
       "d ${cfg.listmonk.stateDir}/uploads 0750 listmonk listmonk - -"
       "d ${appdata}/postgresql 0750 postgres postgres - -"

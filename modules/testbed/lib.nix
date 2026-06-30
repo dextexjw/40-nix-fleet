@@ -10,9 +10,15 @@ let
   cfg = config.fleet.testbed.stack;
   appdata = cfg.appdataRoot;
   serviceHostPrefixes = {
+    fizzy = "fizzy";
     listmonk = "listmonk";
+    mailpit = "mailpit";
   };
-  serviceHostKeys = [ "listmonk" ];
+  serviceHostKeys = [
+    "fizzy"
+    "listmonk"
+    "mailpit"
+  ];
   mkServiceHostNames =
     domains:
     mapAttrs (
@@ -42,9 +48,10 @@ let
   ) cfg.smb.mountOptions;
 
   statefulServices = [
+    "podman-fizzy.service"
     "listmonk.service"
     "postgresql.service"
-    "mailhog.service"
+    "mailpit-testbed.service"
   ];
 in
 {

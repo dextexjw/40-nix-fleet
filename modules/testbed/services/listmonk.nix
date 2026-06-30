@@ -25,12 +25,12 @@ in
       home = toString listmonkCfg.stateDir;
     };
 
-    services.mailhog = {
-      enable = true;
-      storage = "maildir";
-      smtpPort = cfg.ports.mailhogSmtp;
-      apiPort = cfg.ports.mailhog;
-      uiPort = cfg.ports.mailhog;
+    services.mailpit.instances.testbed = {
+      database = "testbed.db";
+      listen = "${cfg.mailpit.bindAddress}:${toString cfg.ports.mailpit}";
+      smtp = "127.0.0.1:${toString cfg.ports.mailpitSmtp}";
+      "smtp-auth-accept-any" = true;
+      "smtp-auth-allow-insecure" = true;
     };
 
     services.postgresql = {
@@ -57,7 +57,7 @@ in
             {
               enabled = true;
               host = "127.0.0.1";
-              port = cfg.ports.mailhogSmtp;
+              port = cfg.ports.mailpitSmtp;
               tls_type = "none";
             }
           ];
@@ -74,7 +74,7 @@ in
 
     systemd.services.listmonk = {
       after = [
-        "mailhog.service"
+        "mailpit-testbed.service"
         "network-online.target"
         "postgresql.service"
         "systemd-tmpfiles-setup.service"

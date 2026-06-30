@@ -38,7 +38,7 @@ in
   # ============================================================================
 
   fleet.host.name = "testbed-vm";
-  users.motd = "testbed-vm: Listmonk newsletter testbed, MailHog SMTP capture, and appdata backups";
+  users.motd = "testbed-vm: Fizzy project board testbed, Listmonk newsletter testbed, Mailpit SMTP capture, and appdata backups";
 
   networking.hosts.${gatewayCluster.clientAddress} = routeHosts;
 
@@ -68,6 +68,9 @@ in
       checkmate-capture-environment = {
         restartUnits = [ "checkmate-capture.service" ];
       };
+      fizzy-secret-key-base = {
+        restartUnits = [ "podman-fizzy.service" ];
+      };
       listmonk-admin-password = {
         restartUnits = [ "listmonk.service" ];
       };
@@ -84,6 +87,15 @@ in
         restartUnits = [ "testbed-appdata-backup.service" ];
       };
       smb-credentials = { };
+    };
+    templates."fizzy-environment" = {
+      content = ''
+        SECRET_KEY_BASE='${config.sops.placeholder."fizzy-secret-key-base"}'
+      '';
+      owner = "root";
+      group = "root";
+      mode = "0400";
+      restartUnits = [ "podman-fizzy.service" ];
     };
     templates."listmonk-environment" = {
       content = ''
@@ -116,6 +128,11 @@ in
   fleet.testbed.stack = {
     enable = true;
     gatewayAddresses = gatewayCluster.addresses;
+    fizzy.environmentFile =
+      if secretsEnabled then
+        config.sops.templates."fizzy-environment".path
+      else
+        "/run/secrets/fizzy-environment";
     listmonk = {
       adminEnvironmentFile =
         if secretsEnabled then
@@ -129,8 +146,9 @@ in
         else
           "/run/secrets/listmonk-oidc-client-secret";
     };
+    mailpit.bindAddress = host.ip;
     secrets.enable = secretsEnabled;
     inherit serviceDomains;
-    smb.backupDevice = "//nas.home.arpa/backups";
+    smb.backupDevice = "//10.2.10.10/backups";
   };
 }

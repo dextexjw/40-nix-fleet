@@ -8,8 +8,9 @@ REMOTE_USER="smoke"
 REPOSITORY="/mnt/backups/restic/appdata/testbed-vm"
 SOURCE="/srv/appsdata"
 SERVICES=(
+  podman-fizzy.service
   listmonk.service
-  mailhog.service
+  mailpit-testbed.service
   postgresql.service
 )
 

@@ -7,7 +7,7 @@ REPOSITORY="/mnt/backups/restic/appdata/testbed-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
 SNAPSHOT="${1:-}"
-SERVICES="listmonk mailhog postgresql"
+SERVICES="podman-fizzy listmonk mailpit-testbed postgresql"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -109,6 +109,7 @@ echo 'Normalizing restored ownership for rebuilt host users...'
 chown root:root "\$source_path"
 chmod 0755 "\$source_path"
 [ -d "\$source_path/listmonk" ] && chown -R listmonk:listmonk "\$source_path/listmonk"
+[ -d "\$source_path/fizzy" ] && chown -R 1000:1000 "\$source_path/fizzy"
 [ -d "\$source_path/postgresql" ] && chown -R postgres:postgres "\$source_path/postgresql"
 [ -d "\$source_path/postgresql-dumps" ] && chown -R postgres:postgres "\$source_path/postgresql-dumps"
 find "\$source_path" -type f -name '*.pid' -delete
@@ -116,7 +117,7 @@ find "\$source_path" -type f -name '*.pid' -delete
 echo 'Reapplying declared directories and restarting testbed services...'
 systemd-tmpfiles --create
 systemctl start postgresql
-systemctl start mailhog listmonk
+systemctl start mailpit-testbed listmonk podman-fizzy
 systemctl start listmonk-oidc-config.service
 systemctl start testbed-appdata-backup.timer
 systemctl start testbed-appdata-restore-check.service

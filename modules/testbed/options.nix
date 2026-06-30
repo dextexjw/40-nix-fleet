@@ -9,7 +9,9 @@ with lib;
 let
   cfg = config.fleet.testbed.stack;
   serviceHostPrefixes = {
+    fizzy = "fizzy";
     listmonk = "listmonk";
+    mailpit = "mailpit";
   };
   mkServiceHostNames =
     domains:
@@ -61,11 +63,44 @@ in
     ports = mkOption {
       type = types.attrsOf types.port;
       default = {
+        fizzy = 9010;
         listmonk = 9000;
-        mailhog = 8025;
-        mailhogSmtp = 1025;
+        mailpit = 8025;
+        mailpitSmtp = 1025;
       };
       description = "LAN-facing or local testbed service ports.";
+    };
+
+    fizzy = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run the Fizzy testbed service.";
+      };
+
+      environmentFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/fizzy-environment";
+        description = "Runtime environment file containing SECRET_KEY_BASE.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://${cfg.serviceHosts.fizzy}";
+        description = "Canonical external Fizzy URL.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/basecamp/fizzy@sha256:cdb99bc4e6d896b62ca9afd73a406bfac68e5526c4147f3f9c562f20533e64d2";
+        description = "Pinned Fizzy OCI image.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/fizzy";
+        description = "Persistent Fizzy state directory.";
+      };
     };
 
     listmonk = {
@@ -97,6 +132,14 @@ in
         type = types.path;
         default = "${cfg.appdataRoot}/listmonk";
         description = "Persistent Listmonk state directory.";
+      };
+    };
+
+    mailpit = {
+      bindAddress = mkOption {
+        type = types.str;
+        default = "127.0.0.1";
+        description = "Address Mailpit UI/API listens on. SMTP remains loopback-only.";
       };
     };
 
