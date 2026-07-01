@@ -394,6 +394,9 @@ in
       }
     '';
     directAddress = host.ip;
+    directAddresses = lib.optionals (gatewayCluster.vip != null) [
+      gatewayClientAddress
+    ];
     enable = true;
     hosts = exposureCatalog.homepage.hosts;
     layout = exposureCatalog.homepage.layout ++ [

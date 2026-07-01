@@ -44,7 +44,7 @@ Service access:
 - Traefik dashboard: `http://10.2.20.112:8080/dashboard/`
 - Traefik Prometheus metrics: `http://10.2.20.112:8080/metrics`
 - Authentik: `https://auth.jax22.com/` through Traefik and `http://auth.h/` as an unprotected LAN alias; backend only on `127.0.0.1:9000`
-- Homepage: `https://homepage.jax22.com/` through Traefik, `http://homepage.h/` as an alias, and `http://10.2.20.112:8082/` directly
+- Homepage: `https://homepage.jax22.com/` through Traefik, `http://homepage.h/` as an alias, `http://10.2.20.102:8082/` through the Gateway VIP for diagnostics, and `http://10.2.20.112:8082/` directly on this node
 - DNS: `10.2.20.102:53` over TCP and UDP through the Gateway VIP, or `10.2.20.112:53` directly on this node
 - DNS-over-TLS: `10.2.20.102:853` through the Gateway VIP
 - Mailpit SMTP capture: `smtp.mailpit.jax22.com:25` through Traefik TCP routing to `testbed-vm:1025`

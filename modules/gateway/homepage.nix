@@ -10,6 +10,9 @@ with lib;
 let
   cfg = config.fleet.gateway.homepage;
   settingsFormat = pkgs.formats.yaml { };
+  directAddresses = unique (
+    optionals (cfg.directAddress != null) [ cfg.directAddress ] ++ cfg.directAddresses
+  );
 
   allowedHosts = concatStringsSep "," (
     unique (
@@ -21,10 +24,10 @@ let
         "localhost:${toString cfg.listenPort}"
         "127.0.0.1:${toString cfg.listenPort}"
       ]
-      ++ optionals (cfg.directAddress != null) [
-        cfg.directAddress
-        "${cfg.directAddress}:${toString cfg.listenPort}"
-      ]
+      ++ concatMap (address: [
+        address
+        "${address}:${toString cfg.listenPort}"
+      ]) directAddresses
     )
   );
 
@@ -77,6 +80,13 @@ in
       default = null;
       description = "Direct LAN address used to access Homepage without Traefik.";
       example = "10.2.20.112";
+    };
+
+    directAddresses = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      description = "Additional direct LAN addresses allowed to access Homepage without Traefik.";
+      example = [ "10.2.20.102" ];
     };
 
     customCSS = mkOption {
