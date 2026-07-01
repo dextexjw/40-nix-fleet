@@ -46,7 +46,7 @@ in
           homepage = {
             description = "Project board testbed\n${backend 9010}";
             href = publicServiceUrl "fizzy";
-            icon = "mdi-view-dashboard-outline";
+            icon = "https://pb.dashboardicons.com/api/files/community_gallery/lgxof2ccfr6q7gq/apple_touch_icon_omijen1jki.png";
             siteMonitor = "${backend 9010}/up";
           };
           auth = {
@@ -70,7 +70,7 @@ in
           homepage = {
             description = "Calendar sync testbed\n${backend 3000}";
             href = publicOnlyServiceUrl "keeper";
-            icon = "mdi-calendar-sync-outline";
+            icon = "https://pb.dashboardicons.com/api/files/community_gallery/4avgzq0ktz2jb7h/180x180_light_on_dark_qx83v0wqus.png";
             siteMonitor = "${backend 3000}/";
           };
           auth = {
