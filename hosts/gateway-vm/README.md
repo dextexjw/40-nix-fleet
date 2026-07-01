@@ -47,6 +47,7 @@ Service access:
 - Homepage: `https://homepage.jax22.com/` through Traefik, `http://homepage.h/` as an alias, and `http://10.2.20.112:8082/` directly
 - DNS: `10.2.20.102:53` over TCP and UDP through the Gateway VIP, or `10.2.20.112:53` directly on this node
 - DNS-over-TLS: `10.2.20.102:853` through the Gateway VIP
+- Mailpit SMTP capture: `smtp.mailpit.jax22.com:25` through Traefik TCP routing to `testbed-vm:1025`
 - Technitium admin HTTP: `http://10.2.20.112:5380`
 - Technitium HTTPS and DNS-over-HTTPS: `https://10.2.20.112:53443`
 - Gluetun HTTP proxy: `http://10.2.20.112:8888`

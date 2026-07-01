@@ -26,7 +26,8 @@ SMTP integration is intentionally added.
 - Listmonk direct backend: `http://10.2.20.129:9000/` from Gateway nodes only
 - Mailpit public route: `https://mailpit.jax22.com/`
 - Mailpit direct backend: `http://10.2.20.129:8025/` from Gateway nodes only
-- Mailpit SMTP capture: `127.0.0.1:1025` on `testbed-vm` only
+- Mailpit local SMTP capture: `127.0.0.1:1025` on `testbed-vm`
+- Mailpit homelab SMTP capture: `smtp.mailpit.jax22.com:25` through Gateway
 
 ## State
 
@@ -79,6 +80,11 @@ forward-auth for `fleet-admins`; the `fizzy.h` LAN alias is unprotected.
 To view captured Fizzy sign-in emails from a browser, open
 `https://mailpit.jax22.com/`. The route is protected by Authentik forward-auth
 for `fleet-admins` and is also linked from Homepage.
+
+Testbed apps submit mail to local Mailpit on `127.0.0.1:1025`. Homelab clients
+can submit capture-only mail through Gateway at `smtp.mailpit.jax22.com:25`.
+Mailpit accepts dummy SMTP AUTH for compatibility only; there are no real relay
+credentials or SOPS secrets for this endpoint.
 
 Listmonk uses a SOPS-backed local admin account for break-glass access. Native
 OIDC is provisioned through Authentik client `listmonk` for `fleet-admins`.
@@ -153,5 +159,6 @@ scripts/testbed-vm/test-testbed-services.sh
 ```
 
 The helper checks Fizzy, Homebox, Kaneo, Keeper, Listmonk, PostgreSQL, Redis,
-Mailpit, OIDC provisioning, local HTTP, Gateway-routed URLs, Homepage output,
-backup and restore validation, and recent Restic snapshots.
+Mailpit, OIDC provisioning, local HTTP, Gateway-routed URLs, homelab SMTP
+capture, Homepage output, backup and restore validation, and recent Restic
+snapshots.

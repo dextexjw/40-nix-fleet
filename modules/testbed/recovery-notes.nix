@@ -72,7 +72,8 @@ in
             Kaneo: ${toString cfg.ports.kaneo} (Gateway nodes only)
             Listmonk: ${toString cfg.ports.listmonk} (Gateway nodes only)
             Mailpit UI/API: ${toString cfg.ports.mailpit} (Gateway nodes only)
-            Mailpit SMTP: ${toString cfg.ports.mailpitSmtp} (local host firewall closed)
+            Mailpit SMTP backend: ${toString cfg.ports.mailpitSmtp} (Gateway nodes only)
+            Mailpit SMTP homelab endpoint: smtp.mailpit.jax22.com:25
 
           Auth model:
             Fizzy public HTTPS access uses Authentik forward-auth for
@@ -112,8 +113,10 @@ in
 
           Mail model:
             Fizzy, Homebox, Kaneo, and Listmonk send to local Mailpit on 127.0.0.1:${toString cfg.ports.mailpitSmtp}.
-            Mailpit accepts dummy local SMTP AUTH for Fizzy compatibility; no
-            real SMTP relay credentials are declared on this host.
+            Homelab clients can submit capture-only mail through Gateway at
+            smtp.mailpit.jax22.com:25. Mailpit accepts dummy SMTP AUTH for
+            compatibility; no real SMTP relay credentials or SOPS secrets are
+            declared for this endpoint.
 
           Backup validation:
             mount ${cfg.smb.backupMount}

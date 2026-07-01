@@ -28,7 +28,7 @@ in
     services.mailpit.instances.testbed = {
       database = "testbed.db";
       listen = "${cfg.mailpit.bindAddress}:${toString cfg.ports.mailpit}";
-      smtp = "127.0.0.1:${toString cfg.ports.mailpitSmtp}";
+      smtp = "${cfg.mailpit.smtpBindAddress}:${toString cfg.ports.mailpitSmtp}";
       "smtp-auth-accept-any" = true;
       "smtp-auth-allow-insecure" = true;
     };

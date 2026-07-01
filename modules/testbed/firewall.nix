@@ -28,6 +28,7 @@ in
       (mkGatewayAccept cfg.ports.keeper)
       (mkGatewayAccept cfg.ports.listmonk)
       (mkGatewayAccept cfg.ports.mailpit)
+      (mkGatewayAccept cfg.ports.mailpitSmtp)
     ];
   };
 }

@@ -81,6 +81,7 @@ colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve listmonk.jax2
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 -H 'Host: listmonk.h' http://127.0.0.1/admin/login | grep -Fq 'Authentik'"
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve auth.jax22.com:443:127.0.0.1 https://auth.jax22.com/application/o/listmonk/.well-known/openid-configuration | grep -Fq '\"issuer\"'"
 colmena exec --on gateway-vm -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 --resolve mailpit.jax22.com:443:127.0.0.1 https://mailpit.jax22.com/api/v1/messages); case \"\$status\" in 30[1278]|401|403) exit 0 ;; *) echo \"unexpected Mailpit auth status \$status\" >&2; exit 1 ;; esac'"
+colmena exec --on gateway-vm -- "python3 -c 'import email.message, smtplib; msg = email.message.EmailMessage(); msg[\"Subject\"] = \"homelab Mailpit SMTP smoke\"; msg[\"From\"] = \"gateway@testbed.home.arpa\"; msg[\"To\"] = \"test@example.com\"; msg.set_content(\"homelab Mailpit SMTP smoke\"); smtp = smtplib.SMTP(\"10.2.20.102\", 25, local_hostname=\"smtp.mailpit.jax22.com\", timeout=5); smtp.login(\"gateway\", \"mailpit\"); smtp.send_message(msg); smtp.quit()'"
 colmena exec --on gateway-vm -- "grep -Fq 'https://mailpit.jax22.com/' /etc/homepage-dashboard/services.yaml"
 colmena exec --on gateway-vm -- "grep -Fq 'http://${HOST_IP}:8025/api/v1/messages' /etc/homepage-dashboard/services.yaml"
 

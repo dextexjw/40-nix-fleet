@@ -373,7 +373,13 @@ in
       bindAddress = mkOption {
         type = types.str;
         default = "127.0.0.1";
-        description = "Address Mailpit UI/API listens on. SMTP remains loopback-only.";
+        description = "Address Mailpit UI/API listens on.";
+      };
+
+      smtpBindAddress = mkOption {
+        type = types.str;
+        default = "127.0.0.1";
+        description = "Address Mailpit SMTP capture listens on.";
       };
     };
 

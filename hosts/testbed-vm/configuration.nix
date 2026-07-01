@@ -261,7 +261,10 @@ in
         else
           "/run/secrets/listmonk-oidc-client-secret";
     };
-    mailpit.bindAddress = host.ip;
+    mailpit = {
+      bindAddress = host.ip;
+      smtpBindAddress = "0.0.0.0";
+    };
     secrets.enable = secretsEnabled;
     inherit serviceDomains;
     smb.backupDevice = "//10.2.10.10/backups";
