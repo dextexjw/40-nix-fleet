@@ -29,8 +29,9 @@ in
           SQLite storage, Kaneo with local PostgreSQL and Garage S3 uploads,
           Keeper calendar sync with local PostgreSQL and Redis, Listmonk with
           local PostgreSQL, Plane Community Edition with local PostgreSQL,
-          Redis, RabbitMQ, and Garage S3 uploads, local Mailpit SMTP capture,
-          Authentik integration, and Restic appdata backups.
+          Redis, RabbitMQ, and Garage S3 uploads, Sure with local PostgreSQL,
+          Redis, and local uploads, local Mailpit SMTP capture, Authentik
+          integration, and Restic appdata backups.
 
           Persistent state root:
             ${appdata}
@@ -62,6 +63,12 @@ in
             PostgreSQL database: plane
             Garage bucket: ${cfg.plane.garageBucket} (covered by productivity-vm Garage backups)
 
+          Sure state:
+            ${cfg.sure.stateDir}
+            ${cfg.sure.stateDir}/redis
+            ${cfg.sure.stateDir}/storage
+            PostgreSQL database: ${cfg.sure.databaseName}
+
           Backup repository:
             ${cfg.backup.repository}
 
@@ -82,6 +89,8 @@ in
             Plane: ${toString cfg.ports.plane} (Gateway nodes only)
             Plane RabbitMQ: ${toString cfg.ports.planeRabbitmq} (local host only)
             Plane Redis: ${toString cfg.ports.planeRedis} (local host only)
+            Sure: ${toString cfg.ports.sure} (Gateway nodes only)
+            Sure Redis: ${toString cfg.ports.sureRedis} (local host only)
             Mailpit UI/API: ${toString cfg.ports.mailpit} (Gateway nodes only)
             Mailpit SMTP backend: ${toString cfg.ports.mailpitSmtp} (Gateway nodes only)
             Mailpit SMTP homelab endpoint: smtp.mailpit.jax22.com:25
@@ -128,8 +137,15 @@ in
             local RabbitMQ, and Garage bucket ${cfg.plane.garageBucket} through
             ${cfg.plane.garageEndpoint}. No plane.h LAN alias is declared.
 
+            Sure exposes browser access through native OIDC with Authentik
+            client sure for fleet-admins and redirect URI
+            https://sure.jax22.com/auth/openid_connect/callback. Self-service
+            local registration is closed; the first interactive account should
+            be created through Authentik OIDC. Local login remains enabled for
+            break-glass accounts.
+
           Mail model:
-            Fizzy, Homebox, Kaneo, and Listmonk send to local Mailpit on 127.0.0.1:${toString cfg.ports.mailpitSmtp}.
+            Fizzy, Homebox, Kaneo, Listmonk, and Sure send to local Mailpit on 127.0.0.1:${toString cfg.ports.mailpitSmtp}.
             Homelab clients can submit capture-only mail through Gateway at
             smtp.mailpit.jax22.com:25. Mailpit accepts dummy SMTP AUTH for
             compatibility; no real SMTP relay credentials or SOPS secrets are
@@ -148,7 +164,7 @@ in
             4. Choose a testbed-vm/appsdata snapshot ID.
             5. Restore the snapshot to / with restic --verify.
             6. Run systemd-tmpfiles --create.
-            7. Restart PostgreSQL, Redis, RabbitMQ, Plane, Mailpit, Listmonk, Homebox, Kaneo, Fizzy, Keeper, provisioning units, and the backup timer.
+            7. Restart PostgreSQL, Redis, RabbitMQ, Plane, Sure, Mailpit, Listmonk, Homebox, Kaneo, Fizzy, Keeper, provisioning units, and the backup timer.
 
           Services stopped during consistency-first manual backup:
             ${concatStringsSep " " statefulServices}
@@ -165,7 +181,8 @@ in
           database, OIDC, and Garage S3 secrets, Keeper auth/encryption/database/OAuth
           secrets, Listmonk admin credentials, OIDC client secrets, Plane
           application, database, queue, object storage, and admin bootstrap
-          secrets, SMB credentials, and Restic passwords in encrypted secrets only; do not
+          secrets, Sure application, database, and OIDC secrets, SMB
+          credentials, and Restic passwords in encrypted secrets only; do not
           write them into Nix files, generated configs, recovery notes, logs, or
           chat.
     '';

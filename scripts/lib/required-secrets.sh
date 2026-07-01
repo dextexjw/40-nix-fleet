@@ -41,6 +41,7 @@ GATEWAY_REQUIRED_SECRET_KEYS=(
   restic-password
   rustfs-oidc-client-secret
   smb-credentials
+  sure-oidc-client-secret
   technitium-admin-password
   technitium-admin-username
   traefik-cloudflare-dns-api-token
@@ -140,6 +141,9 @@ TESTBED_REQUIRED_SECRET_KEYS=(
   plane-postgres-password
   plane-rabbitmq-password
   plane-secret-key
+  sure-oidc-client-secret
+  sure-postgres-password
+  sure-secret-key-base
   restic-password
   smb-credentials
 )

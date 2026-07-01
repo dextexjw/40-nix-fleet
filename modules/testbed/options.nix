@@ -17,6 +17,7 @@ let
     listmonk = "listmonk";
     mailpit = "mailpit";
     plane = "plane";
+    sure = "sure";
   };
   mkServiceHostNames =
     domains:
@@ -85,6 +86,8 @@ in
         planeRedis = 6381;
         planeSpace = 9023;
         planeWeb = 9021;
+        sure = 9030;
+        sureRedis = 6382;
       };
       description = "LAN-facing or local testbed service ports.";
     };
@@ -517,6 +520,82 @@ in
         type = types.path;
         default = "${cfg.appdataRoot}/plane";
         description = "Persistent Plane state directory.";
+      };
+    };
+
+    sure = {
+      bindAddress = mkOption {
+        type = types.str;
+        default = "127.0.0.1";
+        description = "Address Sure listens on.";
+      };
+
+      databaseName = mkOption {
+        type = types.str;
+        default = "sure";
+        description = "PostgreSQL database used by Sure.";
+      };
+
+      databaseUser = mkOption {
+        type = types.str;
+        default = "sure";
+        description = "PostgreSQL role used by Sure.";
+      };
+
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run the Sure personal finance testbed service.";
+      };
+
+      environmentFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/sure-environment";
+        description = "Runtime environment file containing Sure secrets and integration settings.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://${cfg.serviceHosts.sure}";
+        description = "Canonical external Sure URL.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/we-promise/sure@sha256:fab5de5d83f3ffc01afa47f1790b9e72938602dd0bcbe6e64b933728b09fdb40";
+        description = "Pinned Sure OCI image.";
+      };
+
+      oidc = {
+        clientId = mkOption {
+          type = types.str;
+          default = "sure";
+          description = "Sure Authentik OIDC client identifier.";
+        };
+
+        issuerUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/sure/";
+          description = "Sure Authentik OIDC issuer URL.";
+        };
+
+        redirectUri = mkOption {
+          type = types.str;
+          default = "https://sure.jax22.com/auth/openid_connect/callback";
+          description = "Strict Sure OIDC callback URL registered in Authentik.";
+        };
+      };
+
+      postgresPasswordFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/sure-postgres-password";
+        description = "Runtime file containing the Sure PostgreSQL role password.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/sure";
+        description = "Persistent Sure state directory.";
       };
     };
 

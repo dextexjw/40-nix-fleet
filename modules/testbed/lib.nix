@@ -17,6 +17,7 @@ let
     listmonk = "listmonk";
     mailpit = "mailpit";
     plane = "plane";
+    sure = "sure";
   };
   serviceHostKeys = [
     "fizzy"
@@ -26,6 +27,7 @@ let
     "listmonk"
     "mailpit"
     "plane"
+    "sure"
   ];
   mkServiceHostNames =
     domains:
@@ -71,7 +73,10 @@ let
     "podman-plane-live.service"
     "podman-plane-rabbitmq.service"
     "podman-plane-worker.service"
+    "podman-sure-web.service"
+    "podman-sure-worker.service"
     "postgresql.service"
+    "redis-sure.service"
     "mailpit-testbed.service"
   ];
 in

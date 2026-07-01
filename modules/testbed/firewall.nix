@@ -30,6 +30,7 @@ in
       (mkGatewayAccept cfg.ports.mailpit)
       (mkGatewayAccept cfg.ports.mailpitSmtp)
       (mkGatewayAccept cfg.ports.plane)
+      (mkGatewayAccept cfg.ports.sure)
     ];
   };
 }

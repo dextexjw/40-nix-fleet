@@ -9,6 +9,7 @@
     ./services/keeper.nix
     ./services/listmonk.nix
     ./services/plane.nix
+    ./services/sure.nix
     ./backup.nix
     ./firewall.nix
     ./recovery-notes.nix

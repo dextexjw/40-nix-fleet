@@ -2,8 +2,8 @@
 
 `testbed-vm` runs Fizzy as a project-board testbed, Homebox as a home-inventory
 testbed, Kaneo as a project-management testbed, Keeper as a calendar-sync
-testbed, Listmonk as a newsletter and mailing-list testbed, and Plane as a
-project-management testbed. Mail is
+testbed, Listmonk as a newsletter and mailing-list testbed, Plane as a
+project-management testbed, and Sure as a personal-finance testbed. Mail is
 captured locally by Mailpit so test messages cannot leave the lab until a real
 SMTP integration is intentionally added.
 
@@ -27,6 +27,9 @@ SMTP integration is intentionally added.
 - Listmonk direct backend: `http://10.2.20.129:9000/` from Gateway nodes only
 - Plane public route: `https://plane.jax22.com/`
 - Plane direct backend: `http://10.2.20.129:9020/` from Gateway nodes only
+- Sure public route: `https://sure.jax22.com/`
+- Sure LAN alias: `http://sure.h/`
+- Sure direct backend: `http://10.2.20.129:9030/` from Gateway nodes only
 - Mailpit public route: `https://mailpit.jax22.com/`
 - Mailpit direct backend: `http://10.2.20.129:8025/` from Gateway nodes only
 - Mailpit local SMTP capture: `127.0.0.1:1025` on `testbed-vm`
@@ -44,6 +47,9 @@ SMTP integration is intentionally added.
 - Plane logs, RabbitMQ, and Redis: `/srv/appsdata/plane`
 - Plane PostgreSQL database: `plane`
 - Plane object storage: Garage bucket `plane-uploads` on `productivity-vm`
+- Sure uploads and service state: `/srv/appsdata/sure`
+- Sure Redis state: `/srv/appsdata/sure/redis`
+- Sure PostgreSQL database: `sure`
 - PostgreSQL data: `/srv/appsdata/postgresql`
 - PostgreSQL dump: `/srv/appsdata/postgresql-dumps/latest.sql.gz`
 - Backup repository: `/mnt/backups/restic/appdata/testbed-vm`
@@ -82,6 +88,9 @@ Required SOPS keys:
 - `plane-postgres-password`
 - `plane-rabbitmq-password`
 - `plane-secret-key`
+- `sure-oidc-client-secret`
+- `sure-postgres-password`
+- `sure-secret-key-base`
 - `restic-password`
 - `smb-credentials`
 
@@ -110,6 +119,17 @@ RabbitMQ, and Garage bucket `plane-uploads` on `https://garage.jax22.com` for
 images, attachments, and other object storage. Deploy `productivity-vm` first
 when changing the bucket, key, or CORS policy. No unauthenticated `plane.h` LAN
 alias is declared.
+
+Sure is exposed at `https://sure.jax22.com/` and `http://sure.h/` with native
+OIDC through Authentik client `sure` for `fleet-admins` and callback
+`https://sure.jax22.com/auth/openid_connect/callback`. It uses a SOPS-backed
+`SECRET_KEY_BASE`, SOPS-backed PostgreSQL role password, native PostgreSQL,
+native Redis, local uploads in `/srv/appsdata/sure/storage`, and local Mailpit
+SMTP. Self-service local registration is closed; create the first interactive
+account through Authentik OIDC. Local login remains enabled for future
+break-glass accounts, but no plaintext local credentials are declared in Nix.
+Optional paid AI and market-data integrations are intentionally disabled in the
+initial deployment.
 
 Keeper uses SOPS-backed auth, encryption, PostgreSQL, and Google/Microsoft
 OAuth client secrets. The Google OAuth app must allow
@@ -177,7 +197,7 @@ exists:
 scripts/testbed-vm/restore-testbed-appdata.sh <snapshot-id>
 ```
 
-The restore script stops Fizzy, Homebox, Kaneo, Keeper, Listmonk, Plane,
+The restore script stops Fizzy, Homebox, Kaneo, Keeper, Listmonk, Plane, Sure,
 PostgreSQL, Mailpit, Redis, and the backup timer, restores `/srv/appsdata`,
 reapplies declared directories and ownership, and restarts service units.
 Plane object data is not in this testbed backup; it lives in Garage bucket
@@ -189,7 +209,8 @@ Plane object data is not in this testbed backup; it lives in Garage bucket
 scripts/testbed-vm/test-testbed-services.sh
 ```
 
-The helper checks Fizzy, Homebox, Kaneo, Keeper, Listmonk, Plane, PostgreSQL,
-Redis, Mailpit, OIDC and admin provisioning, local HTTP, Gateway-routed URLs,
+The helper checks Fizzy, Homebox, Kaneo, Keeper, Listmonk, Plane, Sure,
+PostgreSQL, Redis, Mailpit, OIDC and admin provisioning, local HTTP,
+Gateway-routed URLs,
 homelab SMTP capture, Homepage output, backup and restore validation, and recent
 Restic snapshots.

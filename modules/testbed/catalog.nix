@@ -198,6 +198,36 @@ in
           };
         }
         {
+          id = "sure";
+          name = "Sure";
+          route = {
+            description = "Sure personal finance testbed";
+            hosts = hostnames "sure";
+            url = backend 9030;
+          };
+          homepage = {
+            description = "Personal finance testbed\n${backend 9030}";
+            href = publicServiceUrl "sure";
+            icon = "https://raw.githubusercontent.com/we-promise/sure/f51b24096795a15f3d0aae6c860398e8470bfe0f/app/assets/images/logo-color.png";
+            siteMonitor = "${backend 9030}/up";
+          };
+          auth = {
+            mode = "native-oidc";
+            groups = [ "fleet-admins" ];
+            oidc = {
+              clientId = "sure";
+              clientSecretFile = "/run/secrets/sure-oidc-client-secret";
+              launchUrl = "https://sure.jax22.com/";
+              redirectUris = [ "https://sure.jax22.com/auth/openid_connect/callback" ];
+            };
+          };
+          checkmate.url = "https://sure.jax22.com/up";
+          smoke.http = {
+            discard = true;
+            path = "/up";
+          };
+        }
+        {
           id = "mailpit";
           name = "Mailpit";
           route = {

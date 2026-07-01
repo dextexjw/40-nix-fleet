@@ -38,7 +38,7 @@ in
   # ============================================================================
 
   fleet.host.name = "testbed-vm";
-  users.motd = "testbed-vm: Fizzy project board testbed, Homebox inventory testbed, Kaneo project-management testbed, Keeper calendar sync testbed, Listmonk newsletter testbed, Plane project-management testbed, Mailpit SMTP capture, and appdata backups";
+  users.motd = "testbed-vm: Fizzy project board testbed, Homebox inventory testbed, Kaneo project-management testbed, Keeper calendar sync testbed, Listmonk newsletter testbed, Plane project-management testbed, Sure personal finance testbed, Mailpit SMTP capture, and appdata backups";
 
   networking.hosts.${gatewayCluster.clientAddress} = routeHosts;
 
@@ -198,6 +198,28 @@ in
           "podman-plane-beat-worker.service"
         ];
       };
+      sure-oidc-client-secret = {
+        restartUnits = [
+          "podman-sure-web.service"
+          "podman-sure-worker.service"
+        ];
+      };
+      sure-postgres-password = {
+        owner = "postgres";
+        group = "postgres";
+        mode = "0400";
+        restartUnits = [
+          "sure-postgresql-password.service"
+          "podman-sure-web.service"
+          "podman-sure-worker.service"
+        ];
+      };
+      sure-secret-key-base = {
+        restartUnits = [
+          "podman-sure-web.service"
+          "podman-sure-worker.service"
+        ];
+      };
       restic-password = {
         restartUnits = [ "testbed-appdata-backup.service" ];
       };
@@ -265,6 +287,20 @@ in
       mode = "0400";
       restartUnits = [ "podman-keeper.service" ];
     };
+    templates."sure-environment" = {
+      content = ''
+        OIDC_CLIENT_SECRET='${config.sops.placeholder."sure-oidc-client-secret"}'
+        POSTGRES_PASSWORD='${config.sops.placeholder."sure-postgres-password"}'
+        SECRET_KEY_BASE='${config.sops.placeholder."sure-secret-key-base"}'
+      '';
+      owner = "root";
+      group = "root";
+      mode = "0400";
+      restartUnits = [
+        "podman-sure-web.service"
+        "podman-sure-worker.service"
+      ];
+    };
   };
 
   # ============================================================================
@@ -328,6 +364,19 @@ in
     };
     plane.bindAddress = host.ip;
     secrets.enable = secretsEnabled;
+    sure = {
+      bindAddress = host.ip;
+      environmentFile =
+        if secretsEnabled then
+          config.sops.templates."sure-environment".path
+        else
+          "/run/secrets/sure-environment";
+      postgresPasswordFile =
+        if secretsEnabled then
+          config.sops.secrets.sure-postgres-password.path
+        else
+          "/run/secrets/sure-postgres-password";
+    };
     inherit serviceDomains;
     smb.backupDevice = "//10.2.10.10/backups";
   };

@@ -20,7 +20,10 @@ SERVICES=(
   podman-plane-worker.service
   podman-plane-api.service
   podman-plane-rabbitmq.service
+  podman-sure-web.service
+  podman-sure-worker.service
   redis-plane.service
+  redis-sure.service
   listmonk.service
   mailpit-testbed.service
   redis-keeper.service
@@ -33,6 +36,7 @@ die() {
 }
 
 command -v ssh >/dev/null 2>&1 || die "ssh is missing"
+SKIP_SURE_SMOKE=0
 
 ssh_testbed_vm() {
   ssh \
@@ -52,6 +56,9 @@ cd "$ROOT"
 
 printf 'Checking backup mount prerequisites on %s...\n' "$HOST"
 ssh_testbed_vm "sh -lc 'getent hosts nas.home.arpa >/dev/null && (findmnt -rn --target /mnt/backups >/dev/null || sudo mount /mnt/backups)'"
+if ! ssh_testbed_vm "systemctl show -P LoadState podman-sure-web.service 2>/dev/null | grep -Fxq loaded"; then
+  SKIP_SURE_SMOKE=1
+fi
 
 printf 'Stopping backup timer and stateful testbed services...\n'
 ssh_testbed_vm "sudo systemctl stop testbed-appdata-backup.timer"
@@ -69,12 +76,15 @@ restart_services() {
   ssh_testbed_vm "sudo systemctl start listmonk-oidc-config.service || true"
   ssh_testbed_vm "sudo systemctl start plane-postgresql-password.service || true"
   ssh_testbed_vm "sudo systemctl start plane-rabbitmq-config.service || true"
+  ssh_testbed_vm "sudo systemctl start sure-postgresql-password.service || true"
   ssh_testbed_vm "sudo systemctl start plane-migrate.service || true"
   ssh_testbed_vm "sudo systemctl start podman-plane-api.service || true"
   ssh_testbed_vm "sudo systemctl start podman-plane-worker.service || true"
   ssh_testbed_vm "sudo systemctl start podman-plane-beat-worker.service || true"
   ssh_testbed_vm "sudo systemctl start podman-plane-live.service || true"
   ssh_testbed_vm "sudo systemctl start plane-admin-bootstrap.service || true"
+  ssh_testbed_vm "sudo systemctl start podman-sure-web.service || true"
+  ssh_testbed_vm "sudo systemctl start podman-sure-worker.service || true"
   ssh_testbed_vm "sudo systemctl start testbed-appdata-backup.timer"
 }
 
@@ -91,4 +101,4 @@ ssh_testbed_vm "sudo env RESTIC_REPOSITORY='$REPOSITORY' RESTIC_PASSWORD_FILE=/r
 trap - EXIT
 restart_services
 
-"$ROOT/scripts/testbed-vm/test-testbed-services.sh"
+SKIP_SURE_SMOKE="$SKIP_SURE_SMOKE" "$ROOT/scripts/testbed-vm/test-testbed-services.sh"

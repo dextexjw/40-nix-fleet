@@ -26,6 +26,8 @@ let
     "homebox.service"
     "podman-kaneo.service"
     "podman-keeper.service"
+    "podman-sure-web.service"
+    "podman-sure-worker.service"
   ];
 in
 {
