@@ -124,7 +124,7 @@ in
           homepage = {
             description = "Project-management testbed\n${backend 5173}";
             href = publicServiceUrl "kaneo";
-            icon = "mdi-view-dashboard-edit";
+            icon = "https://raw.githubusercontent.com/usekaneo/kaneo/36683724fecc94969dcc2350ab49a6cc7686bb11/apps/web/public/web-app-manifest-512x512.png";
             siteMonitor = "${backend 5173}/api/health";
           };
           auth = {
@@ -194,6 +194,21 @@ in
           smoke.http = {
             discard = true;
             path = "/api/v1/messages";
+          };
+        }
+        {
+          id = "mailpit-smtp";
+          name = "Mailpit SMTP";
+          docs.urls = [ "smtp.mailpit.jax22.com:25" ];
+          smoke = {
+            dnsHosts = [ "smtp.mailpit.jax22.com" ];
+            requiredUnit = "traefik.service";
+          };
+          tcpRoute = {
+            description = "Mailpit SMTP capture";
+            entryPoint = "mailpit-smtp";
+            port = 25;
+            url = "${host.ip}:1025";
           };
         }
       ];
