@@ -111,10 +111,17 @@ images, attachments, and other object storage. Deploy `productivity-vm` first
 when changing the bucket, key, or CORS policy. No unauthenticated `plane.h` LAN
 alias is declared.
 
-Keeper uses SOPS-backed auth, encryption, and PostgreSQL secrets, plus optional
-Google and Microsoft OAuth client fields. Browser access is protected by
-Authentik forward-auth at `https://keeper.jax22.com/`. No `keeper.h` route is
-declared because Gateway forward-auth only protects TLS hosts.
+Keeper uses SOPS-backed auth, encryption, PostgreSQL, and Google/Microsoft
+OAuth client secrets. The Google OAuth app must allow
+`https://keeper.jax22.com/api/sources/callback/google` and
+`https://keeper.jax22.com/api/destinations/callback/google`. The Microsoft app
+must allow `https://keeper.jax22.com/api/sources/callback/outlook` and
+`https://keeper.jax22.com/api/destinations/callback/outlook`. Keeper requests
+Google Calendar events, calendar-list, and email scopes, plus Microsoft
+`Calendars.ReadWrite`, `User.Read`, and `offline_access`. Browser access is
+protected by Authentik forward-auth at `https://keeper.jax22.com/`. No
+`keeper.h` route is declared because Gateway forward-auth only protects TLS
+hosts.
 
 Homebox uses native OIDC through Authentik client `homebox` for `fleet-admins`
 with callback `https://homebox.jax22.com/api/v1/users/login/oidc/callback`.

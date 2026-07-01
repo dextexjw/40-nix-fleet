@@ -144,6 +144,13 @@ TESTBED_REQUIRED_SECRET_KEYS=(
   smb-credentials
 )
 
+TESTBED_KEEPER_OAUTH_SECRET_KEYS=(
+  keeper-google-client-id
+  keeper-google-client-secret
+  keeper-microsoft-client-id
+  keeper-microsoft-client-secret
+)
+
 required_secret_keys_for_host() {
   local host="$1"
 
@@ -201,6 +208,35 @@ check_required_secrets_for_host() {
   done < <(required_secret_keys_for_host "$host")
 
   return "$missing"
+}
+
+check_nonempty_secret_keys() {
+  local decrypted_secrets="$1"
+  local secrets_file="${2:-secrets/secrets.yaml}"
+  shift 2
+
+  local key line value missing=0
+
+  for key in "$@"; do
+    line="$(grep -E "^${key}:" <<<"$decrypted_secrets" | head -n 1 || true)"
+    value="${line#*:}"
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+
+    if [[ -z "$line" || -z "$value" || "$value" == '""' || "$value" == "''" ]]; then
+      printf 'error: %s has empty required secret %s\n' "$secrets_file" "$key" >&2
+      missing=1
+    fi
+  done
+
+  return "$missing"
+}
+
+check_testbed_keeper_oauth_secrets() {
+  local decrypted_secrets="$1"
+  local secrets_file="${2:-secrets/secrets.yaml}"
+
+  check_nonempty_secret_keys "$decrypted_secrets" "$secrets_file" "${TESTBED_KEEPER_OAUTH_SECRET_KEYS[@]}"
 }
 
 validate_secret_manifest_files() {

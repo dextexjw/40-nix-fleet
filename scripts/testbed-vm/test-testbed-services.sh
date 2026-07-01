@@ -36,6 +36,8 @@ colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:9010/up 
 colmena exec --on "$HOST" -- test -d /srv/appsdata/keeper/redis
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:3000/ >/dev/null"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3001/api/health >/dev/null"
+colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3001/api/auth/capabilities | grep -Fq '\"google\":true'"
+colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:3001/api/auth/capabilities | grep -Fq '\"microsoft\":true'"
 colmena exec --on "$HOST" -- sudo test -d /srv/appsdata/homebox/data
 colmena exec --on "$HOST" -- "test \"\$(sudo stat -c '%U:%G' /srv/appsdata/homebox/data)\" = homebox:homebox"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:7745/api/v1/status | grep -Fq '\"health\":true'"
