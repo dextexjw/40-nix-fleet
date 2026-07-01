@@ -28,8 +28,9 @@ in
           testbed-vm runs Fizzy with local SQLite storage, Homebox with local
           SQLite storage, Kaneo with local PostgreSQL and Garage S3 uploads,
           Keeper calendar sync with local PostgreSQL and Redis, Listmonk with
-          local PostgreSQL, local Mailpit SMTP capture, Authentik integration,
-          and Restic appdata backups.
+          local PostgreSQL, Plane Community Edition with local PostgreSQL,
+          Redis, RabbitMQ, and Garage S3 uploads, local Mailpit SMTP capture,
+          Authentik integration, and Restic appdata backups.
 
           Persistent state root:
             ${appdata}
@@ -54,6 +55,13 @@ in
             ${cfg.keeper.stateDir}
             ${cfg.keeper.stateDir}/redis
 
+          Plane state:
+            ${cfg.plane.stateDir}
+            ${cfg.plane.stateDir}/rabbitmq
+            ${cfg.plane.stateDir}/redis
+            PostgreSQL database: plane
+            Garage bucket: ${cfg.plane.garageBucket} (covered by productivity-vm Garage backups)
+
           Backup repository:
             ${cfg.backup.repository}
 
@@ -71,6 +79,9 @@ in
             Homebox: ${toString cfg.ports.homebox} (Gateway nodes only)
             Kaneo: ${toString cfg.ports.kaneo} (Gateway nodes only)
             Listmonk: ${toString cfg.ports.listmonk} (Gateway nodes only)
+            Plane: ${toString cfg.ports.plane} (Gateway nodes only)
+            Plane RabbitMQ: ${toString cfg.ports.planeRabbitmq} (local host only)
+            Plane Redis: ${toString cfg.ports.planeRedis} (local host only)
             Mailpit UI/API: ${toString cfg.ports.mailpit} (Gateway nodes only)
             Mailpit SMTP backend: ${toString cfg.ports.mailpitSmtp} (Gateway nodes only)
             Mailpit SMTP homelab endpoint: smtp.mailpit.jax22.com:25
@@ -111,6 +122,12 @@ in
             Garage bucket ${cfg.kaneo.s3.bucket} through ${cfg.kaneo.s3.endpoint}
             with path-style S3 URLs.
 
+            Plane browser access is routed as https://plane.jax22.com/ through
+            Authentik forward-auth for fleet-admins. Plane itself uses a
+            SOPS-backed initial instance admin, local PostgreSQL, local Redis,
+            local RabbitMQ, and Garage bucket ${cfg.plane.garageBucket} through
+            ${cfg.plane.garageEndpoint}. No plane.h LAN alias is declared.
+
           Mail model:
             Fizzy, Homebox, Kaneo, and Listmonk send to local Mailpit on 127.0.0.1:${toString cfg.ports.mailpitSmtp}.
             Homelab clients can submit capture-only mail through Gateway at
@@ -131,7 +148,7 @@ in
             4. Choose a testbed-vm/appsdata snapshot ID.
             5. Restore the snapshot to / with restic --verify.
             6. Run systemd-tmpfiles --create.
-            7. Restart PostgreSQL, Keeper Redis, Mailpit, Listmonk, Homebox, Kaneo, Fizzy, Keeper, OIDC provisioning, and the backup timer.
+            7. Restart PostgreSQL, Redis, RabbitMQ, Plane, Mailpit, Listmonk, Homebox, Kaneo, Fizzy, Keeper, provisioning units, and the backup timer.
 
           Services stopped during consistency-first manual backup:
             ${concatStringsSep " " statefulServices}
@@ -146,8 +163,9 @@ in
 
           Keep Fizzy secret keys, Homebox API/OIDC secrets, Kaneo auth,
           database, OIDC, and Garage S3 secrets, Keeper auth/encryption/database/OAuth
-          secrets, Listmonk admin credentials, OIDC client secrets, SMB
-          credentials, and Restic passwords in encrypted secrets only; do not
+          secrets, Listmonk admin credentials, OIDC client secrets, Plane
+          application, database, queue, object storage, and admin bootstrap
+          secrets, SMB credentials, and Restic passwords in encrypted secrets only; do not
           write them into Nix files, generated configs, recovery notes, logs, or
           chat.
     '';

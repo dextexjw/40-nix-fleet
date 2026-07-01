@@ -16,6 +16,7 @@ let
     keeper = "keeper";
     listmonk = "listmonk";
     mailpit = "mailpit";
+    plane = "plane";
   };
   serviceHostKeys = [
     "fizzy"
@@ -24,6 +25,7 @@ let
     "keeper"
     "listmonk"
     "mailpit"
+    "plane"
   ];
   mkServiceHostNames =
     domains:
@@ -60,6 +62,15 @@ let
     "podman-keeper.service"
     "redis-keeper.service"
     "listmonk.service"
+    "nginx.service"
+    "plane-admin-bootstrap.service"
+    "plane-migrate.service"
+    "plane-rabbitmq-config.service"
+    "podman-plane-api.service"
+    "podman-plane-beat-worker.service"
+    "podman-plane-live.service"
+    "podman-plane-rabbitmq.service"
+    "podman-plane-worker.service"
     "postgresql.service"
     "mailpit-testbed.service"
   ];

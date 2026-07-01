@@ -38,7 +38,7 @@ in
   # ============================================================================
 
   fleet.host.name = "testbed-vm";
-  users.motd = "testbed-vm: Fizzy project board testbed, Homebox inventory testbed, Kaneo project-management testbed, Keeper calendar sync testbed, Listmonk newsletter testbed, Mailpit SMTP capture, and appdata backups";
+  users.motd = "testbed-vm: Fizzy project board testbed, Homebox inventory testbed, Kaneo project-management testbed, Keeper calendar sync testbed, Listmonk newsletter testbed, Plane project-management testbed, Mailpit SMTP capture, and appdata backups";
 
   networking.hosts.${gatewayCluster.clientAddress} = routeHosts;
 
@@ -136,6 +136,67 @@ in
         group = "postgres";
         mode = "0400";
         restartUnits = [ "listmonk-oidc-config.service" ];
+      };
+      plane-admin-email = {
+        restartUnits = [ "plane-admin-bootstrap.service" ];
+      };
+      plane-admin-password = {
+        restartUnits = [ "plane-admin-bootstrap.service" ];
+      };
+      plane-live-server-secret-key = {
+        restartUnits = [
+          "plane-environment.service"
+          "podman-plane-api.service"
+          "podman-plane-live.service"
+          "podman-plane-worker.service"
+          "podman-plane-beat-worker.service"
+        ];
+      };
+      plane-garage-access-key-id = {
+        restartUnits = [
+          "plane-environment.service"
+          "podman-plane-api.service"
+          "podman-plane-worker.service"
+          "podman-plane-beat-worker.service"
+        ];
+      };
+      plane-garage-secret-access-key = {
+        restartUnits = [
+          "plane-environment.service"
+          "podman-plane-api.service"
+          "podman-plane-worker.service"
+          "podman-plane-beat-worker.service"
+        ];
+      };
+      plane-postgres-password = {
+        owner = "postgres";
+        group = "postgres";
+        mode = "0400";
+        restartUnits = [
+          "plane-environment.service"
+          "plane-postgresql-password.service"
+          "podman-plane-api.service"
+          "podman-plane-worker.service"
+          "podman-plane-beat-worker.service"
+        ];
+      };
+      plane-rabbitmq-password = {
+        restartUnits = [
+          "plane-environment.service"
+          "plane-rabbitmq-config.service"
+          "podman-plane-api.service"
+          "podman-plane-rabbitmq.service"
+          "podman-plane-worker.service"
+          "podman-plane-beat-worker.service"
+        ];
+      };
+      plane-secret-key = {
+        restartUnits = [
+          "plane-environment.service"
+          "podman-plane-api.service"
+          "podman-plane-worker.service"
+          "podman-plane-beat-worker.service"
+        ];
       };
       restic-password = {
         restartUnits = [ "testbed-appdata-backup.service" ];
@@ -265,6 +326,7 @@ in
       bindAddress = host.ip;
       smtpBindAddress = "0.0.0.0";
     };
+    plane.bindAddress = host.ip;
     secrets.enable = secretsEnabled;
     inherit serviceDomains;
     smb.backupDevice = "//10.2.10.10/backups";

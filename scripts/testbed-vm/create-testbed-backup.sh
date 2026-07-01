@@ -12,6 +12,15 @@ SERVICES=(
   homebox.service
   podman-kaneo.service
   podman-keeper.service
+  podman-plane-space.service
+  podman-plane-admin.service
+  podman-plane-web.service
+  podman-plane-live.service
+  podman-plane-beat-worker.service
+  podman-plane-worker.service
+  podman-plane-api.service
+  podman-plane-rabbitmq.service
+  redis-plane.service
   listmonk.service
   mailpit-testbed.service
   redis-keeper.service
@@ -53,11 +62,19 @@ done
 restart_services() {
   printf 'Restarting testbed services and backup timer...\n'
   for ((i=${#SERVICES[@]} - 1; i >= 0; i--)); do
-    ssh_testbed_vm "sudo systemctl start '${SERVICES[$i]}' || true"
+    ssh_testbed_vm "sudo systemctl start --no-block '${SERVICES[$i]}' || true"
   done
   ssh_testbed_vm "sudo systemctl start kaneo-postgresql-password.service || true"
   ssh_testbed_vm "sudo systemctl start keeper-postgresql-password.service || true"
   ssh_testbed_vm "sudo systemctl start listmonk-oidc-config.service || true"
+  ssh_testbed_vm "sudo systemctl start plane-postgresql-password.service || true"
+  ssh_testbed_vm "sudo systemctl start plane-rabbitmq-config.service || true"
+  ssh_testbed_vm "sudo systemctl start plane-migrate.service || true"
+  ssh_testbed_vm "sudo systemctl start podman-plane-api.service || true"
+  ssh_testbed_vm "sudo systemctl start podman-plane-worker.service || true"
+  ssh_testbed_vm "sudo systemctl start podman-plane-beat-worker.service || true"
+  ssh_testbed_vm "sudo systemctl start podman-plane-live.service || true"
+  ssh_testbed_vm "sudo systemctl start plane-admin-bootstrap.service || true"
   ssh_testbed_vm "sudo systemctl start testbed-appdata-backup.timer"
 }
 

@@ -163,6 +163,8 @@ Required productivity secrets:
 - `paperless-admin-password`
 - `paperless-admin-username`
 - `paperless-oidc-client-secret`
+- `plane-garage-access-key-id`
+- `plane-garage-secret-access-key`
 - `rustfs-environment`
 - `rustfs-oidc-client-secret`
 - `searxng-environment`
@@ -362,11 +364,12 @@ hosting with the upstream Garage CLI before serving content. Bucket
 virtual-host style is canonical on `jax22.com`; `.h` is only retained as a
 named endpoint alias.
 
-`garage-kaneo-bucket.service` declaratively imports the SOPS-backed Kaneo
-Garage key, creates bucket `kaneo-uploads`, grants read/write access, and
-applies CORS for origin `https://kaneo.jax22.com`. The productivity validation
-script starts that unit, verifies bucket/key/CORS state, and performs an S3
-upload/delete smoke with the Kaneo credentials.
+`garage-kaneo-bucket.service` and `garage-plane-bucket.service` declaratively
+import the SOPS-backed Garage keys, create buckets `kaneo-uploads` and
+`plane-uploads`, grant read/write access, and apply CORS for origins
+`https://kaneo.jax22.com` and `https://plane.jax22.com`. The productivity
+validation script starts those units, verifies bucket/key/CORS state, and
+performs S3 upload/delete smokes with each service's credentials.
 
 RustFS is separate S3-compatible storage. It does not share Garage buckets or
 credentials. `s3.rustfs.jax22.com` is the S3 API and `rustfs.jax22.com` is

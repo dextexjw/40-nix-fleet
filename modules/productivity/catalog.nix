@@ -362,12 +362,12 @@ in
           hostPrefix = "s3.garage";
           checkmate.enable = false;
         })
-        {
+        (mkRouteOnly {
           id = "garage";
           name = "Garage API";
           port = 3900;
           routeDescription = "Garage standalone S3 API";
-        }
+        })
         (mkService {
           id = "rustfs";
           name = "RustFS";

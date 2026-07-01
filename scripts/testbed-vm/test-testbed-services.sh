@@ -17,12 +17,17 @@ command -v colmena >/dev/null 2>&1 || die "colmena is missing; run nix develop f
 cd "$ROOT"
 
 printf 'Checking key testbed services...\n'
-for service in postgresql redis-keeper listmonk homebox mailpit-testbed podman-fizzy podman-kaneo podman-keeper; do
+for service in postgresql redis-keeper redis-plane listmonk homebox mailpit-testbed podman-fizzy podman-kaneo podman-keeper podman-plane-rabbitmq podman-plane-api podman-plane-worker podman-plane-beat-worker podman-plane-live podman-plane-web podman-plane-admin podman-plane-space nginx; do
   colmena exec --on "$HOST" -- systemctl is-active --quiet "$service.service"
 done
+colmena exec --on "$HOST" -- "test \"\$(systemctl show -P LoadState podman-plane-minio.service 2>/dev/null || true)\" = not-found"
 colmena exec --on "$HOST" -- "test \"\$(systemctl show -P Result kaneo-postgresql-password.service)\" = success"
 colmena exec --on "$HOST" -- "test \"\$(systemctl show -P Result keeper-postgresql-password.service)\" = success"
 colmena exec --on "$HOST" -- "test \"\$(systemctl show -P Result listmonk-oidc-config.service)\" = success"
+colmena exec --on "$HOST" -- "test \"\$(systemctl show -P Result plane-postgresql-password.service)\" = success"
+colmena exec --on "$HOST" -- "test \"\$(systemctl show -P Result plane-rabbitmq-config.service)\" = success"
+colmena exec --on "$HOST" -- "test \"\$(systemctl show -P Result plane-migrate.service)\" = success"
+colmena exec --on "$HOST" -- "test \"\$(systemctl show -P Result plane-admin-bootstrap.service)\" = success"
 
 printf 'Checking testbed appdata and local listeners...\n'
 colmena exec --on "$HOST" -- test -d /srv/appsdata/fizzy/storage
@@ -41,6 +46,21 @@ colmena exec --on "$HOST" -- "podman exec kaneo env | grep -Fxq 'S3_BUCKET=kaneo
 colmena exec --on "$HOST" -- "sudo -u postgres psql -d kaneo -tAc 'select 1' | tr -d '[:space:]' | grep -Fxq 1"
 colmena exec --on "$HOST" -- test -d /srv/appsdata/listmonk/uploads
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:9000/admin/login | grep -Fq 'Authentik'"
+colmena exec --on "$HOST" -- test -d /srv/appsdata/plane
+colmena exec --on "$HOST" -- test -d /srv/appsdata/plane/rabbitmq
+colmena exec --on "$HOST" -- test -d /srv/appsdata/plane/redis
+colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:9020/api/instances/ >/dev/null"
+colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:9020/god-mode/ | grep -Eiq 'plane|root|script'"
+colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:9020/spaces/ | grep -Eiq 'plane|root|script'"
+colmena exec --on "$HOST" -- "podman exec plane-api env | grep -Fxq 'POSTGRES_DB=plane'"
+colmena exec --on "$HOST" -- "podman exec plane-api env | grep -Fxq 'REDIS_PORT=6381'"
+colmena exec --on "$HOST" -- "podman exec plane-api env | grep -Fxq 'USE_MINIO=0'"
+colmena exec --on "$HOST" -- "podman exec plane-api env | grep -Fxq 'AWS_REGION=garage'"
+colmena exec --on "$HOST" -- "podman exec plane-api env | grep -Fxq 'AWS_S3_BUCKET_NAME=plane-uploads'"
+colmena exec --on "$HOST" -- "podman exec plane-api env | grep -Fxq 'AWS_S3_ENDPOINT_URL=https://garage.jax22.com'"
+colmena exec --on "$HOST" -- "podman exec plane-api python manage.py shell -c 'from io import BytesIO; from plane.settings.storage import S3Storage; storage = S3Storage(); name = \"smoke/plane-garage-storage-smoke.txt\"; data = b\"plane-garage-storage-smoke\"; storage.delete_files([name]); assert storage.upload_file(BytesIO(data), name, content_type=\"text/plain\"); assert storage.get_object_metadata(name)[\"ContentLength\"] == len(data); body = storage.s3_client.get_object(Bucket=storage.aws_storage_bucket_name, Key=name)[\"Body\"].read(); assert body == data; assert storage.delete_files([name]); assert storage.get_object_metadata(name) is None'"
+colmena exec --on "$HOST" -- "sudo -u postgres psql -d plane -tAc 'select 1' | tr -d '[:space:]' | grep -Fxq 1"
+colmena exec --on "$HOST" -- "sudo -u postgres psql -d plane -tAc 'select count(*) > 0 from instance_admins' | tr -d '[:space:]' | grep -Fxq t"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:8025/api/v1/messages >/dev/null"
 colmena exec --on "$HOST" -- "podman exec fizzy env | grep -Fxq 'SMTP_USERNAME=fizzy'"
 colmena exec --on "$HOST" -- "python3 -c 'import email.message, smtplib; msg = email.message.EmailMessage(); msg[\"Subject\"] = \"testbed SMTP AUTH smoke\"; msg[\"From\"] = \"fizzy@testbed.home.arpa\"; msg[\"To\"] = \"test@example.com\"; msg.set_content(\"testbed SMTP AUTH smoke\"); smtp = smtplib.SMTP(\"127.0.0.1\", 1025, timeout=5); smtp.login(\"fizzy\", \"mailpit\"); smtp.send_message(msg); smtp.quit()'"
@@ -52,10 +72,7 @@ colmena exec --on "$HOST" -- systemctl start testbed-appdata-backup.service
 colmena exec --on "$HOST" -- systemctl start testbed-appdata-restore-check.service
 colmena exec --on "$HOST" -- systemctl is-active --quiet testbed-appdata-backup.timer
 colmena exec --on "$HOST" -- test -s /srv/appsdata/postgresql-dumps/latest.sql.gz
-colmena exec --on "$HOST" -- env \
-  RESTIC_REPOSITORY="$REPOSITORY" \
-  RESTIC_PASSWORD_FILE=/run/secrets/restic-password \
-  restic snapshots --host "$HOST" --path "$SOURCE" --tag appsdata --latest 3
+colmena exec --on "$HOST" -- "env RESTIC_REPOSITORY='$REPOSITORY' RESTIC_PASSWORD_FILE=/run/secrets/restic-password restic snapshots --host '$HOST' --path '$SOURCE' --tag appsdata --latest 3"
 
 printf 'Checking Gateway-routed Listmonk URLs when reachable from this environment...\n'
 colmena exec --on gateway-vm -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 --resolve fizzy.jax22.com:443:127.0.0.1 https://fizzy.jax22.com/up); case \"\$status\" in 30[1278]|401|403) exit 0 ;; *) echo \"unexpected Fizzy auth status \$status\" >&2; exit 1 ;; esac'"
@@ -80,6 +97,9 @@ colmena exec --on gateway-vm -- "grep -Fq 'http://${HOST_IP}:5173/api/health' /e
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve listmonk.jax22.com:443:127.0.0.1 https://listmonk.jax22.com/admin/login | grep -Fq 'Authentik'"
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 -H 'Host: listmonk.h' http://127.0.0.1/admin/login | grep -Fq 'Authentik'"
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve auth.jax22.com:443:127.0.0.1 https://auth.jax22.com/application/o/listmonk/.well-known/openid-configuration | grep -Fq '\"issuer\"'"
+colmena exec --on gateway-vm -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 --resolve plane.jax22.com:443:127.0.0.1 https://plane.jax22.com/api/instances/); case \"\$status\" in 30[1278]|401|403) exit 0 ;; *) echo \"unexpected Plane auth status \$status\" >&2; exit 1 ;; esac'"
+colmena exec --on gateway-vm -- "grep -Fq 'https://plane.jax22.com/' /etc/homepage-dashboard/services.yaml"
+colmena exec --on gateway-vm -- "grep -Fq 'http://${HOST_IP}:9020/api/instances/' /etc/homepage-dashboard/services.yaml"
 colmena exec --on gateway-vm -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 --resolve mailpit.jax22.com:443:127.0.0.1 https://mailpit.jax22.com/api/v1/messages); case \"\$status\" in 30[1278]|401|403) exit 0 ;; *) echo \"unexpected Mailpit auth status \$status\" >&2; exit 1 ;; esac'"
 colmena exec --on gateway-vm -- "python3 -c 'import email.message, smtplib; msg = email.message.EmailMessage(); msg[\"Subject\"] = \"homelab Mailpit SMTP smoke\"; msg[\"From\"] = \"gateway@testbed.home.arpa\"; msg[\"To\"] = \"test@example.com\"; msg.set_content(\"homelab Mailpit SMTP smoke\"); smtp = smtplib.SMTP(\"10.2.20.102\", 25, local_hostname=\"smtp.mailpit.jax22.com\", timeout=5); smtp.login(\"gateway\", \"mailpit\"); smtp.send_message(msg); smtp.quit()'"
 colmena exec --on gateway-vm -- "grep -Fq 'https://mailpit.jax22.com/' /etc/homepage-dashboard/services.yaml"

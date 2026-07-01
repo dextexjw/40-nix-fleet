@@ -129,6 +129,18 @@ in
         mode = "0400";
         restartUnits = [ "garage-kaneo-bucket.service" ];
       };
+      plane-garage-access-key-id = {
+        owner = "garage";
+        group = "garage";
+        mode = "0400";
+        restartUnits = [ "garage-plane-bucket.service" ];
+      };
+      plane-garage-secret-access-key = {
+        owner = "garage";
+        group = "garage";
+        mode = "0400";
+        restartUnits = [ "garage-plane-bucket.service" ];
+      };
       garage-metrics-token = {
         owner = "garage";
         group = "garage";
@@ -345,6 +357,11 @@ in
       enable = true;
       accessKeyIdFile = config.sops.secrets.kaneo-garage-access-key-id.path;
       secretAccessKeyFile = config.sops.secrets.kaneo-garage-secret-access-key.path;
+    };
+    garage.planeUploads = lib.mkIf secretsEnabled {
+      enable = true;
+      accessKeyIdFile = config.sops.secrets.plane-garage-access-key-id.path;
+      secretAccessKeyFile = config.sops.secrets.plane-garage-secret-access-key.path;
     };
     memos.oidc = lib.mkIf secretsEnabled {
       enable = true;

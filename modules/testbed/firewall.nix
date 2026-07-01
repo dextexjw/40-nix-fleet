@@ -29,6 +29,7 @@ in
       (mkGatewayAccept cfg.ports.listmonk)
       (mkGatewayAccept cfg.ports.mailpit)
       (mkGatewayAccept cfg.ports.mailpitSmtp)
+      (mkGatewayAccept cfg.ports.plane)
     ];
   };
 }

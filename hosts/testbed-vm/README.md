@@ -2,7 +2,8 @@
 
 `testbed-vm` runs Fizzy as a project-board testbed, Homebox as a home-inventory
 testbed, Kaneo as a project-management testbed, Keeper as a calendar-sync
-testbed, and Listmonk as a newsletter and mailing-list testbed. Mail is
+testbed, Listmonk as a newsletter and mailing-list testbed, and Plane as a
+project-management testbed. Mail is
 captured locally by Mailpit so test messages cannot leave the lab until a real
 SMTP integration is intentionally added.
 
@@ -24,6 +25,8 @@ SMTP integration is intentionally added.
 - Listmonk public route: `https://listmonk.jax22.com/`
 - Listmonk LAN alias: `http://listmonk.h/`
 - Listmonk direct backend: `http://10.2.20.129:9000/` from Gateway nodes only
+- Plane public route: `https://plane.jax22.com/`
+- Plane direct backend: `http://10.2.20.129:9020/` from Gateway nodes only
 - Mailpit public route: `https://mailpit.jax22.com/`
 - Mailpit direct backend: `http://10.2.20.129:8025/` from Gateway nodes only
 - Mailpit local SMTP capture: `127.0.0.1:1025` on `testbed-vm`
@@ -38,6 +41,9 @@ SMTP integration is intentionally added.
 - Kaneo durable state: PostgreSQL database `kaneo` plus Garage bucket `kaneo-uploads`
 - Keeper Redis state and local service data: `/srv/appsdata/keeper`
 - Listmonk uploads and service state: `/srv/appsdata/listmonk`
+- Plane logs, RabbitMQ, and Redis: `/srv/appsdata/plane`
+- Plane PostgreSQL database: `plane`
+- Plane object storage: Garage bucket `plane-uploads` on `productivity-vm`
 - PostgreSQL data: `/srv/appsdata/postgresql`
 - PostgreSQL dump: `/srv/appsdata/postgresql-dumps/latest.sql.gz`
 - Backup repository: `/mnt/backups/restic/appdata/testbed-vm`
@@ -68,6 +74,14 @@ Required SOPS keys:
 - `listmonk-admin-username`
 - `listmonk-admin-password`
 - `listmonk-oidc-client-secret`
+- `plane-admin-email`
+- `plane-admin-password`
+- `plane-garage-access-key-id`
+- `plane-garage-secret-access-key`
+- `plane-live-server-secret-key`
+- `plane-postgres-password`
+- `plane-rabbitmq-password`
+- `plane-secret-key`
 - `restic-password`
 - `smb-credentials`
 
@@ -88,6 +102,14 @@ credentials or SOPS secrets for this endpoint.
 
 Listmonk uses a SOPS-backed local admin account for break-glass access. Native
 OIDC is provisioned through Authentik client `listmonk` for `fleet-admins`.
+
+Plane Community Edition is exposed at `https://plane.jax22.com/` through
+Gateway Authentik forward-auth for `fleet-admins`. Plane itself uses a
+SOPS-backed initial instance admin, native PostgreSQL, native Redis, local
+RabbitMQ, and Garage bucket `plane-uploads` on `https://garage.jax22.com` for
+images, attachments, and other object storage. Deploy `productivity-vm` first
+when changing the bucket, key, or CORS policy. No unauthenticated `plane.h` LAN
+alias is declared.
 
 Keeper uses SOPS-backed auth, encryption, and PostgreSQL secrets, plus optional
 Google and Microsoft OAuth client fields. Browser access is protected by
@@ -148,9 +170,11 @@ exists:
 scripts/testbed-vm/restore-testbed-appdata.sh <snapshot-id>
 ```
 
-The restore script stops Fizzy, Homebox, Kaneo, Keeper, Listmonk, PostgreSQL,
-Mailpit, and the backup timer, restores `/srv/appsdata`, reapplies declared
-directories and ownership, and restarts service units.
+The restore script stops Fizzy, Homebox, Kaneo, Keeper, Listmonk, Plane,
+PostgreSQL, Mailpit, Redis, and the backup timer, restores `/srv/appsdata`,
+reapplies declared directories and ownership, and restarts service units.
+Plane object data is not in this testbed backup; it lives in Garage bucket
+`plane-uploads` and is covered by the `productivity-vm` Garage appdata backup.
 
 ## Validation
 
@@ -158,7 +182,7 @@ directories and ownership, and restarts service units.
 scripts/testbed-vm/test-testbed-services.sh
 ```
 
-The helper checks Fizzy, Homebox, Kaneo, Keeper, Listmonk, PostgreSQL, Redis,
-Mailpit, OIDC provisioning, local HTTP, Gateway-routed URLs, homelab SMTP
-capture, Homepage output, backup and restore validation, and recent Restic
-snapshots.
+The helper checks Fizzy, Homebox, Kaneo, Keeper, Listmonk, Plane, PostgreSQL,
+Redis, Mailpit, OIDC and admin provisioning, local HTTP, Gateway-routed URLs,
+homelab SMTP capture, Homepage output, backup and restore validation, and recent
+Restic snapshots.

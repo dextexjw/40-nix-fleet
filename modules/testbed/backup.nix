@@ -14,6 +14,14 @@ let
   };
   inherit (testbedLib) cfg appdata resticPasswordFile;
   backupGuardedServices = [
+    "podman-plane-rabbitmq.service"
+    "podman-plane-api.service"
+    "podman-plane-worker.service"
+    "podman-plane-beat-worker.service"
+    "podman-plane-live.service"
+    "podman-plane-web.service"
+    "podman-plane-admin.service"
+    "podman-plane-space.service"
     "podman-fizzy.service"
     "homebox.service"
     "podman-kaneo.service"
@@ -81,9 +89,30 @@ in
 
         restarted_services=
         cleanup() {
-          for service in $restarted_services; do
-            systemctl start "$service" || true
+          for service in \
+            plane-postgresql-password.service \
+            plane-rabbitmq-config.service \
+            plane-migrate.service \
+            podman-plane-api.service \
+            podman-plane-worker.service \
+            podman-plane-beat-worker.service \
+            podman-plane-live.service \
+            plane-admin-bootstrap.service
+          do
+            systemctl reset-failed "$service" || true
           done
+
+          for service in $restarted_services; do
+            systemctl start --no-block "$service" || true
+          done
+          systemctl start plane-postgresql-password.service || true
+          systemctl start plane-rabbitmq-config.service || true
+          systemctl start plane-migrate.service || true
+          systemctl start podman-plane-api.service || true
+          systemctl start podman-plane-worker.service || true
+          systemctl start podman-plane-beat-worker.service || true
+          systemctl start podman-plane-live.service || true
+          systemctl start plane-admin-bootstrap.service || true
         }
         trap cleanup EXIT
 

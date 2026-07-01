@@ -174,6 +174,30 @@ in
           };
         }
         {
+          id = "plane";
+          name = "Plane";
+          route = {
+            description = "Plane project-management testbed";
+            hosts = publicHostnames "plane";
+            url = backend 9020;
+          };
+          homepage = {
+            description = "Project-management testbed\n${backend 9020}";
+            href = publicOnlyServiceUrl "plane";
+            icon = "plane.png";
+            siteMonitor = "${backend 9020}/api/instances/";
+          };
+          auth = {
+            mode = "forward-auth";
+            groups = [ "fleet-admins" ];
+          };
+          checkmate.url = "https://plane.jax22.com/api/instances/";
+          smoke.http = {
+            discard = true;
+            path = "/api/instances/";
+          };
+        }
+        {
           id = "mailpit";
           name = "Mailpit";
           route = {

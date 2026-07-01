@@ -7,7 +7,7 @@ REPOSITORY="/mnt/backups/restic/appdata/testbed-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
 SNAPSHOT="${1:-}"
-SERVICES="podman-fizzy homebox podman-kaneo podman-keeper listmonk mailpit-testbed redis-keeper postgresql"
+SERVICES="podman-fizzy homebox podman-kaneo podman-keeper podman-plane-space podman-plane-admin podman-plane-web podman-plane-live podman-plane-beat-worker podman-plane-worker podman-plane-api podman-plane-rabbitmq listmonk mailpit-testbed redis-plane redis-keeper postgresql"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -37,7 +37,7 @@ export RESTIC_REPOSITORY="\$repository"
 export RESTIC_PASSWORD_FILE=/run/secrets/restic-password
 
 echo 'Stopping testbed services before appdata restore...'
-systemctl stop testbed-appdata-backup.timer kaneo-postgresql-password.service listmonk-oidc-config.service \$services || true
+systemctl stop testbed-appdata-backup.timer plane-admin-bootstrap.service plane-migrate.service plane-rabbitmq-config.service plane-postgresql-password.service kaneo-postgresql-password.service listmonk-oidc-config.service \$services || true
 
 echo 'Mounting /mnt/backups...'
 findmnt -rn --target /mnt/backups >/dev/null || mount /mnt/backups
@@ -114,6 +114,9 @@ chmod 0755 "\$source_path"
 [ -d "\$source_path/kaneo" ] && chown -R root:testbed "\$source_path/kaneo"
 [ -d "\$source_path/keeper" ] && chown -R root:root "\$source_path/keeper"
 [ -d "\$source_path/keeper/redis" ] && chown -R redis-keeper:redis-keeper "\$source_path/keeper/redis"
+[ -d "\$source_path/plane" ] && chown -R root:testbed "\$source_path/plane"
+[ -d "\$source_path/plane/rabbitmq" ] && chown -R 999:999 "\$source_path/plane/rabbitmq"
+[ -d "\$source_path/plane/redis" ] && chown -R redis-plane:redis-plane "\$source_path/plane/redis"
 [ -d "\$source_path/postgresql" ] && chown -R postgres:postgres "\$source_path/postgresql"
 [ -d "\$source_path/postgresql-dumps" ] && chown -R postgres:postgres "\$source_path/postgresql-dumps"
 find "\$source_path" -type f -name '*.pid' -delete
@@ -122,8 +125,15 @@ echo 'Reapplying declared directories and restarting testbed services...'
 systemd-tmpfiles --create
 systemctl start postgresql
 systemctl start redis-keeper
+systemctl start redis-plane
 systemctl start kaneo-postgresql-password
 systemctl start keeper-postgresql-password
+systemctl start plane-postgresql-password
+systemctl start podman-plane-rabbitmq
+systemctl start plane-rabbitmq-config
+systemctl start plane-migrate
+systemctl start podman-plane-api podman-plane-worker podman-plane-beat-worker podman-plane-live podman-plane-web podman-plane-admin podman-plane-space
+systemctl start plane-admin-bootstrap
 systemctl start mailpit-testbed listmonk homebox podman-kaneo podman-keeper podman-fizzy
 systemctl start listmonk-oidc-config.service
 systemctl start testbed-appdata-backup.timer

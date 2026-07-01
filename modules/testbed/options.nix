@@ -16,6 +16,7 @@ let
     keeper = "keeper";
     listmonk = "listmonk";
     mailpit = "mailpit";
+    plane = "plane";
   };
   mkServiceHostNames =
     domains:
@@ -76,6 +77,14 @@ in
         listmonk = 9000;
         mailpit = 8025;
         mailpitSmtp = 1025;
+        plane = 9020;
+        planeAdmin = 9022;
+        planeApi = 9025;
+        planeLive = 9024;
+        planeRabbitmq = 5673;
+        planeRedis = 6381;
+        planeSpace = 9023;
+        planeWeb = 9021;
       };
       description = "LAN-facing or local testbed service ports.";
     };
@@ -380,6 +389,134 @@ in
         type = types.str;
         default = "127.0.0.1";
         description = "Address Mailpit SMTP capture listens on.";
+      };
+    };
+
+    plane = {
+      adminEmailFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/plane-admin-email";
+        description = "Runtime file containing the initial Plane instance admin email.";
+      };
+
+      adminPasswordFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/plane-admin-password";
+        description = "Runtime file containing the initial Plane instance admin password.";
+      };
+
+      backendImage = mkOption {
+        type = types.str;
+        default = "docker.io/makeplane/plane-backend@sha256:2da6972c81a0ac797c9d04db448aa5985e1257fc5d9724b165e9c07791e8cc64";
+        description = "Pinned Plane backend OCI image.";
+      };
+
+      bindAddress = mkOption {
+        type = types.str;
+        default = "127.0.0.1";
+        description = "Address the local Plane reverse proxy listens on.";
+      };
+
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run the Plane project-management testbed service.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://${cfg.serviceHosts.plane}";
+        description = "Canonical external Plane URL.";
+      };
+
+      frontendImage = mkOption {
+        type = types.str;
+        default = "docker.io/makeplane/plane-frontend@sha256:20d83ae9257415593a0522b607b3827dde429d8511b1bcf97f6313e55fc60c09";
+        description = "Pinned Plane frontend OCI image.";
+      };
+
+      adminImage = mkOption {
+        type = types.str;
+        default = "docker.io/makeplane/plane-admin@sha256:82a2b82f34a24b95e2b663327c34d32828d24680aef258f901ebc0adc27542ea";
+        description = "Pinned Plane admin OCI image.";
+      };
+
+      liveImage = mkOption {
+        type = types.str;
+        default = "docker.io/makeplane/plane-live@sha256:d9ce8992425d9724ccd972f532dd46476b64c53c9e886f0a4eda8915f8b700d2";
+        description = "Pinned Plane live collaboration OCI image.";
+      };
+
+      garageAccessKeyFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/plane-garage-access-key-id";
+        description = "Runtime file containing the Plane Garage access key ID.";
+      };
+
+      garageBucket = mkOption {
+        type = types.str;
+        default = "plane-uploads";
+        description = "Garage bucket used by Plane object storage.";
+      };
+
+      garageEndpoint = mkOption {
+        type = types.str;
+        default = "https://garage.jax22.com";
+        description = "Browser-reachable Garage S3 endpoint used by Plane.";
+      };
+
+      garageRegion = mkOption {
+        type = types.str;
+        default = "garage";
+        description = "Garage S3 region name used by Plane.";
+      };
+
+      garageSecretKeyFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/plane-garage-secret-access-key";
+        description = "Runtime file containing the Plane Garage secret access key.";
+      };
+
+      postgresPasswordFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/plane-postgres-password";
+        description = "Runtime file containing the Plane PostgreSQL role password.";
+      };
+
+      rabbitmqImage = mkOption {
+        type = types.str;
+        default = "docker.io/rabbitmq@sha256:567378bee7c4b7401bc5165e3ff406c4481ae3cbd9daed4ad3c2821bd97ae3f4";
+        description = "Pinned RabbitMQ OCI image used by Plane workers.";
+      };
+
+      rabbitmqPasswordFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/plane-rabbitmq-password";
+        description = "Runtime file containing the Plane RabbitMQ password.";
+      };
+
+      secretKeyFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/plane-secret-key";
+        description = "Runtime file containing the Plane Django SECRET_KEY.";
+      };
+
+      liveServerSecretKeyFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/plane-live-server-secret-key";
+        description = "Runtime file containing the Plane live-server shared secret.";
+      };
+
+      spaceImage = mkOption {
+        type = types.str;
+        default = "docker.io/makeplane/plane-space@sha256:d03aa511c5292b6feb3119fc8d399e0e2f8c2e5b308c076779691cff54bd3451";
+        description = "Pinned Plane Space OCI image.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/plane";
+        description = "Persistent Plane state directory.";
       };
     };
 

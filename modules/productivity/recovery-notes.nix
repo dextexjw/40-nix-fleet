@@ -113,9 +113,10 @@ in
         hosting with the upstream Garage CLI before serving content. Garage
         bucket virtual-host style remains canonical on ${serviceHosts.garage} and
         ${serviceHosts.garageWeb}; the .h names are only routed named endpoints.
-        garage-kaneo-bucket.service imports the SOPS-backed Kaneo Garage key,
-        creates bucket kaneo-uploads, grants read/write access, and applies CORS
-        for https://kaneo.jax22.com.
+        garage-kaneo-bucket.service and garage-plane-bucket.service import the
+        SOPS-backed Garage keys, create buckets kaneo-uploads and plane-uploads,
+        grant read/write access, and apply CORS for https://kaneo.jax22.com and
+        https://plane.jax22.com.
 
         RustFS is a separate S3-compatible object store in this pass. It does not
         share Garage buckets or credentials. ${serviceHosts.rustfs} is the S3 API

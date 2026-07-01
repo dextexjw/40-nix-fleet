@@ -99,6 +99,8 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   paperless-admin-password
   paperless-admin-username
   paperless-oidc-client-secret
+  plane-garage-access-key-id
+  plane-garage-secret-access-key
   restic-password
   rustfs-environment
   rustfs-oidc-client-secret
@@ -130,6 +132,14 @@ TESTBED_REQUIRED_SECRET_KEYS=(
   listmonk-admin-password
   listmonk-admin-username
   listmonk-oidc-client-secret
+  plane-admin-email
+  plane-admin-password
+  plane-garage-access-key-id
+  plane-garage-secret-access-key
+  plane-live-server-secret-key
+  plane-postgres-password
+  plane-rabbitmq-password
+  plane-secret-key
   restic-password
   smb-credentials
 )
