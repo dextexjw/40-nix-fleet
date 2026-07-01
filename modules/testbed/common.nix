@@ -15,12 +15,19 @@ let
 in
 {
   config = mkIf cfg.enable {
+    boot.supportedFilesystems.cifs = true;
+
     users.groups.testbed = { };
 
     systemd.tmpfiles.rules = [
       "d ${appdata} 0755 root root - -"
       "d ${cfg.fizzy.stateDir} 0750 1000 1000 - -"
       "d ${cfg.fizzy.stateDir}/storage 0750 1000 1000 - -"
+      "d ${cfg.homebox.stateDir} 0750 homebox homebox - -"
+      "d ${cfg.homebox.stateDir}/data 0750 homebox homebox - -"
+      "d ${cfg.homebox.stateDir}/tmp 0750 homebox homebox - -"
+      "d ${cfg.kaneo.stateDir} 0750 root testbed - -"
+      "d ${cfg.kaneo.stateDir}/tmp 0750 root testbed - -"
       "d ${cfg.keeper.stateDir} 0750 root testbed - -"
       "z ${cfg.keeper.stateDir} 0750 root testbed - -"
       "d ${cfg.keeper.stateDir}/redis 0750 redis-keeper redis-keeper - -"

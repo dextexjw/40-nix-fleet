@@ -15,6 +15,8 @@ let
   inherit (testbedLib) cfg appdata resticPasswordFile;
   backupGuardedServices = [
     "podman-fizzy.service"
+    "homebox.service"
+    "podman-kaneo.service"
     "podman-keeper.service"
   ];
 in

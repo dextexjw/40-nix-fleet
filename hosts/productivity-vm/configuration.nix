@@ -117,6 +117,18 @@ in
         mode = "0400";
         restartUnits = [ "garage.service" ];
       };
+      kaneo-garage-access-key-id = {
+        owner = "garage";
+        group = "garage";
+        mode = "0400";
+        restartUnits = [ "garage-kaneo-bucket.service" ];
+      };
+      kaneo-garage-secret-access-key = {
+        owner = "garage";
+        group = "garage";
+        mode = "0400";
+        restartUnits = [ "garage-kaneo-bucket.service" ];
+      };
       garage-metrics-token = {
         owner = "garage";
         group = "garage";
@@ -328,6 +340,11 @@ in
     gitea.oidc = lib.mkIf secretsEnabled {
       enable = true;
       clientSecretFile = config.sops.secrets.gitea-oidc-client-secret.path;
+    };
+    garage.kaneoUploads = lib.mkIf secretsEnabled {
+      enable = true;
+      accessKeyIdFile = config.sops.secrets.kaneo-garage-access-key-id.path;
+      secretAccessKeyFile = config.sops.secrets.kaneo-garage-secret-access-key.path;
     };
     memos.oidc = lib.mkIf secretsEnabled {
       enable = true;

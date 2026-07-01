@@ -32,7 +32,9 @@ GATEWAY_REQUIRED_SECRET_KEYS=(
   gluetun-control-api-key
   gluetun-openvpn-password
   gluetun-openvpn-username
+  kaneo-oidc-client-secret
   listmonk-oidc-client-secret
+  homebox-oidc-client-secret
   memos-oidc-client-secret
   nextcloud-oidc-client-secret
   paperless-oidc-client-secret
@@ -83,6 +85,8 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   freshrss-admin-password
   freshrss-admin-username
   garage-admin-token
+  kaneo-garage-access-key-id
+  kaneo-garage-secret-access-key
   garage-metrics-token
   garage-rpc-secret
   gitea-oidc-client-secret
@@ -109,6 +113,13 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
 TESTBED_REQUIRED_SECRET_KEYS=(
   "${FLEET_COMMON_REQUIRED_SECRET_KEYS[@]}"
   fizzy-secret-key-base
+  homebox-api-key-pepper
+  homebox-oidc-client-secret
+  kaneo-auth-secret
+  kaneo-garage-access-key-id
+  kaneo-garage-secret-access-key
+  kaneo-oidc-client-secret
+  kaneo-postgres-password
   keeper-better-auth-secret
   keeper-encryption-key
   keeper-google-client-id

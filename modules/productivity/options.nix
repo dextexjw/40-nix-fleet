@@ -200,6 +200,52 @@ in
       };
     };
 
+    garage = {
+      kaneoUploads = {
+        accessKeyIdFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "File containing the Garage access key ID used by Kaneo uploads.";
+        };
+
+        bucket = mkOption {
+          type = types.str;
+          default = "kaneo-uploads";
+          description = "Garage bucket provisioned for Kaneo uploads.";
+        };
+
+        corsAllowedOrigin = mkOption {
+          type = types.str;
+          default = "https://kaneo.jax22.com";
+          description = "Browser origin allowed to upload Kaneo objects through Garage.";
+        };
+
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Provision the Garage bucket and access key used by Kaneo uploads.";
+        };
+
+        endpointUrl = mkOption {
+          type = types.str;
+          default = "http://127.0.0.1:${toString cfg.ports.garageS3}";
+          description = "Local Garage S3 endpoint used by provisioning and validation.";
+        };
+
+        keyName = mkOption {
+          type = types.str;
+          default = "kaneo";
+          description = "Garage key name assigned to the Kaneo upload credentials.";
+        };
+
+        secretAccessKeyFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "File containing the Garage secret access key used by Kaneo uploads.";
+        };
+      };
+    };
+
     netbootxyz = {
       enable = mkOption {
         type = types.bool;
@@ -739,6 +785,14 @@ in
       {
         assertion = !cfg.rustfs.oidc.enable || cfg.rustfs.oidc.environmentFile != null;
         message = "fleet.productivity.stack.rustfs.oidc.environmentFile must be set when RustFS OIDC is enabled.";
+      }
+      {
+        assertion = !cfg.garage.kaneoUploads.enable || cfg.garage.kaneoUploads.accessKeyIdFile != null;
+        message = "fleet.productivity.stack.garage.kaneoUploads.accessKeyIdFile must be set when Kaneo Garage uploads are enabled.";
+      }
+      {
+        assertion = !cfg.garage.kaneoUploads.enable || cfg.garage.kaneoUploads.secretAccessKeyFile != null;
+        message = "fleet.productivity.stack.garage.kaneoUploads.secretAccessKeyFile must be set when Kaneo Garage uploads are enabled.";
       }
     ];
   };

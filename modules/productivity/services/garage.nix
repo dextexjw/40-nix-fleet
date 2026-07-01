@@ -19,9 +19,29 @@ let
     secretPath
     serviceHosts
     ;
+  kaneoUploadsCfg = cfg.garage.kaneoUploads;
+  kaneoUploadsCorsConfig = pkgs.writeText "kaneo-garage-cors.xml" ''
+    <CORSConfiguration>
+      <CORSRule>
+        <AllowedOrigin>${kaneoUploadsCfg.corsAllowedOrigin}</AllowedOrigin>
+        <AllowedMethod>GET</AllowedMethod>
+        <AllowedMethod>HEAD</AllowedMethod>
+        <AllowedMethod>POST</AllowedMethod>
+        <AllowedMethod>PUT</AllowedMethod>
+        <AllowedHeader>*</AllowedHeader>
+        <ExposeHeader>ETag</ExposeHeader>
+        <MaxAgeSeconds>3000</MaxAgeSeconds>
+      </CORSRule>
+    </CORSConfiguration>
+  '';
 in
 {
   config = mkIf cfg.enable {
+    environment.systemPackages = [
+      pkgs.garage
+      pkgs.s3cmd
+    ];
+
     services.garage = {
       enable = true;
       environmentFile = garageEnvironmentFile;
@@ -58,6 +78,100 @@ in
       DynamicUser = mkForce false;
       User = "garage";
       Group = "garage";
+    };
+
+    systemd.services.garage-kaneo-bucket = mkIf kaneoUploadsCfg.enable {
+      description = "Provision Garage bucket and key for Kaneo uploads";
+      after = [ "garage.service" ];
+      requires = [ "garage.service" ];
+      wantedBy = [ "multi-user.target" ];
+      path = [
+        pkgs.coreutils
+        pkgs.curl
+        pkgs.garage
+        pkgs.gnugrep
+        pkgs.s3cmd
+      ];
+      serviceConfig = {
+        Type = "oneshot";
+        User = "garage";
+        Group = "garage";
+        RemainAfterExit = true;
+      };
+      script = ''
+        set -euo pipefail
+
+        access_key_id_file=${escapeShellArg kaneoUploadsCfg.accessKeyIdFile}
+        secret_access_key_file=${escapeShellArg kaneoUploadsCfg.secretAccessKeyFile}
+        bucket=${escapeShellArg kaneoUploadsCfg.bucket}
+        key_name=${escapeShellArg kaneoUploadsCfg.keyName}
+        endpoint_url=${escapeShellArg kaneoUploadsCfg.endpointUrl}
+        cors_config=${escapeShellArg kaneoUploadsCorsConfig}
+
+        if [ ! -r "$access_key_id_file" ]; then
+          echo "$access_key_id_file is not readable; refusing to provision Kaneo Garage key" >&2
+          exit 1
+        fi
+        if [ ! -r "$secret_access_key_file" ]; then
+          echo "$secret_access_key_file is not readable; refusing to provision Kaneo Garage key" >&2
+          exit 1
+        fi
+
+        IFS= read -r access_key_id < "$access_key_id_file" || [ -n "$access_key_id" ]
+        IFS= read -r secret_access_key < "$secret_access_key_file" || [ -n "$secret_access_key" ]
+        if [ -z "$access_key_id" ] || [ -z "$secret_access_key" ]; then
+          echo "Kaneo Garage credentials must not be empty" >&2
+          exit 1
+        fi
+
+        if ! garage key info "$access_key_id" >/dev/null 2>&1; then
+          if garage key info "$key_name" >/dev/null 2>&1; then
+            echo "Garage key name $key_name already exists with a different access key ID; refusing to overwrite it" >&2
+            exit 1
+          fi
+          garage key import --yes -n "$key_name" "$access_key_id" "$secret_access_key"
+        fi
+
+        garage bucket info "$bucket" >/dev/null 2>&1 || garage bucket create "$bucket"
+        garage bucket allow --read --write --owner "$bucket" --key "$access_key_id"
+
+        s3cmd_config="$(mktemp)"
+        headers="$(mktemp)"
+        body="$(mktemp)"
+        trap 'rm -f "$s3cmd_config" "$headers" "$body"' EXIT
+        chmod 0600 "$s3cmd_config"
+        {
+          printf '%s\n' '[default]'
+          printf 'access_key = %s\n' "$access_key_id"
+          printf 'secret_key = %s\n' "$secret_access_key"
+          printf 'host_base = 127.0.0.1:%s\n' ${escapeShellArg (toString cfg.ports.garageS3)}
+          printf 'host_bucket = 127.0.0.1:%s/%%(bucket)\n' ${escapeShellArg (toString cfg.ports.garageS3)}
+          printf '%s\n' 'use_https = False'
+          printf '%s\n' 'signature_v2 = False'
+          printf '%s\n' 'bucket_location = garage'
+        } > "$s3cmd_config"
+
+        s3cmd --config "$s3cmd_config" --quiet setcors "$cors_config" "s3://$bucket"
+        garage bucket deny --owner "$bucket" --key "$access_key_id"
+        s3cmd --config "$s3cmd_config" --quiet ls "s3://$bucket" >/dev/null
+
+        status="$(curl -sS -D "$headers" -o "$body" -w "%{http_code}" \
+          --max-time 10 \
+          -X OPTIONS \
+          -H "Origin: ${kaneoUploadsCfg.corsAllowedOrigin}" \
+          -H "Access-Control-Request-Method: PUT" \
+          -H "Access-Control-Request-Headers: content-type" \
+          "$endpoint_url/$bucket/.kaneo-cors-check")"
+        case "$status" in
+          2*) ;;
+          *)
+            echo "unexpected Kaneo Garage CORS status $status" >&2
+            cat "$body" >&2
+            exit 1
+            ;;
+        esac
+        tr -d '\r' < "$headers" | grep -Fqi "access-control-allow-origin: ${kaneoUploadsCfg.corsAllowedOrigin}"
+      '';
     };
   };
 }

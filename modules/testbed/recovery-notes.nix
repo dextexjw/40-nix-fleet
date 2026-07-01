@@ -25,10 +25,11 @@ in
           testbed-vm service model
           ========================
 
-          testbed-vm runs Fizzy with local SQLite storage, Keeper calendar sync
-          with local PostgreSQL and Redis, Listmonk with local PostgreSQL,
-          local Mailpit SMTP capture, Authentik integration, and Restic appdata
-          backups.
+          testbed-vm runs Fizzy with local SQLite storage, Homebox with local
+          SQLite storage, Kaneo with local PostgreSQL and Garage S3 uploads,
+          Keeper calendar sync with local PostgreSQL and Redis, Listmonk with
+          local PostgreSQL, local Mailpit SMTP capture, Authentik integration,
+          and Restic appdata backups.
 
           Persistent state root:
             ${appdata}
@@ -39,6 +40,15 @@ in
 
           Listmonk state:
             ${cfg.listmonk.stateDir}
+
+          Homebox state:
+            ${cfg.homebox.stateDir}
+            ${cfg.homebox.stateDir}/data
+
+          Kaneo state:
+            ${cfg.kaneo.stateDir}
+            PostgreSQL database: ${cfg.kaneo.databaseName}
+            Garage bucket: ${cfg.kaneo.s3.bucket}
 
           Keeper state:
             ${cfg.keeper.stateDir}
@@ -58,6 +68,8 @@ in
             Keeper Web: ${toString cfg.ports.keeper} (Gateway nodes only)
             Keeper API: ${toString cfg.ports.keeperApi} (local host only)
             Keeper Redis: ${toString cfg.ports.keeperRedis} (local host only)
+            Homebox: ${toString cfg.ports.homebox} (Gateway nodes only)
+            Kaneo: ${toString cfg.ports.kaneo} (Gateway nodes only)
             Listmonk: ${toString cfg.ports.listmonk} (Gateway nodes only)
             Mailpit UI/API: ${toString cfg.ports.mailpit} (Gateway nodes only)
             Mailpit SMTP: ${toString cfg.ports.mailpitSmtp} (local host firewall closed)
@@ -82,8 +94,24 @@ in
             alias is declared because Gateway forward-auth only protects TLS
             hosts.
 
+            Homebox exposes browser access through native OIDC with Authentik
+            client homebox for fleet-admins and redirect URI
+            https://homebox.jax22.com/api/v1/users/login/oidc/callback. Public
+            registration is disabled by default; local login remains enabled for
+            break-glass accounts. If the first account cannot be created through
+            OIDC, temporarily enable registration, create the account, then
+            disable registration and redeploy.
+
+            Kaneo exposes browser access through native OIDC with Authentik
+            client kaneo for fleet-admins and redirect URI
+            https://kaneo.jax22.com/api/auth/oauth2/callback/custom. Guest
+            access and password registration are disabled; Authentik-gated OIDC
+            registration remains enabled for first-user creation. Uploads use
+            Garage bucket ${cfg.kaneo.s3.bucket} through ${cfg.kaneo.s3.endpoint}
+            with path-style S3 URLs.
+
           Mail model:
-            Fizzy and Listmonk send to local Mailpit on 127.0.0.1:${toString cfg.ports.mailpitSmtp}.
+            Fizzy, Homebox, Kaneo, and Listmonk send to local Mailpit on 127.0.0.1:${toString cfg.ports.mailpitSmtp}.
             Mailpit accepts dummy local SMTP AUTH for Fizzy compatibility; no
             real SMTP relay credentials are declared on this host.
 
@@ -100,7 +128,7 @@ in
             4. Choose a testbed-vm/appsdata snapshot ID.
             5. Restore the snapshot to / with restic --verify.
             6. Run systemd-tmpfiles --create.
-            7. Restart PostgreSQL, Keeper Redis, Mailpit, Listmonk, Fizzy, Keeper, OIDC provisioning, and the backup timer.
+            7. Restart PostgreSQL, Keeper Redis, Mailpit, Listmonk, Homebox, Kaneo, Fizzy, Keeper, OIDC provisioning, and the backup timer.
 
           Services stopped during consistency-first manual backup:
             ${concatStringsSep " " statefulServices}
@@ -113,10 +141,12 @@ in
             scripts/testbed-vm/deploy-testbed.sh
             scripts/testbed-vm/test-testbed-services.sh
 
-          Keep Fizzy secret keys, Keeper auth/encryption/database/OAuth secrets,
-          Listmonk admin credentials, OIDC client secrets, SMB credentials, and
-          Restic passwords in encrypted secrets only; do not write them into Nix
-          files, generated configs, recovery notes, logs, or chat.
+          Keep Fizzy secret keys, Homebox API/OIDC secrets, Kaneo auth,
+          database, OIDC, and Garage S3 secrets, Keeper auth/encryption/database/OAuth
+          secrets, Listmonk admin credentials, OIDC client secrets, SMB
+          credentials, and Restic passwords in encrypted secrets only; do not
+          write them into Nix files, generated configs, recovery notes, logs, or
+          chat.
     '';
   };
 }

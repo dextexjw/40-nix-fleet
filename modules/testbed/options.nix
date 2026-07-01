@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 
@@ -10,6 +11,8 @@ let
   cfg = config.fleet.testbed.stack;
   serviceHostPrefixes = {
     fizzy = "fizzy";
+    homebox = "homebox";
+    kaneo = "kaneo";
     keeper = "keeper";
     listmonk = "listmonk";
     mailpit = "mailpit";
@@ -65,6 +68,8 @@ in
       type = types.attrsOf types.port;
       default = {
         fizzy = 9010;
+        homebox = 7745;
+        kaneo = 5173;
         keeper = 3000;
         keeperApi = 3001;
         keeperRedis = 6380;
@@ -104,6 +109,187 @@ in
         type = types.path;
         default = "${cfg.appdataRoot}/fizzy";
         description = "Persistent Fizzy state directory.";
+      };
+    };
+
+    homebox = {
+      allowLocalLogin = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Keep Homebox local login available for break-glass access.";
+      };
+
+      allowRegistration = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Allow new Homebox accounts to self-register.";
+      };
+
+      bindAddress = mkOption {
+        type = types.str;
+        default = "127.0.0.1";
+        description = "Address Homebox listens on.";
+      };
+
+      environmentFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/homebox-environment";
+        description = "Runtime environment file containing Homebox secret settings.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://${cfg.serviceHosts.homebox}";
+        description = "Canonical external Homebox URL.";
+      };
+
+      oidcClientId = mkOption {
+        type = types.str;
+        default = "homebox";
+        description = "Homebox Authentik OIDC client identifier.";
+      };
+
+      oidcIssuerUrl = mkOption {
+        type = types.str;
+        default = "https://auth.jax22.com/application/o/homebox/";
+        description = "Homebox Authentik OIDC issuer URL.";
+      };
+
+      package = mkOption {
+        type = types.package;
+        default = pkgs.homebox;
+        defaultText = literalExpression "pkgs.homebox";
+        description = "Homebox package to run.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/homebox";
+        description = "Persistent Homebox state directory.";
+      };
+    };
+
+    kaneo = {
+      databaseName = mkOption {
+        type = types.str;
+        default = "kaneo";
+        description = "PostgreSQL database used by Kaneo.";
+      };
+
+      databaseUser = mkOption {
+        type = types.str;
+        default = "kaneo";
+        description = "PostgreSQL role used by Kaneo.";
+      };
+
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run the Kaneo project-management testbed service.";
+      };
+
+      environmentFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/kaneo-environment";
+        description = "Runtime environment file containing Kaneo secrets.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://${cfg.serviceHosts.kaneo}";
+        description = "Canonical external Kaneo URL.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/usekaneo/kaneo@sha256:11f554b96d826cea29d4f1d06b33cdc97b9cb64e1985eba67f1da3418dd1aaeb";
+        description = "Pinned Kaneo combined API and web OCI image.";
+      };
+
+      oidc = {
+        authorizationUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/authorize/";
+          description = "Authentik OAuth2 authorization endpoint.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "kaneo";
+          description = "Kaneo Authentik OIDC client identifier.";
+        };
+
+        discoveryUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/kaneo/.well-known/openid-configuration";
+          description = "Authentik OIDC discovery URL used by Kaneo.";
+        };
+
+        logoutUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/kaneo/end-session/";
+          description = "Authentik OIDC logout endpoint used by Kaneo.";
+        };
+
+        redirectUri = mkOption {
+          type = types.str;
+          default = "https://kaneo.jax22.com/api/auth/oauth2/callback/custom";
+          description = "Strict Kaneo OIDC callback URL registered in Authentik.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "openid"
+            "profile"
+            "email"
+          ];
+          description = "OIDC scopes requested by Kaneo.";
+        };
+
+        tokenUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/token/";
+          description = "Authentik OAuth2 token endpoint.";
+        };
+
+        userInfoUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/userinfo/";
+          description = "Authentik OAuth2 userinfo endpoint.";
+        };
+      };
+
+      s3 = {
+        bucket = mkOption {
+          type = types.str;
+          default = "kaneo-uploads";
+          description = "Garage S3 bucket used by Kaneo uploads.";
+        };
+
+        endpoint = mkOption {
+          type = types.str;
+          default = "https://garage.jax22.com";
+          description = "Browser-reachable Garage S3 endpoint used by Kaneo.";
+        };
+
+        forcePathStyle = mkOption {
+          type = types.bool;
+          default = true;
+          description = "Use path-style S3 URLs for Garage.";
+        };
+
+        region = mkOption {
+          type = types.str;
+          default = "garage";
+          description = "Garage S3 region name.";
+        };
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/kaneo";
+        description = "Small Kaneo runtime working directory; durable app state is PostgreSQL plus Garage S3.";
       };
     };
 

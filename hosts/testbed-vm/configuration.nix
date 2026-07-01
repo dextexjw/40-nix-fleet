@@ -38,7 +38,7 @@ in
   # ============================================================================
 
   fleet.host.name = "testbed-vm";
-  users.motd = "testbed-vm: Fizzy project board testbed, Keeper calendar sync testbed, Listmonk newsletter testbed, Mailpit SMTP capture, and appdata backups";
+  users.motd = "testbed-vm: Fizzy project board testbed, Homebox inventory testbed, Kaneo project-management testbed, Keeper calendar sync testbed, Listmonk newsletter testbed, Mailpit SMTP capture, and appdata backups";
 
   networking.hosts.${gatewayCluster.clientAddress} = routeHosts;
 
@@ -70,6 +70,33 @@ in
       };
       fizzy-secret-key-base = {
         restartUnits = [ "podman-fizzy.service" ];
+      };
+      homebox-api-key-pepper = {
+        restartUnits = [ "homebox.service" ];
+      };
+      homebox-oidc-client-secret = {
+        restartUnits = [ "homebox.service" ];
+      };
+      kaneo-auth-secret = {
+        restartUnits = [ "podman-kaneo.service" ];
+      };
+      kaneo-garage-access-key-id = {
+        restartUnits = [ "podman-kaneo.service" ];
+      };
+      kaneo-garage-secret-access-key = {
+        restartUnits = [ "podman-kaneo.service" ];
+      };
+      kaneo-oidc-client-secret = {
+        restartUnits = [ "podman-kaneo.service" ];
+      };
+      kaneo-postgres-password = {
+        owner = "postgres";
+        group = "postgres";
+        mode = "0400";
+        restartUnits = [
+          "kaneo-postgresql-password.service"
+          "podman-kaneo.service"
+        ];
       };
       keeper-better-auth-secret = {
         restartUnits = [ "podman-keeper.service" ];
@@ -134,6 +161,29 @@ in
       mode = "0400";
       restartUnits = [ "listmonk.service" ];
     };
+    templates."homebox-environment" = {
+      content = ''
+        HBOX_AUTH_API_KEY_PEPPER='${config.sops.placeholder."homebox-api-key-pepper"}'
+        HBOX_OIDC_CLIENT_SECRET='${config.sops.placeholder."homebox-oidc-client-secret"}'
+      '';
+      owner = "homebox";
+      group = "homebox";
+      mode = "0400";
+      restartUnits = [ "homebox.service" ];
+    };
+    templates."kaneo-environment" = {
+      content = ''
+        AUTH_SECRET=${config.sops.placeholder."kaneo-auth-secret"}
+        CUSTOM_OAUTH_CLIENT_SECRET=${config.sops.placeholder."kaneo-oidc-client-secret"}
+        POSTGRES_PASSWORD=${config.sops.placeholder."kaneo-postgres-password"}
+        S3_ACCESS_KEY_ID=${config.sops.placeholder."kaneo-garage-access-key-id"}
+        S3_SECRET_ACCESS_KEY=${config.sops.placeholder."kaneo-garage-secret-access-key"}
+      '';
+      owner = "root";
+      group = "root";
+      mode = "0400";
+      restartUnits = [ "podman-kaneo.service" ];
+    };
     templates."keeper-environment" = {
       content = ''
         BETTER_AUTH_SECRET=${config.sops.placeholder."keeper-better-auth-secret"}
@@ -180,6 +230,19 @@ in
         config.sops.templates."fizzy-environment".path
       else
         "/run/secrets/fizzy-environment";
+    homebox = {
+      bindAddress = host.ip;
+      environmentFile =
+        if secretsEnabled then
+          config.sops.templates."homebox-environment".path
+        else
+          "/run/secrets/homebox-environment";
+    };
+    kaneo.environmentFile =
+      if secretsEnabled then
+        config.sops.templates."kaneo-environment".path
+      else
+        "/run/secrets/kaneo-environment";
     keeper.environmentFile =
       if secretsEnabled then
         config.sops.templates."keeper-environment".path

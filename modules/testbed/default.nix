@@ -4,6 +4,8 @@
     ./common.nix
     ./mounts.nix
     ./services/fizzy.nix
+    ./services/homebox.nix
+    ./services/kaneo.nix
     ./services/keeper.nix
     ./services/listmonk.nix
     ./backup.nix

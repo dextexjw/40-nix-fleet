@@ -150,6 +150,8 @@ Required productivity secrets:
 - `freshrss-admin-password`
 - `freshrss-admin-username`
 - `garage-admin-token`
+- `kaneo-garage-access-key-id`
+- `kaneo-garage-secret-access-key`
 - `garage-metrics-token`
 - `garage-rpc-secret`
 - `invoiceplane-db-password`
@@ -359,6 +361,12 @@ static website endpoint; buckets must still be created and enabled for website
 hosting with the upstream Garage CLI before serving content. Bucket
 virtual-host style is canonical on `jax22.com`; `.h` is only retained as a
 named endpoint alias.
+
+`garage-kaneo-bucket.service` declaratively imports the SOPS-backed Kaneo
+Garage key, creates bucket `kaneo-uploads`, grants read/write access, and
+applies CORS for origin `https://kaneo.jax22.com`. The productivity validation
+script starts that unit, verifies bucket/key/CORS state, and performs an S3
+upload/delete smoke with the Kaneo credentials.
 
 RustFS is separate S3-compatible storage. It does not share Garage buckets or
 credentials. `s3.rustfs.jax22.com` is the S3 API and `rustfs.jax22.com` is

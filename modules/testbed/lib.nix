@@ -11,12 +11,16 @@ let
   appdata = cfg.appdataRoot;
   serviceHostPrefixes = {
     fizzy = "fizzy";
+    homebox = "homebox";
+    kaneo = "kaneo";
     keeper = "keeper";
     listmonk = "listmonk";
     mailpit = "mailpit";
   };
   serviceHostKeys = [
     "fizzy"
+    "homebox"
+    "kaneo"
     "keeper"
     "listmonk"
     "mailpit"
@@ -51,6 +55,8 @@ let
 
   statefulServices = [
     "podman-fizzy.service"
+    "homebox.service"
+    "podman-kaneo.service"
     "podman-keeper.service"
     "redis-keeper.service"
     "listmonk.service"

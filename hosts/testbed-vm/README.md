@@ -1,6 +1,7 @@
 # testbed-vm
 
-`testbed-vm` runs Fizzy as a project-board testbed, Keeper as a calendar-sync
+`testbed-vm` runs Fizzy as a project-board testbed, Homebox as a home-inventory
+testbed, Kaneo as a project-management testbed, Keeper as a calendar-sync
 testbed, and Listmonk as a newsletter and mailing-list testbed. Mail is
 captured locally by Mailpit so test messages cannot leave the lab until a real
 SMTP integration is intentionally added.
@@ -13,6 +14,13 @@ SMTP integration is intentionally added.
 - Keeper public route: `https://keeper.jax22.com/`
 - Keeper direct backend: `http://10.2.20.129:3000/` from Gateway nodes only
 - Keeper API health: `http://127.0.0.1:3001/api/health` on `testbed-vm` only
+- Homebox public route: `https://homebox.jax22.com/`
+- Homebox LAN alias: `http://homebox.h/`
+- Homebox direct backend: `http://10.2.20.129:7745/` from Gateway nodes only
+- Kaneo public route: `https://kaneo.jax22.com/`
+- Kaneo LAN alias: `http://kaneo.h/`
+- Kaneo direct backend: `http://10.2.20.129:5173/` from Gateway nodes only
+- Kaneo health: `http://10.2.20.129:5173/api/health` from Gateway nodes only
 - Listmonk public route: `https://listmonk.jax22.com/`
 - Listmonk LAN alias: `http://listmonk.h/`
 - Listmonk direct backend: `http://10.2.20.129:9000/` from Gateway nodes only
@@ -24,6 +32,9 @@ SMTP integration is intentionally added.
 
 - Appdata root: `/srv/appsdata`
 - Fizzy SQLite, queue/cache databases, and uploads: `/srv/appsdata/fizzy/storage`
+- Homebox SQLite database, uploads, and generated assets: `/srv/appsdata/homebox`
+- Kaneo runtime scratch directory: `/srv/appsdata/kaneo`
+- Kaneo durable state: PostgreSQL database `kaneo` plus Garage bucket `kaneo-uploads`
 - Keeper Redis state and local service data: `/srv/appsdata/keeper`
 - Listmonk uploads and service state: `/srv/appsdata/listmonk`
 - PostgreSQL data: `/srv/appsdata/postgresql`
@@ -39,6 +50,13 @@ Required SOPS keys:
 - `beszel-agent-token`
 - `checkmate-capture-environment`
 - `fizzy-secret-key-base`
+- `homebox-api-key-pepper`
+- `homebox-oidc-client-secret`
+- `kaneo-auth-secret`
+- `kaneo-garage-access-key-id`
+- `kaneo-garage-secret-access-key`
+- `kaneo-oidc-client-secret`
+- `kaneo-postgres-password`
 - `keeper-better-auth-secret`
 - `keeper-encryption-key`
 - `keeper-google-client-id`
@@ -69,6 +87,20 @@ Keeper uses SOPS-backed auth, encryption, and PostgreSQL secrets, plus optional
 Google and Microsoft OAuth client fields. Browser access is protected by
 Authentik forward-auth at `https://keeper.jax22.com/`. No `keeper.h` route is
 declared because Gateway forward-auth only protects TLS hosts.
+
+Homebox uses native OIDC through Authentik client `homebox` for `fleet-admins`
+with callback `https://homebox.jax22.com/api/v1/users/login/oidc/callback`.
+Registration is closed by default and local login stays enabled for break-glass
+accounts. If the first account cannot be created through OIDC while registration
+is closed, temporarily enable `fleet.testbed.stack.homebox.allowRegistration`,
+create the initial account, then immediately disable registration and redeploy.
+
+Kaneo uses native OIDC through Authentik client `kaneo` for `fleet-admins` with
+callback `https://kaneo.jax22.com/api/auth/oauth2/callback/custom`. Guest access
+and password registration are disabled; Authentik-gated OIDC registration remains
+open so first sign-in can create the user. Uploads use Garage bucket
+`kaneo-uploads` on `https://garage.jax22.com` with path-style S3 URLs. Deploy
+`productivity-vm` first when changing the bucket, key, or CORS policy.
 
 After first install or host key rotation:
 
@@ -110,9 +142,9 @@ exists:
 scripts/testbed-vm/restore-testbed-appdata.sh <snapshot-id>
 ```
 
-The restore script stops Fizzy, Keeper, Listmonk, PostgreSQL, Mailpit, and the
-backup timer, restores `/srv/appsdata`, reapplies declared directories and
-ownership, and restarts service units.
+The restore script stops Fizzy, Homebox, Kaneo, Keeper, Listmonk, PostgreSQL,
+Mailpit, and the backup timer, restores `/srv/appsdata`, reapplies declared
+directories and ownership, and restarts service units.
 
 ## Validation
 
@@ -120,6 +152,6 @@ ownership, and restarts service units.
 scripts/testbed-vm/test-testbed-services.sh
 ```
 
-The helper checks Fizzy, Keeper, Listmonk, PostgreSQL, Redis, Mailpit, OIDC
-provisioning, local HTTP, Gateway-routed URLs, Homepage output, backup and
-restore validation, and recent Restic snapshots.
+The helper checks Fizzy, Homebox, Kaneo, Keeper, Listmonk, PostgreSQL, Redis,
+Mailpit, OIDC provisioning, local HTTP, Gateway-routed URLs, Homepage output,
+backup and restore validation, and recent Restic snapshots.

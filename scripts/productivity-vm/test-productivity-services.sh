@@ -392,6 +392,24 @@ if grep -q 'NO ROLE ASSIGNED' <<<"$garage_status"; then
   die "Garage node has no assigned layout role; run scripts/productivity-vm/initialize-garage.sh"
 fi
 colmena exec --on "$HOST" -- garage bucket list >/dev/null
+if allow_missing_unit garage-kaneo-bucket.service; then
+  printf 'Skipping Kaneo Garage bucket checks because garage-kaneo-bucket.service is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- systemctl start garage-kaneo-bucket.service
+  colmena exec --on "$HOST" -- "systemctl show garage-kaneo-bucket.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show garage-kaneo-bucket.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+  colmena exec --on "$HOST" -- garage bucket info kaneo-uploads >/dev/null
+  colmena exec --on "$HOST" -- "sh -lc 'set -euo pipefail; access_key_id=\$(cat /run/secrets/kaneo-garage-access-key-id); secret_access_key=\$(cat /run/secrets/kaneo-garage-secret-access-key); s3cfg=\$(mktemp); src=\$(mktemp); dst=\$(mktemp); headers=\$(mktemp); body=\$(mktemp); trap \"rm -f \\\"\$s3cfg\\\" \\\"\$src\\\" \\\"\$dst\\\" \\\"\$headers\\\" \\\"\$body\\\"\" EXIT; chmod 0600 \"\$s3cfg\"; cat > \"\$s3cfg\" <<EOF
+[default]
+access_key = \$access_key_id
+secret_key = \$secret_access_key
+host_base = 127.0.0.1:3900
+host_bucket = 127.0.0.1:3900/%(bucket)
+use_https = False
+signature_v2 = False
+bucket_location = garage
+EOF
+printf kaneo-garage-smoke > \"\$src\"; s3cmd --config \"\$s3cfg\" --quiet put \"\$src\" s3://kaneo-uploads/validation/smoke.txt; s3cmd --config \"\$s3cfg\" --quiet get --force s3://kaneo-uploads/validation/smoke.txt \"\$dst\"; cmp -s \"\$src\" \"\$dst\"; s3cmd --config \"\$s3cfg\" --quiet del s3://kaneo-uploads/validation/smoke.txt; status=\$(curl -sS -D \"\$headers\" -o \"\$body\" -w \"%{http_code}\" --max-time 10 -X OPTIONS -H \"Origin: https://kaneo.jax22.com\" -H \"Access-Control-Request-Method: PUT\" -H \"Access-Control-Request-Headers: content-type\" http://127.0.0.1:3900/kaneo-uploads/validation/smoke.txt); case \"\$status\" in 2*) ;; *) echo \"unexpected Kaneo Garage CORS status \$status\" >&2; cat \"\$body\" >&2; exit 1 ;; esac; tr -d \"\\r\" < \"\$headers\" | grep -Fqi \"access-control-allow-origin: https://kaneo.jax22.com\"'"
+fi
 
 for route_prefix in "${HOST_ROUTES[@]}"; do
   for domain in "${SERVICE_DOMAINS[@]}"; do

@@ -84,6 +84,66 @@ in
           };
         }
         {
+          id = "homebox";
+          name = "Homebox";
+          route = {
+            description = "Home inventory testbed";
+            hosts = hostnames "homebox";
+            url = backend 7745;
+          };
+          homepage = {
+            description = "Home inventory testbed\n${backend 7745}";
+            href = publicServiceUrl "homebox";
+            icon = "homebox.png";
+            siteMonitor = "${backend 7745}/api/v1/status";
+          };
+          auth = {
+            mode = "native-oidc";
+            groups = [ "fleet-admins" ];
+            oidc = {
+              clientId = "homebox";
+              clientSecretFile = "/run/secrets/homebox-oidc-client-secret";
+              launchUrl = "https://homebox.jax22.com/";
+              redirectUris = [ "https://homebox.jax22.com/api/v1/users/login/oidc/callback" ];
+            };
+          };
+          checkmate.url = "https://homebox.jax22.com/api/v1/status";
+          smoke.http = {
+            discard = true;
+            path = "/api/v1/status";
+          };
+        }
+        {
+          id = "kaneo";
+          name = "Kaneo";
+          route = {
+            description = "Kaneo project-management testbed";
+            hosts = hostnames "kaneo";
+            url = backend 5173;
+          };
+          homepage = {
+            description = "Project-management testbed\n${backend 5173}";
+            href = publicServiceUrl "kaneo";
+            icon = "mdi-view-dashboard-edit";
+            siteMonitor = "${backend 5173}/api/health";
+          };
+          auth = {
+            mode = "native-oidc";
+            groups = [ "fleet-admins" ];
+            oidc = {
+              clientId = "kaneo";
+              clientSecretFile = "/run/secrets/kaneo-oidc-client-secret";
+              launchUrl = "https://kaneo.jax22.com/";
+              redirectUris = [ "https://kaneo.jax22.com/api/auth/oauth2/callback/custom" ];
+            };
+          };
+          checkmate.url = "https://kaneo.jax22.com/api/health";
+          smoke.http = {
+            discard = true;
+            path = "/api/health";
+          };
+        }
+        {
           id = "listmonk";
           name = "Listmonk";
           route = {
