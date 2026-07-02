@@ -38,7 +38,7 @@ in
   # ============================================================================
 
   fleet.host.name = "testbed-vm";
-  users.motd = "testbed-vm: Fizzy project board testbed, Homebox inventory testbed, Kaneo project-management testbed, Keeper calendar sync testbed, Listmonk newsletter testbed, Plane project-management testbed, Sure personal finance testbed, Mailpit SMTP capture, and appdata backups";
+  users.motd = "testbed-vm: Fizzy project board testbed, Homebox inventory testbed, InvoicePlane invoicing testbed, Kaneo project-management testbed, Keeper calendar sync testbed, Listmonk newsletter testbed, Outline knowledge-base testbed, Plane project-management testbed, Postiz social media scheduling testbed, Sure personal finance testbed, Mailpit SMTP capture, and appdata backups";
 
   networking.hosts.${gatewayCluster.clientAddress} = routeHosts;
 
@@ -76,6 +76,34 @@ in
       };
       homebox-oidc-client-secret = {
         restartUnits = [ "homebox.service" ];
+      };
+      invoiceplane-admin-email = {
+        owner = "invoiceplane";
+        group = "nginx";
+        mode = "0400";
+        restartUnits = [ "invoiceplane-bootstrap.service" ];
+      };
+      invoiceplane-admin-password = {
+        owner = "invoiceplane";
+        group = "nginx";
+        mode = "0400";
+        restartUnits = [ "invoiceplane-bootstrap.service" ];
+      };
+      invoiceplane-db-password = {
+        restartUnits = [
+          "invoiceplane-mysql-password.service"
+          "invoiceplane-bootstrap.service"
+          "phpfpm-invoiceplane.service"
+        ];
+      };
+      invoiceplane-encryption-key = {
+        owner = "invoiceplane";
+        group = "nginx";
+        mode = "0400";
+        restartUnits = [
+          "invoiceplane-prepare.service"
+          "phpfpm-invoiceplane.service"
+        ];
       };
       kaneo-auth-secret = {
         restartUnits = [ "podman-kaneo.service" ];
@@ -137,6 +165,30 @@ in
         mode = "0400";
         restartUnits = [ "listmonk-oidc-config.service" ];
       };
+      outline-garage-access-key-id = {
+        restartUnits = [ "podman-outline.service" ];
+      };
+      outline-garage-secret-access-key = {
+        restartUnits = [ "podman-outline.service" ];
+      };
+      outline-oidc-client-secret = {
+        restartUnits = [ "podman-outline.service" ];
+      };
+      outline-postgres-password = {
+        owner = "postgres";
+        group = "postgres";
+        mode = "0400";
+        restartUnits = [
+          "outline-postgresql-password.service"
+          "podman-outline.service"
+        ];
+      };
+      outline-secret-key = {
+        restartUnits = [ "podman-outline.service" ];
+      };
+      outline-utils-secret = {
+        restartUnits = [ "podman-outline.service" ];
+      };
       plane-admin-email = {
         restartUnits = [ "plane-admin-bootstrap.service" ];
       };
@@ -196,6 +248,33 @@ in
           "podman-plane-api.service"
           "podman-plane-worker.service"
           "podman-plane-beat-worker.service"
+        ];
+      };
+      postiz-jwt-secret = {
+        restartUnits = [
+          "postiz-environment.service"
+          "podman-postiz.service"
+        ];
+      };
+      postiz-oidc-client-secret = {
+        restartUnits = [
+          "postiz-environment.service"
+          "podman-postiz.service"
+        ];
+      };
+      postiz-postgres-password = {
+        restartUnits = [
+          "postiz-environment.service"
+          "podman-postiz-postgres.service"
+          "podman-postiz.service"
+        ];
+      };
+      postiz-temporal-postgres-password = {
+        restartUnits = [
+          "postiz-environment.service"
+          "podman-postiz-temporal-postgres.service"
+          "podman-postiz-temporal.service"
+          "podman-postiz.service"
         ];
       };
       sure-oidc-client-secret = {
@@ -267,6 +346,22 @@ in
       mode = "0400";
       restartUnits = [ "podman-kaneo.service" ];
     };
+    templates."outline-environment" = {
+      content = ''
+        AWS_ACCESS_KEY_ID=${config.sops.placeholder."outline-garage-access-key-id"}
+        AWS_SECRET_ACCESS_KEY=${config.sops.placeholder."outline-garage-secret-access-key"}
+        DATABASE_URL=postgres://outline:${
+          config.sops.placeholder."outline-postgres-password"
+        }@127.0.0.1:5432/outline
+        OIDC_CLIENT_SECRET=${config.sops.placeholder."outline-oidc-client-secret"}
+        SECRET_KEY=${config.sops.placeholder."outline-secret-key"}
+        UTILS_SECRET=${config.sops.placeholder."outline-utils-secret"}
+      '';
+      owner = "root";
+      group = "root";
+      mode = "0400";
+      restartUnits = [ "podman-outline.service" ];
+    };
     templates."keeper-environment" = {
       content = ''
         BETTER_AUTH_SECRET=${config.sops.placeholder."keeper-better-auth-secret"}
@@ -335,6 +430,24 @@ in
         else
           "/run/secrets/homebox-environment";
     };
+    invoiceplane = {
+      adminEmailFile =
+        if secretsEnabled then
+          config.sops.secrets.invoiceplane-admin-email.path
+        else
+          "/run/secrets/invoiceplane-admin-email";
+      adminPasswordFile =
+        if secretsEnabled then
+          config.sops.secrets.invoiceplane-admin-password.path
+        else
+          "/run/secrets/invoiceplane-admin-password";
+      bindAddress = host.ip;
+      encryptionKeyFile =
+        if secretsEnabled then
+          config.sops.secrets.invoiceplane-encryption-key.path
+        else
+          "/run/secrets/invoiceplane-encryption-key";
+    };
     kaneo.environmentFile =
       if secretsEnabled then
         config.sops.templates."kaneo-environment".path
@@ -362,7 +475,13 @@ in
       bindAddress = host.ip;
       smtpBindAddress = "0.0.0.0";
     };
+    outline.environmentFile =
+      if secretsEnabled then
+        config.sops.templates."outline-environment".path
+      else
+        "/run/secrets/outline-environment";
     plane.bindAddress = host.ip;
+    postiz.bindAddress = host.ip;
     secrets.enable = secretsEnabled;
     sure = {
       bindAddress = host.ip;

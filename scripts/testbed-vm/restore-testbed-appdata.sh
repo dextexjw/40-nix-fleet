@@ -7,7 +7,7 @@ REPOSITORY="/mnt/backups/restic/appdata/testbed-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
 SNAPSHOT="${1:-}"
-SERVICES="podman-fizzy homebox podman-kaneo podman-keeper podman-plane-space podman-plane-admin podman-plane-web podman-plane-live podman-plane-beat-worker podman-plane-worker podman-plane-api podman-plane-rabbitmq podman-sure-worker podman-sure-web listmonk mailpit-testbed redis-plane redis-sure redis-keeper postgresql"
+SERVICES="podman-fizzy phpfpm-invoiceplane homebox podman-kaneo podman-keeper podman-outline podman-plane-space podman-plane-admin podman-plane-web podman-plane-live podman-plane-beat-worker podman-plane-worker podman-plane-api podman-plane-rabbitmq podman-postiz podman-postiz-postgres podman-postiz-redis podman-postiz-temporal podman-postiz-temporal-elasticsearch podman-postiz-temporal-postgres podman-sure-worker podman-sure-web listmonk mailpit-testbed redis-plane redis-sure redis-outline redis-keeper postgresql mysql"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -37,7 +37,7 @@ export RESTIC_REPOSITORY="\$repository"
 export RESTIC_PASSWORD_FILE=/run/secrets/restic-password
 
 echo 'Stopping testbed services before appdata restore...'
-systemctl stop testbed-appdata-backup.timer plane-admin-bootstrap.service plane-migrate.service plane-rabbitmq-config.service plane-postgresql-password.service kaneo-postgresql-password.service sure-postgresql-password.service listmonk-oidc-config.service \$services || true
+systemctl stop testbed-appdata-backup.timer invoiceplane-bootstrap.service invoiceplane-prepare.service invoiceplane-mysql-password.service plane-admin-bootstrap.service plane-migrate.service plane-rabbitmq-config.service plane-postgresql-password.service postiz-environment.service kaneo-postgresql-password.service outline-postgresql-password.service sure-postgresql-password.service listmonk-oidc-config.service \$services || true
 
 echo 'Mounting /mnt/backups...'
 findmnt -rn --target /mnt/backups >/dev/null || mount /mnt/backups
@@ -110,36 +110,58 @@ chown root:root "\$source_path"
 chmod 0755 "\$source_path"
 [ -d "\$source_path/listmonk" ] && chown -R listmonk:listmonk "\$source_path/listmonk"
 [ -d "\$source_path/homebox" ] && chown -R homebox:homebox "\$source_path/homebox"
+[ -d "\$source_path/invoiceplane" ] && chown -R invoiceplane:nginx "\$source_path/invoiceplane"
 [ -d "\$source_path/fizzy" ] && chown -R 1000:1000 "\$source_path/fizzy"
 [ -d "\$source_path/kaneo" ] && chown -R root:testbed "\$source_path/kaneo"
 [ -d "\$source_path/keeper" ] && chown -R root:root "\$source_path/keeper"
 [ -d "\$source_path/keeper/redis" ] && chown -R redis-keeper:redis-keeper "\$source_path/keeper/redis"
+[ -d "\$source_path/outline" ] && chown -R root:testbed "\$source_path/outline"
+[ -d "\$source_path/outline/redis" ] && chown -R redis-outline:redis-outline "\$source_path/outline/redis"
 [ -d "\$source_path/plane" ] && chown -R root:testbed "\$source_path/plane"
 [ -d "\$source_path/plane/rabbitmq" ] && chown -R 999:999 "\$source_path/plane/rabbitmq"
 [ -d "\$source_path/plane/redis" ] && chown -R redis-plane:redis-plane "\$source_path/plane/redis"
+[ -d "\$source_path/postiz" ] && chown -R root:testbed "\$source_path/postiz"
+[ -d "\$source_path/postiz/postgresql" ] && chown -R 999:999 "\$source_path/postiz/postgresql"
+[ -d "\$source_path/postiz/redis" ] && chown -R 999:999 "\$source_path/postiz/redis"
+[ -d "\$source_path/postiz/temporal/elasticsearch" ] && chown -R 1000:root "\$source_path/postiz/temporal/elasticsearch"
+[ -d "\$source_path/postiz/temporal/postgresql" ] && chown -R 999:999 "\$source_path/postiz/temporal/postgresql"
 [ -d "\$source_path/sure" ] && chown 1000:testbed "\$source_path/sure"
 [ -d "\$source_path/sure/redis" ] && chown -R redis-sure:redis-sure "\$source_path/sure/redis"
 [ -d "\$source_path/sure/storage" ] && chown -R 1000:1000 "\$source_path/sure/storage"
 [ -d "\$source_path/postgresql" ] && chown -R postgres:postgres "\$source_path/postgresql"
 [ -d "\$source_path/postgresql-dumps" ] && chown -R postgres:postgres "\$source_path/postgresql-dumps"
+[ -d "\$source_path/mariadb" ] && chown -R mysql:mysql "\$source_path/mariadb"
+[ -d "\$source_path/mariadb-dumps" ] && chown -R root:root "\$source_path/mariadb-dumps"
 find "\$source_path" -type f -name '*.pid' -delete
 
 echo 'Reapplying declared directories and restarting testbed services...'
 systemd-tmpfiles --create
 systemctl start postgresql
+systemctl start mysql
 systemctl start redis-keeper
+systemctl start redis-outline
 systemctl start redis-plane
 systemctl start redis-sure
 systemctl start kaneo-postgresql-password
 systemctl start keeper-postgresql-password
+systemctl start outline-postgresql-password
 systemctl start plane-postgresql-password
 systemctl start sure-postgresql-password
 systemctl start podman-plane-rabbitmq
 systemctl start plane-rabbitmq-config
 systemctl start plane-migrate
+systemctl start invoiceplane-mysql-password
+systemctl start invoiceplane-prepare
+systemctl start phpfpm-invoiceplane
+systemctl start invoiceplane-bootstrap
 systemctl start podman-plane-api podman-plane-worker podman-plane-beat-worker podman-plane-live podman-plane-web podman-plane-admin podman-plane-space
 systemctl start plane-admin-bootstrap
-systemctl start mailpit-testbed listmonk homebox podman-kaneo podman-keeper podman-sure-web podman-sure-worker podman-fizzy
+systemctl start postiz-podman-network
+systemctl start postiz-environment
+systemctl start podman-postiz-temporal-elasticsearch podman-postiz-temporal-postgres
+systemctl start podman-postiz-temporal
+systemctl start podman-postiz-postgres podman-postiz-redis podman-postiz
+systemctl start mailpit-testbed listmonk homebox podman-kaneo podman-keeper podman-outline podman-sure-web podman-sure-worker podman-fizzy
 systemctl start listmonk-oidc-config.service
 systemctl start testbed-appdata-backup.timer
 systemctl start testbed-appdata-restore-check.service

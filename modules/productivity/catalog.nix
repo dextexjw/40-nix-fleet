@@ -329,18 +329,6 @@ in
           smokeHttp.path = "/status.php";
         })
         (mkService {
-          id = "invoiceplane";
-          name = "InvoicePlane";
-          port = 80;
-          routeDescription = "InvoicePlane invoice management";
-          icon = "invoiceplane.png";
-          homepageDescription = "Invoice management\n${backend 80}";
-          smokeHttp = {
-            discard = true;
-            path = "/";
-          };
-        })
-        (mkService {
           id = "netbootxyz";
           name = "Netboot.xyz";
           port = 3001;

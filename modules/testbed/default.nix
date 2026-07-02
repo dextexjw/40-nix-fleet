@@ -5,10 +5,13 @@
     ./mounts.nix
     ./services/fizzy.nix
     ./services/homebox.nix
+    ./services/invoiceplane.nix
     ./services/kaneo.nix
     ./services/keeper.nix
     ./services/listmonk.nix
+    ./services/outline.nix
     ./services/plane.nix
+    ./services/postiz.nix
     ./services/sure.nix
     ./backup.nix
     ./firewall.nix

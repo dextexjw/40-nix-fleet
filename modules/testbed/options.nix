@@ -12,11 +12,14 @@ let
   serviceHostPrefixes = {
     fizzy = "fizzy";
     homebox = "homebox";
+    invoiceplane = "invoiceplane";
     kaneo = "kaneo";
     keeper = "keeper";
     listmonk = "listmonk";
     mailpit = "mailpit";
+    outline = "outline";
     plane = "plane";
+    postiz = "postiz";
     sure = "sure";
   };
   mkServiceHostNames =
@@ -71,6 +74,7 @@ in
       default = {
         fizzy = 9010;
         homebox = 7745;
+        invoiceplane = 9060;
         kaneo = 5173;
         keeper = 3000;
         keeperApi = 3001;
@@ -78,6 +82,8 @@ in
         listmonk = 9000;
         mailpit = 8025;
         mailpitSmtp = 1025;
+        outline = 9050;
+        outlineRedis = 6383;
         plane = 9020;
         planeAdmin = 9022;
         planeApi = 9025;
@@ -86,6 +92,7 @@ in
         planeRedis = 6381;
         planeSpace = 9023;
         planeWeb = 9021;
+        postiz = 9040;
         sure = 9030;
         sureRedis = 6382;
       };
@@ -178,6 +185,62 @@ in
         type = types.path;
         default = "${cfg.appdataRoot}/homebox";
         description = "Persistent Homebox state directory.";
+      };
+    };
+
+    invoiceplane = {
+      adminEmailFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/invoiceplane-admin-email";
+        description = "Runtime file containing the initial InvoicePlane administrator email.";
+      };
+
+      adminPasswordFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/invoiceplane-admin-password";
+        description = "Runtime file containing the initial InvoicePlane administrator password.";
+      };
+
+      bindAddress = mkOption {
+        type = types.str;
+        default = "127.0.0.1";
+        description = "Address InvoicePlane nginx listens on.";
+      };
+
+      databaseName = mkOption {
+        type = types.str;
+        default = "invoiceplane";
+        description = "MariaDB database used by InvoicePlane.";
+      };
+
+      databaseUser = mkOption {
+        type = types.str;
+        default = "invoiceplane";
+        description = "MariaDB role used by InvoicePlane.";
+      };
+
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run the InvoicePlane invoicing testbed service.";
+      };
+
+      encryptionKeyFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/invoiceplane-encryption-key";
+        description = "Runtime file containing the InvoicePlane encryption key.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://${cfg.serviceHosts.invoiceplane}";
+        description = "Canonical external InvoicePlane URL without a trailing slash.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/invoiceplane";
+        description = "Persistent InvoicePlane runtime state directory.";
       };
     };
 
@@ -395,6 +458,124 @@ in
       };
     };
 
+    outline = {
+      databaseName = mkOption {
+        type = types.str;
+        default = "outline";
+        description = "PostgreSQL database used by Outline.";
+      };
+
+      databaseUser = mkOption {
+        type = types.str;
+        default = "outline";
+        description = "PostgreSQL role used by Outline.";
+      };
+
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run the Outline knowledge-base testbed service.";
+      };
+
+      environmentFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/outline-environment";
+        description = "Runtime environment file containing Outline secrets.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://${cfg.serviceHosts.outline}";
+        description = "Canonical external Outline URL.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "docker.io/outlinewiki/outline@sha256:e224dcbe34670bdae8835c32d5abc692d3560dfa262b72fb7232f4d87185aebd";
+        description = "Pinned Outline OCI image.";
+      };
+
+      oidc = {
+        authorizationUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/authorize/";
+          description = "Authentik OAuth2 authorization endpoint.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "outline";
+          description = "Outline Authentik OIDC client identifier.";
+        };
+
+        logoutUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/outline/end-session/";
+          description = "Authentik OIDC logout endpoint used by Outline.";
+        };
+
+        redirectUri = mkOption {
+          type = types.str;
+          default = "https://outline.jax22.com/auth/oidc.callback";
+          description = "Strict Outline OIDC callback URL registered in Authentik.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "openid"
+            "profile"
+            "email"
+          ];
+          description = "OIDC scopes requested by Outline.";
+        };
+
+        tokenUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/token/";
+          description = "Authentik OAuth2 token endpoint.";
+        };
+
+        userInfoUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/userinfo/";
+          description = "Authentik OAuth2 userinfo endpoint.";
+        };
+      };
+
+      s3 = {
+        bucket = mkOption {
+          type = types.str;
+          default = "outline-uploads";
+          description = "Garage S3 bucket used by Outline uploads.";
+        };
+
+        endpoint = mkOption {
+          type = types.str;
+          default = "https://garage.jax22.com";
+          description = "Browser-reachable Garage S3 endpoint used by Outline.";
+        };
+
+        forcePathStyle = mkOption {
+          type = types.bool;
+          default = true;
+          description = "Use path-style S3 URLs for Garage.";
+        };
+
+        region = mkOption {
+          type = types.str;
+          default = "garage";
+          description = "Garage S3 region name used by Outline.";
+        };
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/outline";
+        description = "Persistent Outline runtime and Redis state directory; durable app data is PostgreSQL plus Garage S3.";
+      };
+    };
+
     plane = {
       adminEmailFile = mkOption {
         type = types.path;
@@ -520,6 +701,160 @@ in
         type = types.path;
         default = "${cfg.appdataRoot}/plane";
         description = "Persistent Plane state directory.";
+      };
+    };
+
+    postiz = {
+      bindAddress = mkOption {
+        type = types.str;
+        default = "127.0.0.1";
+        description = "Address the Postiz web port is published on.";
+      };
+
+      databaseName = mkOption {
+        type = types.str;
+        default = "postiz";
+        description = "PostgreSQL database used by Postiz.";
+      };
+
+      databaseUser = mkOption {
+        type = types.str;
+        default = "postiz";
+        description = "PostgreSQL role used by Postiz.";
+      };
+
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run the Postiz social media scheduling testbed service.";
+      };
+
+      environmentFile = mkOption {
+        type = types.path;
+        default = "/run/postiz/environment";
+        description = "Rendered runtime environment file containing Postiz secrets.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://${cfg.serviceHosts.postiz}";
+        description = "Canonical external Postiz URL.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/gitroomhq/postiz-app@sha256:1d5a5dc6b896747d1483c01dc2562165bd313ad601b32f6cabb7f7dd08a911a9";
+        description = "Pinned Postiz OCI image.";
+      };
+
+      oidc = {
+        authorizationUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/authorize/";
+          description = "Authentik OAuth2 authorization endpoint.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "postiz";
+          description = "Postiz Authentik OIDC client identifier.";
+        };
+
+        redirectUri = mkOption {
+          type = types.str;
+          default = "https://postiz.jax22.com/settings";
+          description = "Strict Postiz OIDC callback URL registered in Authentik.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "openid"
+            "profile"
+            "email"
+          ];
+          description = "OIDC scopes requested by Postiz.";
+        };
+
+        tokenUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/token/";
+          description = "Authentik OAuth2 token endpoint.";
+        };
+
+        url = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com";
+          description = "Base URL of the Authentik OIDC provider.";
+        };
+
+        userInfoUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/userinfo/";
+          description = "Authentik OAuth2 userinfo endpoint.";
+        };
+      };
+
+      postgresEnvironmentFile = mkOption {
+        type = types.path;
+        default = "/run/postiz/postgres-environment";
+        description = "Rendered runtime environment file for the Postiz PostgreSQL container.";
+      };
+
+      postgresImage = mkOption {
+        type = types.str;
+        default = "docker.io/library/postgres@sha256:fe03a7605299a34ddf5e4f285dff78c3d7190a576b3c6b46f2fcff69f4bffd54";
+        description = "Pinned PostgreSQL image used by Postiz.";
+      };
+
+      redisImage = mkOption {
+        type = types.str;
+        default = "docker.io/library/redis@sha256:e51cbc16f94b2426e80b9516db174a07d55e882217a1ec1d729b137b32e24e42";
+        description = "Pinned Redis image used by Postiz.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/postiz";
+        description = "Persistent Postiz state directory.";
+      };
+
+      temporal = {
+        dynamicConfigDir = mkOption {
+          type = types.path;
+          default = "/etc/postiz/temporal/dynamicconfig";
+          description = "Declarative Temporal dynamic config directory mounted read-only into the Temporal container.";
+        };
+
+        elasticsearchImage = mkOption {
+          type = types.str;
+          default = "docker.io/library/elasticsearch@sha256:9a6443f55243f6acbfeb4a112d15eb3b9aac74bf25e0e39fa19b3ddd3a6879d0";
+          description = "Pinned Elasticsearch image used by the Postiz Temporal stack.";
+        };
+
+        image = mkOption {
+          type = types.str;
+          default = "docker.io/temporalio/auto-setup@sha256:607d68caa111338d754771efb876c92dfcdae06d056e4530bb31cd0f37406e6a";
+          description = "Pinned Temporal auto-setup image used by Postiz.";
+        };
+
+        postgresEnvironmentFile = mkOption {
+          type = types.path;
+          default = "/run/postiz/temporal-postgres-environment";
+          description = "Rendered runtime environment file for the Postiz Temporal PostgreSQL container.";
+        };
+
+        postgresImage = mkOption {
+          type = types.str;
+          default = "docker.io/library/postgres@sha256:fe03a7605299a34ddf5e4f285dff78c3d7190a576b3c6b46f2fcff69f4bffd54";
+          description = "Pinned PostgreSQL image used by Postiz Temporal.";
+        };
+
+        temporalEnvironmentFile = mkOption {
+          type = types.path;
+          default = "/run/postiz/temporal-environment";
+          description = "Rendered runtime environment file for the Postiz Temporal server.";
+        };
       };
     };
 

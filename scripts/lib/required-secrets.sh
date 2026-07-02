@@ -35,6 +35,8 @@ GATEWAY_REQUIRED_SECRET_KEYS=(
   kaneo-oidc-client-secret
   listmonk-oidc-client-secret
   homebox-oidc-client-secret
+  outline-oidc-client-secret
+  postiz-oidc-client-secret
   memos-oidc-client-secret
   nextcloud-oidc-client-secret
   paperless-oidc-client-secret
@@ -90,8 +92,9 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   kaneo-garage-secret-access-key
   garage-metrics-token
   garage-rpc-secret
+  outline-garage-access-key-id
+  outline-garage-secret-access-key
   gitea-oidc-client-secret
-  invoiceplane-db-password
   memos-admin-pat
   memos-oidc-client-secret
   nextcloud-admin-password
@@ -118,6 +121,10 @@ TESTBED_REQUIRED_SECRET_KEYS=(
   fizzy-secret-key-base
   homebox-api-key-pepper
   homebox-oidc-client-secret
+  invoiceplane-admin-email
+  invoiceplane-admin-password
+  invoiceplane-db-password
+  invoiceplane-encryption-key
   kaneo-auth-secret
   kaneo-garage-access-key-id
   kaneo-garage-secret-access-key
@@ -133,6 +140,12 @@ TESTBED_REQUIRED_SECRET_KEYS=(
   listmonk-admin-password
   listmonk-admin-username
   listmonk-oidc-client-secret
+  outline-garage-access-key-id
+  outline-garage-secret-access-key
+  outline-oidc-client-secret
+  outline-postgres-password
+  outline-secret-key
+  outline-utils-secret
   plane-admin-email
   plane-admin-password
   plane-garage-access-key-id
@@ -141,6 +154,10 @@ TESTBED_REQUIRED_SECRET_KEYS=(
   plane-postgres-password
   plane-rabbitmq-password
   plane-secret-key
+  postiz-jwt-secret
+  postiz-oidc-client-secret
+  postiz-postgres-password
+  postiz-temporal-postgres-password
   sure-oidc-client-secret
   sure-postgres-password
   sure-secret-key-base

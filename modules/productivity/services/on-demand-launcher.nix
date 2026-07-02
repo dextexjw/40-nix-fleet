@@ -213,7 +213,6 @@ in
         "nixos-upgrade.service"
         "productivity-appdata-backup.service"
         "productivity-appdata-restore-check.service"
-        "productivity-mariadb-dump.service"
         "productivity-memos-sqlite-backup.service"
         "productivity-postgresql-dump.service"
       ];

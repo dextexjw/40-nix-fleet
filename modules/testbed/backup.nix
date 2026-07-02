@@ -22,10 +22,18 @@ let
     "podman-plane-web.service"
     "podman-plane-admin.service"
     "podman-plane-space.service"
+    "podman-postiz.service"
+    "podman-postiz-postgres.service"
+    "podman-postiz-redis.service"
+    "podman-postiz-temporal.service"
+    "podman-postiz-temporal-elasticsearch.service"
+    "podman-postiz-temporal-postgres.service"
     "podman-fizzy.service"
+    "phpfpm-invoiceplane.service"
     "homebox.service"
     "podman-kaneo.service"
     "podman-keeper.service"
+    "podman-outline.service"
     "podman-sure-web.service"
     "podman-sure-worker.service"
   ];
@@ -60,18 +68,49 @@ in
       '';
     };
 
+    systemd.services.testbed-mariadb-dump = {
+      description = "Dump testbed-vm MariaDB databases before backup";
+      after = [ "mysql.service" ];
+      requires = [ "mysql.service" ];
+      path = [
+        pkgs.coreutils
+        pkgs.gzip
+        config.services.mysql.package
+      ];
+      serviceConfig = {
+        Type = "oneshot";
+        User = "root";
+        Group = "root";
+      };
+      script = ''
+        set -euo pipefail
+
+        install -d -m 0700 -o root -g root '${appdata}/mariadb-dumps'
+        tmp="$(mktemp '${appdata}/mariadb-dumps/.dump.XXXXXX.sql.gz')"
+        trap 'rm -f "$tmp"' EXIT
+
+        mariadb-dump --protocol=socket --all-databases --single-transaction --quick | gzip -9 > "$tmp"
+        chmod 0600 "$tmp"
+        mv "$tmp" '${appdata}/mariadb-dumps/latest.sql.gz'
+        trap - EXIT
+      '';
+    };
+
     systemd.services.testbed-appdata-backup = {
       description = "Back up testbed-vm /srv/appsdata with restic";
       after = [
         "network-online.target"
+        "testbed-mariadb-dump.service"
         "testbed-postgresql-dump.service"
         "${utils.escapeSystemdPath cfg.smb.backupMount}.mount"
       ];
       wants = [
         "network-online.target"
+        "testbed-mariadb-dump.service"
         "testbed-postgresql-dump.service"
       ];
       requires = [
+        "testbed-mariadb-dump.service"
         "testbed-postgresql-dump.service"
         "${utils.escapeSystemdPath cfg.smb.backupMount}.mount"
       ];
@@ -99,7 +138,11 @@ in
             podman-plane-worker.service \
             podman-plane-beat-worker.service \
             podman-plane-live.service \
-            plane-admin-bootstrap.service
+            plane-admin-bootstrap.service \
+            invoiceplane-mysql-password.service \
+            invoiceplane-prepare.service \
+            invoiceplane-bootstrap.service \
+            phpfpm-invoiceplane.service
           do
             systemctl reset-failed "$service" || true
           done
@@ -115,6 +158,10 @@ in
           systemctl start podman-plane-beat-worker.service || true
           systemctl start podman-plane-live.service || true
           systemctl start plane-admin-bootstrap.service || true
+          systemctl start invoiceplane-mysql-password.service || true
+          systemctl start invoiceplane-prepare.service || true
+          systemctl start phpfpm-invoiceplane.service || true
+          systemctl start invoiceplane-bootstrap.service || true
         }
         trap cleanup EXIT
 

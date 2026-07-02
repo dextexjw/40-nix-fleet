@@ -22,8 +22,6 @@ SERVICES=(
   syncthing.service
   phpfpm-nextcloud.service
   podman-openspeedtest.service
-  phpfpm-invoiceplane.service
-  mysql.service
   podman-netbootxyz.service
   iperf3.service
   podman-memos.service
@@ -133,9 +131,6 @@ done
 restart_services() {
   printf 'Restarting productivity services and backup timer...\n'
   ssh_productivity_vm "sudo systemctl start postgresql.service"
-  if remote_unit_exists mysql.service; then
-    ssh_productivity_vm "sudo systemctl start mysql.service"
-  fi
   for service in "${SERVICES[@]}"; do
     ssh_productivity_vm "sudo systemctl start '$service' || true"
   done
@@ -154,11 +149,6 @@ trap restart_services EXIT
 
 printf 'Running PostgreSQL dump, Restic backup, and restore validation...\n'
 ssh_productivity_vm "sudo systemctl start productivity-postgresql-dump.service"
-if remote_unit_exists productivity-mariadb-dump.service; then
-  ssh_productivity_vm "sudo systemctl start productivity-mariadb-dump.service"
-else
-  printf 'Skipping productivity-mariadb-dump.service because it is not deployed yet.\n'
-fi
 if remote_unit_exists productivity-memos-sqlite-backup.service; then
   ssh_productivity_vm "sudo systemctl start productivity-memos-sqlite-backup.service"
 else

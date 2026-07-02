@@ -12,21 +12,27 @@ let
   serviceHostPrefixes = {
     fizzy = "fizzy";
     homebox = "homebox";
+    invoiceplane = "invoiceplane";
     kaneo = "kaneo";
     keeper = "keeper";
     listmonk = "listmonk";
     mailpit = "mailpit";
+    outline = "outline";
     plane = "plane";
+    postiz = "postiz";
     sure = "sure";
   };
   serviceHostKeys = [
     "fizzy"
     "homebox"
+    "invoiceplane"
     "kaneo"
     "keeper"
     "listmonk"
     "mailpit"
+    "outline"
     "plane"
+    "postiz"
     "sure"
   ];
   mkServiceHostNames =
@@ -60,10 +66,14 @@ let
   statefulServices = [
     "podman-fizzy.service"
     "homebox.service"
+    "phpfpm-invoiceplane.service"
+    "invoiceplane-bootstrap.service"
     "podman-kaneo.service"
     "podman-keeper.service"
     "redis-keeper.service"
     "listmonk.service"
+    "podman-outline.service"
+    "redis-outline.service"
     "nginx.service"
     "plane-admin-bootstrap.service"
     "plane-migrate.service"
@@ -73,11 +83,18 @@ let
     "podman-plane-live.service"
     "podman-plane-rabbitmq.service"
     "podman-plane-worker.service"
+    "podman-postiz.service"
+    "podman-postiz-postgres.service"
+    "podman-postiz-redis.service"
+    "podman-postiz-temporal.service"
+    "podman-postiz-temporal-elasticsearch.service"
+    "podman-postiz-temporal-postgres.service"
     "podman-sure-web.service"
     "podman-sure-worker.service"
     "postgresql.service"
     "redis-sure.service"
     "mailpit-testbed.service"
+    "mysql.service"
   ];
 in
 {
@@ -86,6 +103,7 @@ in
     cfg
     resticPasswordFile
     secretPath
+    serviceHostAliases
     serviceHosts
     serviceRouteLines
     smbCredentialsFile

@@ -1,9 +1,10 @@
 # testbed-vm
 
 `testbed-vm` runs Fizzy as a project-board testbed, Homebox as a home-inventory
-testbed, Kaneo as a project-management testbed, Keeper as a calendar-sync
-testbed, Listmonk as a newsletter and mailing-list testbed, Plane as a
-project-management testbed, and Sure as a personal-finance testbed. Mail is
+testbed, InvoicePlane as an invoicing testbed, Kaneo as a project-management testbed, Keeper as a calendar-sync
+testbed, Listmonk as a newsletter and mailing-list testbed, Outline as a
+knowledge-base testbed, Plane as a project-management testbed, Postiz as a
+social media scheduling testbed, and Sure as a personal-finance testbed. Mail is
 captured locally by Mailpit so test messages cannot leave the lab until a real
 SMTP integration is intentionally added.
 
@@ -18,6 +19,10 @@ SMTP integration is intentionally added.
 - Homebox public route: `https://homebox.jax22.com/`
 - Homebox LAN alias: `http://homebox.h/`
 - Homebox direct backend: `http://10.2.20.129:7745/` from Gateway nodes only
+- InvoicePlane public route: `https://invoiceplane.jax22.com/`
+- InvoicePlane LAN alias: `http://invoiceplane.h/`
+- InvoicePlane direct backend: `http://10.2.20.129:9060/` from Gateway nodes only
+- InvoicePlane login: `https://invoiceplane.jax22.com/sessions/login`
 - Kaneo public route: `https://kaneo.jax22.com/`
 - Kaneo LAN alias: `http://kaneo.h/`
 - Kaneo direct backend: `http://10.2.20.129:5173/` from Gateway nodes only
@@ -25,8 +30,15 @@ SMTP integration is intentionally added.
 - Listmonk public route: `https://listmonk.jax22.com/`
 - Listmonk LAN alias: `http://listmonk.h/`
 - Listmonk direct backend: `http://10.2.20.129:9000/` from Gateway nodes only
+- Outline public route: `https://outline.jax22.com/`
+- Outline LAN alias: `http://outline.h/`
+- Outline direct backend: `http://10.2.20.129:9050/` from Gateway nodes only
+- Outline health: `http://10.2.20.129:9050/_health` from Gateway nodes only
 - Plane public route: `https://plane.jax22.com/`
 - Plane direct backend: `http://10.2.20.129:9020/` from Gateway nodes only
+- Postiz public route: `https://postiz.jax22.com/`
+- Postiz LAN alias: `http://postiz.h/`
+- Postiz direct backend: `http://10.2.20.129:9040/` from Gateway nodes only
 - Sure public route: `https://sure.jax22.com/`
 - Sure LAN alias: `http://sure.h/`
 - Sure direct backend: `http://10.2.20.129:9030/` from Gateway nodes only
@@ -40,18 +52,28 @@ SMTP integration is intentionally added.
 - Appdata root: `/srv/appsdata`
 - Fizzy SQLite, queue/cache databases, and uploads: `/srv/appsdata/fizzy/storage`
 - Homebox SQLite database, uploads, and generated assets: `/srv/appsdata/homebox`
+- InvoicePlane runtime state: `/srv/appsdata/invoiceplane`
+- InvoicePlane MariaDB data: `/srv/appsdata/mariadb`
+- InvoicePlane MariaDB database: `invoiceplane`
 - Kaneo runtime scratch directory: `/srv/appsdata/kaneo`
 - Kaneo durable state: PostgreSQL database `kaneo` plus Garage bucket `kaneo-uploads`
 - Keeper Redis state and local service data: `/srv/appsdata/keeper`
 - Listmonk uploads and service state: `/srv/appsdata/listmonk`
+- Outline runtime state: `/srv/appsdata/outline`
+- Outline Redis state: `/srv/appsdata/outline/redis`
+- Outline PostgreSQL database: `outline`
+- Outline object storage: Garage bucket `outline-uploads` on `productivity-vm`
 - Plane logs, RabbitMQ, and Redis: `/srv/appsdata/plane`
 - Plane PostgreSQL database: `plane`
 - Plane object storage: Garage bucket `plane-uploads` on `productivity-vm`
+- Postiz uploads, config, PostgreSQL, Redis, and Temporal state:
+  `/srv/appsdata/postiz`
 - Sure uploads and service state: `/srv/appsdata/sure`
 - Sure Redis state: `/srv/appsdata/sure/redis`
 - Sure PostgreSQL database: `sure`
 - PostgreSQL data: `/srv/appsdata/postgresql`
 - PostgreSQL dump: `/srv/appsdata/postgresql-dumps/latest.sql.gz`
+- MariaDB dump: `/srv/appsdata/mariadb-dumps/latest.sql.gz`
 - Backup repository: `/mnt/backups/restic/appdata/testbed-vm`
 
 ## Secrets
@@ -65,6 +87,10 @@ Required SOPS keys:
 - `fizzy-secret-key-base`
 - `homebox-api-key-pepper`
 - `homebox-oidc-client-secret`
+- `invoiceplane-admin-email`
+- `invoiceplane-admin-password`
+- `invoiceplane-db-password`
+- `invoiceplane-encryption-key`
 - `kaneo-auth-secret`
 - `kaneo-garage-access-key-id`
 - `kaneo-garage-secret-access-key`
@@ -80,6 +106,12 @@ Required SOPS keys:
 - `listmonk-admin-username`
 - `listmonk-admin-password`
 - `listmonk-oidc-client-secret`
+- `outline-garage-access-key-id`
+- `outline-garage-secret-access-key`
+- `outline-oidc-client-secret`
+- `outline-postgres-password`
+- `outline-secret-key`
+- `outline-utils-secret`
 - `plane-admin-email`
 - `plane-admin-password`
 - `plane-garage-access-key-id`
@@ -88,6 +120,10 @@ Required SOPS keys:
 - `plane-postgres-password`
 - `plane-rabbitmq-password`
 - `plane-secret-key`
+- `postiz-jwt-secret`
+- `postiz-oidc-client-secret`
+- `postiz-postgres-password`
+- `postiz-temporal-postgres-password`
 - `sure-oidc-client-secret`
 - `sure-postgres-password`
 - `sure-secret-key-base`
@@ -112,6 +148,23 @@ credentials or SOPS secrets for this endpoint.
 Listmonk uses a SOPS-backed local admin account for break-glass access. Native
 OIDC is provisioned through Authentik client `listmonk` for `fleet-admins`.
 
+InvoicePlane is exposed at `https://invoiceplane.jax22.com/` and
+`http://invoiceplane.h/`. Public HTTPS uses Gateway Authentik forward-auth for
+`fleet-admins`; InvoicePlane itself remains local-login based with
+SOPS-backed initial admin credentials. `invoiceplane-bootstrap.service` drives
+the upstream installer only on an empty MariaDB database, verifies the schema
+and admin user, then locks setup with `SETUP_COMPLETED=true` and
+`DISABLE_SETUP=true` in `/srv/appsdata/invoiceplane/www/ipconfig.php`. The
+canonical URL is `https://invoiceplane.jax22.com/` to avoid HTTP redirects.
+
+Outline is exposed at `https://outline.jax22.com/` and `http://outline.h/`
+with native OIDC through Authentik client `outline` for `fleet-admins` and
+callback `https://outline.jax22.com/auth/oidc.callback`. It uses SOPS-backed
+application secrets, a SOPS-backed PostgreSQL role password, native
+PostgreSQL, native Redis, local Mailpit SMTP, and Garage bucket
+`outline-uploads` on `https://garage.jax22.com` for uploads and attachments.
+Deploy `productivity-vm` first when changing the bucket, key, or CORS policy.
+
 Plane Community Edition is exposed at `https://plane.jax22.com/` through
 Gateway Authentik forward-auth for `fleet-admins`. Plane itself uses a
 SOPS-backed initial instance admin, native PostgreSQL, native Redis, local
@@ -119,6 +172,16 @@ RabbitMQ, and Garage bucket `plane-uploads` on `https://garage.jax22.com` for
 images, attachments, and other object storage. Deploy `productivity-vm` first
 when changing the bucket, key, or CORS policy. No unauthenticated `plane.h` LAN
 alias is declared.
+
+Postiz is exposed at `https://postiz.jax22.com/` and `http://postiz.h/` with
+native OIDC through Authentik client `postiz` for `fleet-admins` and callback
+`https://postiz.jax22.com/settings`. It uses a SOPS-backed JWT secret,
+SOPS-backed OIDC client secret, private Postgres and Redis containers, and the
+upstream-required Temporal stack under `/srv/appsdata/postiz/temporal`. Local
+file uploads are stored in `/srv/appsdata/postiz/uploads` and are covered by
+the testbed appdata backup. Social-platform provider credentials are
+intentionally blank in the first deployment; add encrypted provider API keys
+only when a specific channel integration is intentionally enabled.
 
 Sure is exposed at `https://sure.jax22.com/` and `http://sure.h/` with native
 OIDC through Authentik client `sure` for `fleet-admins` and callback
@@ -197,11 +260,12 @@ exists:
 scripts/testbed-vm/restore-testbed-appdata.sh <snapshot-id>
 ```
 
-The restore script stops Fizzy, Homebox, Kaneo, Keeper, Listmonk, Plane, Sure,
-PostgreSQL, Mailpit, Redis, and the backup timer, restores `/srv/appsdata`,
+The restore script stops Fizzy, Homebox, InvoicePlane, Kaneo, Keeper, Listmonk, Outline,
+Plane, Postiz, Sure, MariaDB, PostgreSQL, Mailpit, Redis, and the backup timer, restores `/srv/appsdata`,
 reapplies declared directories and ownership, and restarts service units.
-Plane object data is not in this testbed backup; it lives in Garage bucket
-`plane-uploads` and is covered by the `productivity-vm` Garage appdata backup.
+Outline and Plane object data are not in this testbed backup; they live in
+Garage buckets `outline-uploads` and `plane-uploads` and are covered by the
+`productivity-vm` Garage appdata backup.
 
 ## Validation
 
@@ -209,8 +273,8 @@ Plane object data is not in this testbed backup; it lives in Garage bucket
 scripts/testbed-vm/test-testbed-services.sh
 ```
 
-The helper checks Fizzy, Homebox, Kaneo, Keeper, Listmonk, Plane, Sure,
-PostgreSQL, Redis, Mailpit, OIDC and admin provisioning, local HTTP,
+The helper checks Fizzy, Homebox, InvoicePlane, Kaneo, Keeper, Listmonk, Outline, Plane,
+Postiz, Sure, MariaDB, PostgreSQL, Redis, Mailpit, OIDC and admin provisioning, local HTTP,
 Gateway-routed URLs,
 homelab SMTP capture, Homepage output, backup and restore validation, and recent
 Restic snapshots.

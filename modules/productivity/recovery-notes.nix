@@ -30,8 +30,8 @@ in
         productivity-vm runs AFFiNE, the On-Demand Apps Dashboard, Gitea, Forgejo,
         Material for MkDocs, Paperless-ngx, FreshRSS, SearXNG, Vaultwarden,
         PrivateBin, Syncthing, Stirling PDF, Firefly III, Nextcloud,
-        OpenSpeedTest, InvoicePlane, Memos, netboot.xyz, iperf3, RustDesk,
-        Shlink, Garage, RustFS, nginx, PostgreSQL, MariaDB, Redis, and
+        OpenSpeedTest, Memos, netboot.xyz, iperf3, RustDesk,
+        Shlink, Garage, RustFS, nginx, PostgreSQL, Redis, and
         Restic appdata backups.
 
         Persistent state root:
@@ -113,10 +113,11 @@ in
         hosting with the upstream Garage CLI before serving content. Garage
         bucket virtual-host style remains canonical on ${serviceHosts.garage} and
         ${serviceHosts.garageWeb}; the .h names are only routed named endpoints.
-        garage-kaneo-bucket.service and garage-plane-bucket.service import the
-        SOPS-backed Garage keys, create buckets kaneo-uploads and plane-uploads,
-        grant read/write access, and apply CORS for https://kaneo.jax22.com and
-        https://plane.jax22.com.
+        garage-kaneo-bucket.service, garage-outline-bucket.service, and
+        garage-plane-bucket.service import the SOPS-backed Garage keys, create
+        buckets kaneo-uploads, outline-uploads, and plane-uploads, grant
+        read/write access, and apply CORS for https://kaneo.jax22.com,
+        https://outline.jax22.com, and https://plane.jax22.com.
 
         RustFS is a separate S3-compatible object store in this pass. It does not
         share Garage buckets or credentials. ${serviceHosts.rustfs} is the S3 API
@@ -128,11 +129,6 @@ in
         S3 API remains access-key based through rustfs-environment. Authentik
         native OIDC provisioning attaches the self-signed signing key so RustFS
         can validate JWKS during startup discovery.
-
-        InvoicePlane uses MariaDB database invoiceplane and persistent runtime state
-        under ${appdata}/invoiceplane. Initial setup is completed through
-        http://${serviceHosts.invoiceplane}/index.php/setup, then setup should be
-        locked in ${appdata}/invoiceplane/www/ipconfig.php with DISABLE_SETUP=true.
 
         RustDesk stores its server keypair under ${appdata}/rustdesk. Configure
         clients with ID server ${serviceHosts.rustdesk} and the public key from

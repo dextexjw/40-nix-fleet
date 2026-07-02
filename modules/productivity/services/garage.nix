@@ -20,6 +20,7 @@ let
     serviceHosts
     ;
   kaneoUploadsCfg = cfg.garage.kaneoUploads;
+  outlineUploadsCfg = cfg.garage.outlineUploads;
   planeUploadsCfg = cfg.garage.planeUploads;
   mkUploadsCorsConfig =
     name: uploadsCfg:
@@ -193,6 +194,7 @@ in
 
     systemd.services = {
       garage-kaneo-bucket = mkGarageBucketService "kaneo" "Kaneo" kaneoUploadsCfg;
+      garage-outline-bucket = mkGarageBucketService "outline" "Outline" outlineUploadsCfg;
       garage-plane-bucket = mkGarageBucketService "plane" "Plane" planeUploadsCfg;
     };
   };

@@ -18,7 +18,6 @@ let
     garage = "garage";
     garageWeb = "s3.garage";
     gitea = "gitea";
-    invoiceplane = "invoiceplane";
     iperf3 = "iperf3";
     memos = "memos";
     netbootxyz = "netbootxyz";
@@ -51,7 +50,6 @@ let
     "firefly"
     "nextcloud"
     "openspeedtest"
-    "invoiceplane"
     "iperf3"
     "memos"
     "netbootxyz"
@@ -286,6 +284,50 @@ in
           type = types.nullOr types.path;
           default = null;
           description = "File containing the Garage secret access key used by Plane uploads.";
+        };
+      };
+
+      outlineUploads = {
+        accessKeyIdFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "File containing the Garage access key ID used by Outline uploads.";
+        };
+
+        bucket = mkOption {
+          type = types.str;
+          default = "outline-uploads";
+          description = "Garage bucket provisioned for Outline uploads.";
+        };
+
+        corsAllowedOrigin = mkOption {
+          type = types.str;
+          default = "https://outline.jax22.com";
+          description = "Browser origin allowed to upload Outline objects through Garage.";
+        };
+
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Provision the Garage bucket and access key used by Outline uploads.";
+        };
+
+        endpointUrl = mkOption {
+          type = types.str;
+          default = "http://127.0.0.1:${toString cfg.ports.garageS3}";
+          description = "Local Garage S3 endpoint used by provisioning and validation.";
+        };
+
+        keyName = mkOption {
+          type = types.str;
+          default = "outline";
+          description = "Garage key name assigned to the Outline upload credentials.";
+        };
+
+        secretAccessKeyFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "File containing the Garage secret access key used by Outline uploads.";
         };
       };
     };
@@ -845,6 +887,15 @@ in
       {
         assertion = !cfg.garage.planeUploads.enable || cfg.garage.planeUploads.secretAccessKeyFile != null;
         message = "fleet.productivity.stack.garage.planeUploads.secretAccessKeyFile must be set when Plane Garage uploads are enabled.";
+      }
+      {
+        assertion = !cfg.garage.outlineUploads.enable || cfg.garage.outlineUploads.accessKeyIdFile != null;
+        message = "fleet.productivity.stack.garage.outlineUploads.accessKeyIdFile must be set when Outline Garage uploads are enabled.";
+      }
+      {
+        assertion =
+          !cfg.garage.outlineUploads.enable || cfg.garage.outlineUploads.secretAccessKeyFile != null;
+        message = "fleet.productivity.stack.garage.outlineUploads.secretAccessKeyFile must be set when Outline Garage uploads are enabled.";
       }
     ];
   };

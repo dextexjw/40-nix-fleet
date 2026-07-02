@@ -28,8 +28,6 @@ KEY_SERVICES=(
   syncthing
   phpfpm-nextcloud
   podman-openspeedtest
-  phpfpm-invoiceplane
-  mysql
   iperf3
   podman-memos
   podman-netbootxyz
@@ -63,7 +61,6 @@ HOST_ROUTES=(
   firefly
   nextcloud
   openspeedtest
-  invoiceplane
   memos
   netbootxyz
   garage
@@ -80,8 +77,6 @@ declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
   [podman-affine]=1
   [podman-openspeedtest]=1
   [redis-affine]=1
-  [mysql]=1
-  [phpfpm-invoiceplane]=1
   [podman-memos]=1
   [podman-netbootxyz]=1
   [podman-shlink]=1
@@ -173,9 +168,6 @@ route_is_skipped() {
     gitea.*)
       service_is_skipped gitea
       ;;
-    invoiceplane.*)
-      service_is_skipped phpfpm-invoiceplane
-      ;;
     openspeedtest.*)
       service_is_skipped podman-openspeedtest
       ;;
@@ -225,6 +217,10 @@ for service in "${KEY_SERVICES[@]}"; do
 
   colmena exec --on "$HOST" -- systemctl is-active --quiet "$service.service"
 done
+colmena exec --on "$HOST" -- "test \"\$(systemctl show -P LoadState phpfpm-invoiceplane.service 2>/dev/null || true)\" = not-found"
+colmena exec --on "$HOST" -- "test \"\$(systemctl show -P LoadState invoiceplane-bootstrap.service 2>/dev/null || true)\" = not-found"
+colmena exec --on "$HOST" -- "test \"\$(systemctl show -P LoadState invoiceplane-mysql-password.service 2>/dev/null || true)\" = not-found"
+colmena exec --on "$HOST" -- "test \"\$(systemctl show -P LoadState productivity-mariadb-dump.service 2>/dev/null || true)\" = not-found"
 
 printf 'Checking on-demand app units...\n'
 for service in "${ON_DEMAND_SERVICES[@]}"; do
@@ -250,9 +246,6 @@ colmena exec --on "$HOST" -- systemctl start productivity-appdata-backup.service
 colmena exec --on "$HOST" -- systemctl start productivity-appdata-restore-check.service
 colmena exec --on "$HOST" -- systemctl is-active --quiet productivity-appdata-backup.timer
 colmena exec --on "$HOST" -- test -s /srv/appsdata/postgresql-dumps/latest.sql.gz
-if ! service_is_skipped mysql; then
-  colmena exec --on "$HOST" -- test -s /srv/appsdata/mariadb-dumps/latest.sql.gz
-fi
 colmena exec --on "$HOST" -- env \
   RESTIC_REPOSITORY="$REPOSITORY" \
   RESTIC_PASSWORD_FILE=/run/secrets/restic-password \
@@ -337,9 +330,6 @@ if ! service_is_skipped phpfpm-firefly-iii; then
 fi
 if ! service_is_skipped podman-openspeedtest; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8989/ >/dev/null"
-fi
-if ! service_is_skipped phpfpm-invoiceplane; then
-  colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 -H \"Host: invoiceplane.jax22.com\" http://127.0.0.1/); case \"\$status\" in 2*|3*) exit 0 ;; *) echo \"unexpected InvoicePlane status: \$status\" >&2; exit 1 ;; esac'"
 fi
 if ! service_is_skipped iperf3; then
   colmena exec --on "$HOST" -- "iperf3 -c 127.0.0.1 -p 5201 -t 1 >/dev/null"
@@ -428,6 +418,24 @@ bucket_location = garage
 EOF
 printf plane-garage-smoke > \"\$src\"; s3cmd --config \"\$s3cfg\" --quiet put \"\$src\" s3://plane-uploads/validation/smoke.txt; s3cmd --config \"\$s3cfg\" --quiet get --force s3://plane-uploads/validation/smoke.txt \"\$dst\"; cmp -s \"\$src\" \"\$dst\"; s3cmd --config \"\$s3cfg\" --quiet del s3://plane-uploads/validation/smoke.txt; status=\$(curl -sS -D \"\$headers\" -o \"\$body\" -w \"%{http_code}\" --max-time 10 -X OPTIONS -H \"Origin: https://plane.jax22.com\" -H \"Access-Control-Request-Method: PUT\" -H \"Access-Control-Request-Headers: content-type\" http://127.0.0.1:3900/plane-uploads/validation/smoke.txt); case \"\$status\" in 2*) ;; *) echo \"unexpected Plane Garage CORS status \$status\" >&2; cat \"\$body\" >&2; exit 1 ;; esac; tr -d \"\\r\" < \"\$headers\" | grep -Fqi \"access-control-allow-origin: https://plane.jax22.com\"'"
 fi
+if allow_missing_unit garage-outline-bucket.service; then
+  printf 'Skipping Outline Garage bucket checks because garage-outline-bucket.service is not deployed yet.\n'
+else
+  colmena exec --on "$HOST" -- systemctl start garage-outline-bucket.service
+  colmena exec --on "$HOST" -- "systemctl show garage-outline-bucket.service -p Result -p ExecMainStatus | grep -Fxq Result=success && systemctl show garage-outline-bucket.service -p Result -p ExecMainStatus | grep -Fxq ExecMainStatus=0"
+  colmena exec --on "$HOST" -- garage bucket info outline-uploads >/dev/null
+  colmena exec --on "$HOST" -- "sh -lc 'set -euo pipefail; access_key_id=\$(cat /run/secrets/outline-garage-access-key-id); secret_access_key=\$(cat /run/secrets/outline-garage-secret-access-key); s3cfg=\$(mktemp); src=\$(mktemp); dst=\$(mktemp); headers=\$(mktemp); body=\$(mktemp); trap \"rm -f \\\"\$s3cfg\\\" \\\"\$src\\\" \\\"\$dst\\\" \\\"\$headers\\\" \\\"\$body\\\"\" EXIT; chmod 0600 \"\$s3cfg\"; cat > \"\$s3cfg\" <<EOF
+[default]
+access_key = \$access_key_id
+secret_key = \$secret_access_key
+host_base = 127.0.0.1:3900
+host_bucket = 127.0.0.1:3900/%(bucket)
+use_https = False
+signature_v2 = False
+bucket_location = garage
+EOF
+printf outline-garage-smoke > \"\$src\"; s3cmd --config \"\$s3cfg\" --quiet put \"\$src\" s3://outline-uploads/validation/smoke.txt; s3cmd --config \"\$s3cfg\" --quiet get --force s3://outline-uploads/validation/smoke.txt \"\$dst\"; cmp -s \"\$src\" \"\$dst\"; s3cmd --config \"\$s3cfg\" --quiet del s3://outline-uploads/validation/smoke.txt; status=\$(curl -sS -D \"\$headers\" -o \"\$body\" -w \"%{http_code}\" --max-time 10 -X OPTIONS -H \"Origin: https://outline.jax22.com\" -H \"Access-Control-Request-Method: PUT\" -H \"Access-Control-Request-Headers: content-type\" http://127.0.0.1:3900/outline-uploads/validation/smoke.txt); case \"\$status\" in 2*) ;; *) echo \"unexpected Outline Garage CORS status \$status\" >&2; cat \"\$body\" >&2; exit 1 ;; esac; tr -d \"\\r\" < \"\$headers\" | grep -Fqi \"access-control-allow-origin: https://outline.jax22.com\"'"
+fi
 
 for route_prefix in "${HOST_ROUTES[@]}"; do
   for domain in "${SERVICE_DOMAINS[@]}"; do
@@ -456,9 +464,6 @@ for route_prefix in "${HOST_ROUTES[@]}"; do
         ;;
       openspeedtest.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:8989/ >/dev/null"
-        ;;
-      invoiceplane.*)
-        colmena exec --on "$HOST" -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 -H \"Host: $route\" http://127.0.0.1/); case \"\$status\" in 2*|3*) exit 0 ;; *) echo \"unexpected InvoicePlane status for $route: \$status\" >&2; exit 1 ;; esac'"
         ;;
       memos.*)
         colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: $route' http://127.0.0.1:5230/ >/dev/null"

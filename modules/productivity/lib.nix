@@ -18,7 +18,6 @@ let
     garage = "garage";
     garageWeb = "s3.garage";
     gitea = "gitea";
-    invoiceplane = "invoiceplane";
     iperf3 = "iperf3";
     memos = "memos";
     netbootxyz = "netbootxyz";
@@ -51,7 +50,6 @@ let
     "firefly"
     "nextcloud"
     "openspeedtest"
-    "invoiceplane"
     "iperf3"
     "memos"
     "netbootxyz"
@@ -153,8 +151,6 @@ let
     "phpfpm-firefly-iii.service"
     "firefly-iii-cron.timer"
     "phpfpm-nextcloud.service"
-    "phpfpm-invoiceplane.service"
-    "mysql.service"
     "iperf3.service"
     "podman-memos.service"
     "podman-netbootxyz.service"

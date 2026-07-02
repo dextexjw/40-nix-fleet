@@ -114,6 +114,30 @@ in
           };
         }
         {
+          id = "invoiceplane";
+          name = "InvoicePlane";
+          route = {
+            description = "InvoicePlane invoice management testbed";
+            hosts = hostnames "invoiceplane";
+            url = backend 9060;
+          };
+          homepage = {
+            description = "Invoice management testbed\n${backend 9060}";
+            href = publicServiceUrl "invoiceplane";
+            icon = "invoiceplane.png";
+            siteMonitor = "${backend 9060}/sessions/login";
+          };
+          auth = {
+            mode = "forward-auth";
+            groups = [ "fleet-admins" ];
+          };
+          checkmate.url = "https://invoiceplane.jax22.com/sessions/login";
+          smoke.http = {
+            discard = true;
+            path = "/sessions/login";
+          };
+        }
+        {
           id = "kaneo";
           name = "Kaneo";
           route = {
@@ -174,6 +198,36 @@ in
           };
         }
         {
+          id = "outline";
+          name = "Outline";
+          route = {
+            description = "Outline knowledge-base testbed";
+            hosts = hostnames "outline";
+            url = backend 9050;
+          };
+          homepage = {
+            description = "Knowledge-base testbed\n${backend 9050}";
+            href = publicServiceUrl "outline";
+            icon = "outline.png";
+            siteMonitor = "${backend 9050}/_health";
+          };
+          auth = {
+            mode = "native-oidc";
+            groups = [ "fleet-admins" ];
+            oidc = {
+              clientId = "outline";
+              clientSecretFile = "/run/secrets/outline-oidc-client-secret";
+              launchUrl = "https://outline.jax22.com/";
+              redirectUris = [ "https://outline.jax22.com/auth/oidc.callback" ];
+            };
+          };
+          checkmate.url = "https://outline.jax22.com/_health";
+          smoke.http = {
+            discard = true;
+            path = "/_health";
+          };
+        }
+        {
           id = "plane";
           name = "Plane";
           route = {
@@ -195,6 +249,36 @@ in
           smoke.http = {
             discard = true;
             path = "/api/instances/";
+          };
+        }
+        {
+          id = "postiz";
+          name = "Postiz";
+          route = {
+            description = "Postiz social media scheduling testbed";
+            hosts = hostnames "postiz";
+            url = backend 9040;
+          };
+          homepage = {
+            description = "Social media scheduling testbed\n${backend 9040}";
+            href = publicServiceUrl "postiz";
+            icon = "https://raw.githubusercontent.com/gitroomhq/postiz-app/d167233e063bb172b84d0bdf5ad563cff28778e9/apps/frontend/public/postiz-fav.png";
+            siteMonitor = "${backend 9040}/";
+          };
+          auth = {
+            mode = "native-oidc";
+            groups = [ "fleet-admins" ];
+            oidc = {
+              clientId = "postiz";
+              clientSecretFile = "/run/secrets/postiz-oidc-client-secret";
+              launchUrl = "https://postiz.jax22.com/";
+              redirectUris = [ "https://postiz.jax22.com/settings" ];
+            };
+          };
+          checkmate.url = "https://postiz.jax22.com/";
+          smoke.http = {
+            discard = true;
+            path = "/";
           };
         }
         {

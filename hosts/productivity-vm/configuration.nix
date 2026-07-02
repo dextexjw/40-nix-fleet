@@ -129,6 +129,18 @@ in
         mode = "0400";
         restartUnits = [ "garage-kaneo-bucket.service" ];
       };
+      outline-garage-access-key-id = {
+        owner = "garage";
+        group = "garage";
+        mode = "0400";
+        restartUnits = [ "garage-outline-bucket.service" ];
+      };
+      outline-garage-secret-access-key = {
+        owner = "garage";
+        group = "garage";
+        mode = "0400";
+        restartUnits = [ "garage-outline-bucket.service" ];
+      };
       plane-garage-access-key-id = {
         owner = "garage";
         group = "garage";
@@ -152,12 +164,6 @@ in
         group = "garage";
         mode = "0400";
         restartUnits = [ "garage.service" ];
-      };
-      invoiceplane-db-password = {
-        restartUnits = [
-          "invoiceplane-mysql-password.service"
-          "phpfpm-invoiceplane.service"
-        ];
       };
       memos-admin-pat = {
         owner = "memos";
@@ -357,6 +363,11 @@ in
       enable = true;
       accessKeyIdFile = config.sops.secrets.kaneo-garage-access-key-id.path;
       secretAccessKeyFile = config.sops.secrets.kaneo-garage-secret-access-key.path;
+    };
+    garage.outlineUploads = lib.mkIf secretsEnabled {
+      enable = true;
+      accessKeyIdFile = config.sops.secrets.outline-garage-access-key-id.path;
+      secretAccessKeyFile = config.sops.secrets.outline-garage-secret-access-key.path;
     };
     garage.planeUploads = lib.mkIf secretsEnabled {
       enable = true;

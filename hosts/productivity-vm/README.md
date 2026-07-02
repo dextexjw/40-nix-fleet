@@ -3,8 +3,8 @@
 `productivity-vm` runs the personal productivity stack, AFFiNE, the
 On-Demand Apps Dashboard, nginx-backed internal apps, Git forges,
 OpenSpeedTest, iperf3,
-RustDesk, InvoicePlane, Shlink short links, Memos notes, netboot.xyz,
-standalone Garage and RustFS object storage, PostgreSQL, MariaDB, appdata
+RustDesk, Shlink short links, Memos notes, netboot.xyz,
+standalone Garage and RustFS object storage, PostgreSQL, appdata
 backups, and restore checks.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
@@ -49,7 +49,6 @@ path backed up by Restic.
 | Firefly III | `https://firefly.jax22.com` | `http://firefly.h` | `10.2.20.114:80` |
 | Nextcloud | `https://nextcloud.jax22.com` | `http://nextcloud.h` | `10.2.20.114:80` |
 | OpenSpeedTest | `https://openspeedtest.jax22.com` | `http://openspeedtest.h` | `10.2.20.114:8989` |
-| InvoicePlane | `https://invoiceplane.jax22.com` | `http://invoiceplane.h` | `10.2.20.114:80` |
 | Memos | `https://memos.jax22.com` | `http://memos.h` | `10.2.20.114:5230` |
 | netboot.xyz WebUI | `https://netbootxyz.jax22.com` | `http://netbootxyz.h` | `10.2.20.114:3001` |
 | iperf3 | `iperf3.jax22.com:5201` | `iperf3.h:5201` | `10.2.20.114:5201/tcp+udp` |
@@ -81,7 +80,6 @@ Important appdata paths:
 - `/srv/appsdata/shlink`
 - `/srv/appsdata/firefly-iii`
 - `/srv/appsdata/nextcloud`
-- `/srv/appsdata/invoiceplane`
 - `/srv/appsdata/memos`
 - `/srv/appsdata/memos-backups`
 - `/srv/appsdata/netbootxyz`
@@ -91,15 +89,11 @@ Important appdata paths:
 - `/srv/appsdata/rustdesk`
 - `/srv/appsdata/garage`
 - `/srv/appsdata/rustfs`
-- `/srv/appsdata/mariadb`
-- `/srv/appsdata/mariadb-dumps`
 - `/srv/appsdata/postgresql`
 - `/srv/appsdata/postgresql-dumps`
 
 `productivity-postgresql-dump.service` writes
 `/srv/appsdata/postgresql-dumps/latest.sql.gz` before Restic backups.
-`productivity-mariadb-dump.service` writes
-`/srv/appsdata/mariadb-dumps/latest.sql.gz` before Restic backups.
 `productivity-memos-sqlite-backup.service` writes
 `/srv/appsdata/memos-backups/latest.db` before Restic backups when the Memos
 SQLite database exists.
@@ -125,7 +119,7 @@ Initial bundles:
 - `firefly`: `phpfpm-firefly-iii.service` and `firefly-iii-cron.timer`.
 
 These units remain installed but are not wanted by boot targets. Core services
-such as nginx, PostgreSQL, MariaDB, backups, restore checks, Gateway,
+such as nginx, PostgreSQL, backups, restore checks, Gateway,
 Homepage, Traefik, and Authentik stay always-on. Dashboard actions are refused
 while backup, restore-check, dump, app migration, or deployment lock signals are
 active under `/run/on-demand-apps-dashboard/maintenance.lock`.
@@ -154,7 +148,6 @@ Required productivity secrets:
 - `kaneo-garage-secret-access-key`
 - `garage-metrics-token`
 - `garage-rpc-secret`
-- `invoiceplane-db-password`
 - `memos-admin-pat`
 - `memos-oidc-client-secret`
 - `nextcloud-admin-password`
@@ -364,10 +357,11 @@ hosting with the upstream Garage CLI before serving content. Bucket
 virtual-host style is canonical on `jax22.com`; `.h` is only retained as a
 named endpoint alias.
 
-`garage-kaneo-bucket.service` and `garage-plane-bucket.service` declaratively
-import the SOPS-backed Garage keys, create buckets `kaneo-uploads` and
-`plane-uploads`, grant read/write access, and apply CORS for origins
-`https://kaneo.jax22.com` and `https://plane.jax22.com`. The productivity
+`garage-kaneo-bucket.service`, `garage-outline-bucket.service`, and
+`garage-plane-bucket.service` declaratively import the SOPS-backed Garage keys,
+create buckets `kaneo-uploads`, `outline-uploads`, and `plane-uploads`, grant
+read/write access, and apply CORS for origins `https://kaneo.jax22.com`,
+`https://outline.jax22.com`, and `https://plane.jax22.com`. The productivity
 validation script starts those units, verifies bucket/key/CORS state, and
 performs S3 upload/delete smokes with each service's credentials.
 
@@ -382,11 +376,6 @@ the callback. `rustfs-oidc-policy.service` ensures the
 S3 API remains access-key based through `rustfs-environment`. Authentik native
 OIDC provisioning attaches the self-signed signing key so RustFS can validate
 JWKS during startup discovery.
-
-InvoicePlane uses MariaDB database `invoiceplane` and persistent runtime state
-under `/srv/appsdata/invoiceplane`. Complete initial setup at
-`http://invoiceplane.jax22.com/index.php/setup`, then lock setup by setting
-`DISABLE_SETUP=true` in `/srv/appsdata/invoiceplane/www/ipconfig.php`.
 
 RustDesk clients should use `rustdesk.jax22.com` as the ID server. The server
 public key is stored at `/srv/appsdata/rustdesk/id_ed25519.pub`.

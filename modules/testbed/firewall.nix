@@ -24,12 +24,15 @@ in
     networking.firewall.extraCommands = concatStringsSep "\n" [
       (mkGatewayAccept cfg.ports.fizzy)
       (mkGatewayAccept cfg.ports.homebox)
+      (mkGatewayAccept cfg.ports.invoiceplane)
       (mkGatewayAccept cfg.ports.kaneo)
       (mkGatewayAccept cfg.ports.keeper)
       (mkGatewayAccept cfg.ports.listmonk)
       (mkGatewayAccept cfg.ports.mailpit)
       (mkGatewayAccept cfg.ports.mailpitSmtp)
+      (mkGatewayAccept cfg.ports.outline)
       (mkGatewayAccept cfg.ports.plane)
+      (mkGatewayAccept cfg.ports.postiz)
       (mkGatewayAccept cfg.ports.sure)
     ];
   };

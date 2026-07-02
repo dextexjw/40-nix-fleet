@@ -59,7 +59,6 @@ in
       pkgs.restic
       pkgs.garage
       pkgs.sqlite
-      config.services.mysql.package
       config.services.paperless.manage
     ];
 
@@ -95,34 +94,6 @@ in
         chown ${toString memosUid}:${toString memosGid} "$tmp"
         chmod 0640 "$tmp"
         mv "$tmp" "$backup_dir/latest.db"
-        trap - EXIT
-      '';
-    };
-
-    systemd.services.productivity-mariadb-dump = {
-      description = "Dump productivity-vm MariaDB databases before backup";
-      after = [ "mysql.service" ];
-      requires = [ "mysql.service" ];
-      path = [
-        pkgs.coreutils
-        pkgs.gzip
-        config.services.mysql.package
-      ];
-      serviceConfig = {
-        Type = "oneshot";
-        User = "root";
-        Group = "root";
-      };
-      script = ''
-        set -euo pipefail
-
-        install -d -m 0700 -o root -g root '${appdata}/mariadb-dumps'
-        tmp="$(mktemp '${appdata}/mariadb-dumps/.dump.XXXXXX.sql.gz')"
-        trap 'rm -f "$tmp"' EXIT
-
-        mariadb-dump --protocol=socket --all-databases --single-transaction --quick | gzip -9 > "$tmp"
-        chmod 0600 "$tmp"
-        mv "$tmp" '${appdata}/mariadb-dumps/latest.sql.gz'
         trap - EXIT
       '';
     };
@@ -208,7 +179,6 @@ in
         ${onDemandStopCommands}
 
         systemctl start productivity-postgresql-dump.service
-        systemctl start productivity-mariadb-dump.service
         systemctl start productivity-memos-sqlite-backup.service
         systemctl start productivity-appdata-backup.service
       '';
@@ -218,19 +188,16 @@ in
       description = "Back up productivity-vm /srv/appsdata with restic";
       after = [
         "network-online.target"
-        "productivity-mariadb-dump.service"
         "productivity-memos-sqlite-backup.service"
         "productivity-postgresql-dump.service"
         "${utils.escapeSystemdPath cfg.smb.backupMount}.mount"
       ];
       wants = [
         "network-online.target"
-        "productivity-mariadb-dump.service"
         "productivity-memos-sqlite-backup.service"
         "productivity-postgresql-dump.service"
       ];
       requires = [
-        "productivity-mariadb-dump.service"
         "productivity-memos-sqlite-backup.service"
         "productivity-postgresql-dump.service"
         "${utils.escapeSystemdPath cfg.smb.backupMount}.mount"
