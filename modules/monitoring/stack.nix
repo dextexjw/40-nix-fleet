@@ -231,7 +231,7 @@ in
     checkmate = {
       image = mkOption {
         type = types.str;
-        default = "ghcr.io/bluewave-labs/checkmate-backend-mono@sha256:e98de08b458389df753d506db0ea0da48ff8323845ee094d643beb377fdcdd01";
+        default = "ghcr.io/bluewave-labs/checkmate-backend-mono@sha256:bdebc8dadece67ea9f7a70ce96307a034f622f9fe809ed2bceadc4d6bbeb765c";
         description = "Pinned Checkmate mono OCI image.";
       };
 
@@ -485,6 +485,7 @@ in
       environmentFiles = [ (secretPath "checkmate-environment") ];
       extraOptions = [
         "--cap-drop=ALL"
+        "--cap-add=DAC_OVERRIDE"
         "--network=host"
         "--security-opt=no-new-privileges"
       ];

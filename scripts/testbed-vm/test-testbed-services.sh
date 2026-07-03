@@ -158,7 +158,7 @@ colmena exec --on "$HOST" -- test -s /srv/appsdata/mariadb-dumps/latest.sql.gz
 colmena exec --on "$HOST" -- "env RESTIC_REPOSITORY='$REPOSITORY' RESTIC_PASSWORD_FILE=/run/secrets/restic-password restic snapshots --host '$HOST' --path '$SOURCE' --tag appsdata --latest 3"
 
 printf 'Checking Gateway-routed Listmonk URLs when reachable from this environment...\n'
-colmena exec --on gateway-vm -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 --resolve affine.jax22.com:443:127.0.0.1 https://affine.jax22.com/); case \"\$status\" in 2*|30[1278]|401|403) exit 0 ;; *) echo \"unexpected AFFiNE status \$status\" >&2; exit 1 ;; esac'"
+colmena exec --on gateway-vm -- "sh -lc 'status=000; for attempt in \$(seq 1 12); do status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 --resolve affine.jax22.com:443:127.0.0.1 https://affine.jax22.com/); case \"\$status\" in 2*|30[1278]|401|403) exit 0 ;; esac; sleep 5; done; echo \"unexpected AFFiNE status \$status\" >&2; exit 1'"
 colmena exec --on gateway-vm -- "grep -Fq 'https://affine.jax22.com/' /etc/homepage-dashboard/services.yaml"
 colmena exec --on gateway-vm -- "grep -Fq 'http://${HOST_IP}:3010/' /etc/homepage-dashboard/services.yaml"
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve gitea.jax22.com:443:127.0.0.1 https://gitea.jax22.com/user/login | grep -Fiq 'authentik'"

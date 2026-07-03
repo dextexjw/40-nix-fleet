@@ -114,7 +114,7 @@ Media library paths:
 - Incomplete downloads: `/var/lib/media-downloads`
 
 BookOrbit runs as `podman-media-bookorbit.service` with the pinned
-`ghcr.io/bookorbit/bookorbit:1.10.0` image. It listens on MediaVM port `3000`,
+`ghcr.io/bookorbit/bookorbit:2.0.1` image. It listens on MediaVM port `3000`,
 stores app-managed state in `/srv/appsdata/bookorbit/data`, uses native
 PostgreSQL 16 with `pgvector` under `/srv/appsdata/bookorbit/postgresql`, and
 mounts `/mnt/media` read-write as `/media`. The Books library is available at

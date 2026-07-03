@@ -138,7 +138,7 @@ in
 
       image = mkOption {
         type = types.str;
-        default = "ghcr.io/corentinth/it-tools@sha256:6f177c156b9466610e0f2093e24668b78da501c66f0054f98bccb582b74ab26b";
+        default = "ghcr.io/corentinth/it-tools@sha256:8b8128748339583ca951af03dfe02a9a4d7363f61a216226fc28030731a5a61f";
         description = "Pinned IT-Tools OCI image reference.";
       };
 
@@ -325,7 +325,7 @@ in
 
       menuVersion = mkOption {
         type = types.str;
-        default = "2.0.88";
+        default = "3.0.2";
         description = "netboot.xyz menu version used by the container.";
       };
 

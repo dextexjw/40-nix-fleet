@@ -128,12 +128,17 @@ in
         Type = "oneshot";
         User = "root";
         Group = "root";
+        TimeoutStopSec = "10min";
       };
       script = ''
         set -euo pipefail
 
         restarted_services=
         cleanup() {
+          queue_start() {
+            systemctl start --no-block "$1" || true
+          }
+
           for service in \
             affine-postgresql-password.service \
             affine-postgresql-extensions.service \
@@ -155,30 +160,45 @@ in
           done
 
           for service in $restarted_services; do
-            systemctl start --no-block "$service" || true
+            queue_start "$service"
           done
-          systemctl start affine-postgresql-extensions.service || true
-          systemctl start affine-postgresql-password.service || true
-          systemctl start gitea-oidc-config.service || true
-          systemctl start plane-postgresql-password.service || true
-          systemctl start plane-rabbitmq-config.service || true
-          systemctl start plane-migrate.service || true
-          systemctl start podman-plane-api.service || true
-          systemctl start podman-plane-worker.service || true
-          systemctl start podman-plane-beat-worker.service || true
-          systemctl start podman-plane-live.service || true
-          systemctl start plane-admin-bootstrap.service || true
-          systemctl start invoiceplane-mysql-password.service || true
-          systemctl start invoiceplane-prepare.service || true
-          systemctl start phpfpm-invoiceplane.service || true
-          systemctl start invoiceplane-bootstrap.service || true
+          queue_start affine-postgresql-extensions.service
+          queue_start affine-postgresql-password.service
+          queue_start gitea-oidc-config.service
+          queue_start plane-postgresql-password.service
+          queue_start plane-rabbitmq-config.service
+          queue_start plane-migrate.service
+          queue_start podman-plane-api.service
+          queue_start podman-plane-worker.service
+          queue_start podman-plane-beat-worker.service
+          queue_start podman-plane-live.service
+          queue_start plane-admin-bootstrap.service
+          queue_start invoiceplane-mysql-password.service
+          queue_start invoiceplane-prepare.service
+          queue_start phpfpm-invoiceplane.service
+          queue_start invoiceplane-bootstrap.service
         }
         trap cleanup EXIT
 
+        stop_pending=
         for service in ${concatStringsSep " " backupGuardedServices}; do
           if systemctl is-active --quiet "$service"; then
-            systemctl stop "$service"
             restarted_services="$restarted_services $service"
+            stop_pending="$stop_pending $service"
+            systemctl stop --no-block "$service"
+          fi
+        done
+
+        for service in $stop_pending; do
+          for attempt in $(seq 1 60); do
+            if ! systemctl is-active --quiet "$service"; then
+              break
+            fi
+            sleep 1
+          done
+          if systemctl is-active --quiet "$service"; then
+            echo "$service did not stop within 60 seconds; refusing to run backup"
+            exit 1
           fi
         done
 

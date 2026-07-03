@@ -84,15 +84,15 @@ let
   technitium-dns-server_15_2_0 = pkgs.callPackage ../../modules/gateway/technitium/package.nix {
     technitium-dns-server-library = technitium-dns-server-library_15_2_0;
   };
-  homepage-dashboard_1_13_1 = pkgs.homepage-dashboard.overrideAttrs (
+  homepage-dashboard_1_13_2 = pkgs.homepage-dashboard.overrideAttrs (
     finalAttrs: previousAttrs: rec {
-      version = "1.13.1";
+      version = "1.13.2";
 
       src = pkgs.fetchFromGitHub {
         owner = "gethomepage";
         repo = "homepage";
         tag = "v${version}";
-        hash = "sha256-RKvBzHtxK/VNdSRoJSUiVmckG7jTTH75SEe6aX2xq1E=";
+        hash = "sha256-d6NNtaThDfVErGx7fFdqLdjx4UZXMN6CZUBpMZFZYhQ=";
       };
 
       pnpmDeps = pkgs.fetchPnpmDeps {
@@ -100,17 +100,17 @@ let
         inherit version src;
         pnpm = pkgs.pnpm_10;
         fetcherVersion = 3;
-        hash = "sha256-xd7F39WBSAy3ozJjI12XB+oGvijSGHIMYwQhdpaO/l8=";
+        hash = "sha256-jAcAbi++Wbyi07YdPuIhDAeNT4fJVAIxp51boD30x3k=";
       };
     }
   );
-  traefik_3_7_1 = pkgs.stdenvNoCC.mkDerivation rec {
+  traefik_3_7_6 = pkgs.stdenvNoCC.mkDerivation rec {
     pname = "traefik";
-    version = "3.7.1";
+    version = "3.7.6";
 
     src = pkgs.fetchurl {
       url = "https://github.com/traefik/traefik/releases/download/v${version}/traefik_v${version}_linux_amd64.tar.gz";
-      hash = "sha256-6SvPsD+h5qcMTnrU608WBJZ+b6PCHY52BaylQHpAFiw=";
+      hash = "sha256-O/BVVxSWH+AdjgfDiZeI/mVk2nU3TbV3XqmtfRi3Gl0=";
     };
 
     unpackPhase = ''
@@ -410,7 +410,7 @@ in
     linkTarget = "_blank";
     listenPort = 8082;
     openFirewall = true;
-    package = homepage-dashboard_1_13_1;
+    package = homepage-dashboard_1_13_2;
     serviceGroups = exposureCatalog.homepage.serviceGroups;
   };
 
@@ -471,7 +471,7 @@ in
     enable = true;
     authentik.enable = true;
     metrics.enable = true;
-    package = traefik_3_7_1;
+    package = traefik_3_7_6;
     routes = exposureCatalog.traefikRoutes;
     tcpRoutes = exposureCatalog.traefikTcpRoutes;
     tls = {
@@ -555,7 +555,7 @@ in
 
         Declared services:
           Authentik: authentik-server.service and authentik-worker.service, version ${pkgs.authentik.version}, state /srv/appsdata/authentik, PostgreSQL data /srv/appsdata/authentik/postgresql, Redis data /srv/appsdata/authentik/redis, canonical URL https://auth.jax22.com, LAN alias http://auth.h, backend only on 127.0.0.1:9000, metrics on 127.0.0.1:9300
-          Traefik: traefik.service, version 3.7.1, HTTP ingress port 80, HTTPS ingress port 443 for jax22.com routes using Let's Encrypt DNS-01, ACME state /srv/appsdata/traefik/acme.json, dashboard and metrics port 8080, JSON access logs in the service journal
+          Traefik: traefik.service, version 3.7.6, HTTP ingress port 80, HTTPS ingress port 443 for jax22.com routes using Let's Encrypt DNS-01, ACME state /srv/appsdata/traefik/acme.json, dashboard and metrics port 8080, JSON access logs in the service journal
           Homepage: homepage-dashboard.service, declarative service directory, LAN access on ${host.ip}:8082, https://homepage.jax22.com, and http://homepage.h
           Technitium: technitium-dns-server.service, version 15.2.0, state /srv/appsdata/technitium-dns-server, admin HTTP on ${host.ip}:5380, https://technitium.jax22.com, and http://technitium.h
           Gluetun: podman-gluetun.service, PIA OpenVPN container, state /srv/appsdata/gluetun, unauthenticated LAN HTTP proxy on ${host.ip}:8888, authenticated control API internal to the container namespace

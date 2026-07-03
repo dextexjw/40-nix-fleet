@@ -181,7 +181,7 @@ and is included in Gateway appdata backups. OpenTelemetry tracing is declared in
 the Gateway Traefik module but should only be enabled after an OTLP collector
 endpoint is available.
 
-`gateway-vm` intentionally pins Traefik to the upstream `3.7.1` Linux AMD64
+`gateway-vm` intentionally pins Traefik to the upstream `3.7.6` Linux AMD64
 release artifact, Technitium DNS to the upstream `15.2.0` source release, and
 Gluetun to `ghcr.io/qdm12/gluetun@sha256:2f33c71e5e164fcd51a962cb950134df25155593edf0c3e1201f888d027049b4`
 while the rest of the fleet remains on the locked `nixpkgs` package set.

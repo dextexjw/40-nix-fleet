@@ -130,7 +130,7 @@ let
       def identity_from_tags(tags):
           identities = [
               tag for tag in tags
-              if tag.startswith("fleet-service:") or tag.startswith("fleet-host:")
+              if isinstance(tag, str) and (tag.startswith("fleet-service:") or tag.startswith("fleet-host:"))
           ]
           return identities[0] if identities else None
 
@@ -207,11 +207,6 @@ let
 
       def build_service_body(target):
           identity = f"fleet-service:{target['id']}"
-          tags = [
-              managed_tag,
-              identity,
-              f"fleet-group:{target['group']}",
-          ]
           body = {
               "description": managed_description(identity, target["description"]),
               "group": target["group"],
@@ -220,7 +215,6 @@ let
               "name": target["name"],
               "statusWindowSize": 5,
               "statusWindowThreshold": 60,
-              "tags": tags,
               "type": target["type"],
               "url": target["url"],
           }
@@ -250,11 +244,6 @@ let
               "secret": capture_secret,
               "statusWindowSize": 5,
               "statusWindowThreshold": 60,
-              "tags": [
-                  managed_tag,
-                  identity,
-                  f"fleet-group:{target['group']}",
-              ],
               "tempAlertThreshold": 100,
               "type": "hardware",
               "url": target["url"],

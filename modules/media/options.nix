@@ -186,7 +186,7 @@ in
 
       image = mkOption {
         type = types.str;
-        default = "ghcr.io/bookorbit/bookorbit:1.10.0";
+        default = "ghcr.io/bookorbit/bookorbit@sha256:70bef7bef8b0d0fa938c980b5a128f86bbde656cde04f4ab0549b9b91ebb2e14";
         description = "Pinned BookOrbit OCI image reference.";
       };
 
@@ -295,13 +295,13 @@ in
 
     qbittorrent.image = mkOption {
       type = types.str;
-      default = "lscr.io/linuxserver/qbittorrent@sha256:715d2bfbcf1cd3d734cbbd4fbd599eb7ea0642eaa079a372dd0d343f59516700";
+      default = "lscr.io/linuxserver/qbittorrent@sha256:163f3384db6cba9f68eaa83ca5f4209298b6029ba2d07b5e67562d0715baf5b9";
       description = "Pinned qBittorrent OCI image reference.";
     };
 
     sabnzbd.image = mkOption {
       type = types.str;
-      default = "lscr.io/linuxserver/sabnzbd@sha256:6b392fce45ed587ba7213259fbce6f9f725b157b746b36ec53d3f08ee415602e";
+      default = "lscr.io/linuxserver/sabnzbd@sha256:30cc2eb9e1c8b7c5bb90dbf3c7abb0e66643c21c3710e273a82d2f36239e176d";
       description = "Pinned SABnzbd OCI image reference.";
     };
 

@@ -17,7 +17,7 @@ in
 {
   config = mkIf cfg.enable {
     virtualisation.oci-containers.containers.shlink = {
-      image = "docker.io/shlinkio/shlink@sha256:1af04c6e180c09428e9fa7d2a52b39accecb0bc3ff4fc5264122add7b6f0a922";
+      image = "docker.io/shlinkio/shlink@sha256:77b8eb87bcb1a56bd0ecc590398d415545e5ba83414f28d37dc565a91c3c50b2";
       pull = "missing";
 
       environment = {
@@ -43,7 +43,7 @@ in
     };
 
     virtualisation.oci-containers.containers.shlink-web = {
-      image = "docker.io/shlinkio/shlink-web-client@sha256:bb5013171288cba8686588f142f3d6729e586828f7a2a93a9ac1ac66724a47ff";
+      image = "docker.io/shlinkio/shlink-web-client@sha256:ec804a7f9dc8d5f64615c780106d4d954ec81648dc2a1393442c68da8e48e102";
       pull = "missing";
 
       dependsOn = [ "shlink" ];

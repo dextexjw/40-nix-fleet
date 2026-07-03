@@ -127,7 +127,7 @@ in
     ];
 
     virtualisation.oci-containers.containers.memos = {
-      image = "docker.io/neosmemo/memos@sha256:62896725e9f84cc1c6afa6319f8ac759bc7d64670a9e003ef0844c12d345eadb";
+      image = "docker.io/neosmemo/memos@sha256:3e1253477066eb2aefa91145f7f9038bb931ed88c8a3ee05310a933594cdba7d";
       pull = "missing";
 
       environment = {

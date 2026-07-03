@@ -109,6 +109,12 @@ in
           };
           smoke.http = {
             discard = true;
+            okStatusPatterns = [
+              "2*"
+              "30[1278]"
+              "401"
+              "403"
+            ];
             path = "/";
           };
         }

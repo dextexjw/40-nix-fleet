@@ -58,8 +58,15 @@ let
     let
       path = http.path or "/";
       curl = if http.discard or false then "curl -fsS -o /dev/null" else "curl -fsS";
+      okStatusPatterns = http.okStatusPatterns or [ ];
+      okStatusCase = concatStringsSep "|" okStatusPatterns;
     in
-    http.command or "${curl} -H 'Host: ${hostName}' http://127.0.0.1${path} >/dev/null";
+    http.command or (
+      if okStatusPatterns != [ ] then
+        "status=$(curl -sS -o /dev/null -w '%{http_code}' -H 'Host: ${hostName}' http://127.0.0.1${path}); case \"$status\" in ${okStatusCase}) exit 0 ;; *) echo \"unexpected status $status\" >&2; exit 1 ;; esac"
+      else
+        "${curl} -H 'Host: ${hostName}' http://127.0.0.1${path} >/dev/null"
+    );
 
   mkHttpsCommand =
     service: http: hostName:
@@ -68,9 +75,13 @@ let
       curl = if http.discard or false then "curl -fsS -o /dev/null" else "curl -fsS";
       auth = serviceAuth service;
       expectsAuth = auth.mode == "forward-auth" && elem hostName auth.protectedHosts;
+      okStatusPatterns = http.okStatusPatterns or [ ];
+      okStatusCase = concatStringsSep "|" okStatusPatterns;
     in
     http.httpsCommand or (
-      if expectsAuth then
+      if okStatusPatterns != [ ] then
+        "status=$(curl -sS -o /dev/null -w '%{http_code}' --resolve '${hostName}:443:127.0.0.1' https://${hostName}${path}); case \"$status\" in ${okStatusCase}) exit 0 ;; *) echo \"unexpected status $status\" >&2; exit 1 ;; esac"
+      else if expectsAuth then
         "status=$(curl -sS -o /dev/null -w '%{http_code}' --resolve '${hostName}:443:127.0.0.1' https://${hostName}${path}); case \"$status\" in 30[1278]|401|403) exit 0 ;; *) echo \"unexpected auth status $status\" >&2; exit 1 ;; esac"
       else
         "${curl} --resolve '${hostName}:443:127.0.0.1' https://${hostName}${path} >/dev/null"

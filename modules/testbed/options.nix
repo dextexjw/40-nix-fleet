@@ -135,7 +135,7 @@ in
 
       image = mkOption {
         type = types.str;
-        default = "ghcr.io/toeverything/affine@sha256:295420d621d0d36e701e07072e467579c17e6fe74095d954eeb6f6df3453213d";
+        default = "ghcr.io/toeverything/affine@sha256:725aaceb0ed94d4b832ae6ef9414503291c9b2b4f60bd6f3c7eef571b6149add";
         description = "Pinned AFFiNE OCI image reference.";
       };
 
@@ -531,7 +531,7 @@ in
 
       image = mkOption {
         type = types.str;
-        default = "ghcr.io/ridafkih/keeper-services:2.12";
+        default = "ghcr.io/ridafkih/keeper-services@sha256:0d72423e4e60f503f791ae49aa54f2b9fbecd053e4aa6138971d8716413402af";
         description = "Pinned Keeper services OCI image.";
       };
 
@@ -727,7 +727,7 @@ in
 
       backendImage = mkOption {
         type = types.str;
-        default = "docker.io/makeplane/plane-backend@sha256:2da6972c81a0ac797c9d04db448aa5985e1257fc5d9724b165e9c07791e8cc64";
+        default = "docker.io/makeplane/plane-backend@sha256:2cdcb5f778c6ccacebce0e5a751d39fac4a549a44e049a5b110a7623cfdad139";
         description = "Pinned Plane backend OCI image.";
       };
 
@@ -751,19 +751,19 @@ in
 
       frontendImage = mkOption {
         type = types.str;
-        default = "docker.io/makeplane/plane-frontend@sha256:20d83ae9257415593a0522b607b3827dde429d8511b1bcf97f6313e55fc60c09";
+        default = "docker.io/makeplane/plane-frontend@sha256:c178fd85c4588165262cfe748bd103fdeccebbbab827c53e71b9ce32fff84f86";
         description = "Pinned Plane frontend OCI image.";
       };
 
       adminImage = mkOption {
         type = types.str;
-        default = "docker.io/makeplane/plane-admin@sha256:82a2b82f34a24b95e2b663327c34d32828d24680aef258f901ebc0adc27542ea";
+        default = "docker.io/makeplane/plane-admin@sha256:ff9219127a2c2c4a4bb066d6a0e25a5fc6a11204cf8484b521dada53d696fe43";
         description = "Pinned Plane admin OCI image.";
       };
 
       liveImage = mkOption {
         type = types.str;
-        default = "docker.io/makeplane/plane-live@sha256:d9ce8992425d9724ccd972f532dd46476b64c53c9e886f0a4eda8915f8b700d2";
+        default = "docker.io/makeplane/plane-live@sha256:2073b6950a394545ea1db6ed4157e951ad5a6e1881e74f4f9238ace6c35bbf3d";
         description = "Pinned Plane live collaboration OCI image.";
       };
 
@@ -829,7 +829,7 @@ in
 
       spaceImage = mkOption {
         type = types.str;
-        default = "docker.io/makeplane/plane-space@sha256:d03aa511c5292b6feb3119fc8d399e0e2f8c2e5b308c076779691cff54bd3451";
+        default = "docker.io/makeplane/plane-space@sha256:e08c2c8741ae6f81a9326dc9201e7e09c0c411b87a20198f9ea9e5cf2fae3488";
         description = "Pinned Plane Space OCI image.";
       };
 
