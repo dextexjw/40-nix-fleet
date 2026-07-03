@@ -115,6 +115,7 @@ in
         garageWeb = 3902;
         gitea = 3000;
         iperf3 = 5201;
+        itTools = 8093;
         memos = 5230;
         netbootxyzAsset = 8083;
         netbootxyzTftp = 69;
@@ -194,6 +195,40 @@ in
           type = types.str;
           default = "2048m";
           description = "Podman total memory plus swap limit for the AFFiNE server and migration container.";
+        };
+      };
+    };
+
+    itTools = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run IT-Tools on productivity-vm.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/corentinth/it-tools@sha256:6f177c156b9466610e0f2093e24668b78da501c66f0054f98bccb582b74ab26b";
+        description = "Pinned IT-Tools OCI image reference.";
+      };
+
+      resources = {
+        cpus = mkOption {
+          type = types.str;
+          default = "0.5";
+          description = "Podman CPU limit for IT-Tools.";
+        };
+
+        memory = mkOption {
+          type = types.str;
+          default = "128m";
+          description = "Podman memory limit for IT-Tools.";
+        };
+
+        memorySwap = mkOption {
+          type = types.str;
+          default = "192m";
+          description = "Podman total memory plus swap limit for IT-Tools.";
         };
       };
     };

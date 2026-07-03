@@ -20,6 +20,7 @@ let
     cfg.ports.garageS3
     cfg.ports.garageWeb
     cfg.ports.gitea
+    cfg.ports.itTools
     cfg.ports.memos
     cfg.ports.openspeedtest
     cfg.ports.rustfsApi

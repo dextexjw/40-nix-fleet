@@ -155,6 +155,7 @@ let
     "podman-memos.service"
     "podman-netbootxyz.service"
     "podman-openspeedtest.service"
+    "podman-it-tools.service"
     "rustdesk-signal.service"
     "rustdesk-relay.service"
     "garage.service"

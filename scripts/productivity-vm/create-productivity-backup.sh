@@ -22,6 +22,7 @@ SERVICES=(
   syncthing.service
   phpfpm-nextcloud.service
   podman-openspeedtest.service
+  podman-it-tools.service
   podman-netbootxyz.service
   iperf3.service
   podman-memos.service

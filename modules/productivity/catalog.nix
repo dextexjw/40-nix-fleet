@@ -220,6 +220,24 @@ in
             path = "/";
           };
         })
+        (mkService {
+          id = "it-tools";
+          name = "IT-Tools";
+          port = 8093;
+          routeDescription = "IT-Tools developer utilities";
+          icon = "it-tools.png";
+          homepageDescription = "Developer utilities\n${backend 8093}";
+          hostNames = [ "it-tools.jax22.com" ];
+          homepageSiteMonitor = "${backend 8093}/";
+          authMode = "forward-auth";
+          authGroups = [ "productivity-users" ];
+          checkmate.url = "https://it-tools.jax22.com/";
+          smokeHttp = {
+            discard = true;
+            hosts = [ "it-tools.jax22.com" ];
+            path = "/";
+          };
+        })
         (mkRouteOnly {
           id = "shlink";
           name = "Shlink API";

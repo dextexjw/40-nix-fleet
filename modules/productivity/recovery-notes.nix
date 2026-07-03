@@ -30,7 +30,7 @@ in
         productivity-vm runs AFFiNE, the On-Demand Apps Dashboard, Gitea, Forgejo,
         Material for MkDocs, Paperless-ngx, FreshRSS, SearXNG, Vaultwarden,
         PrivateBin, Syncthing, Stirling PDF, Firefly III, Nextcloud,
-        OpenSpeedTest, Memos, netboot.xyz, iperf3, RustDesk,
+        OpenSpeedTest, IT-Tools, Memos, netboot.xyz, iperf3, RustDesk,
         Shlink, Garage, RustFS, nginx, PostgreSQL, Redis, and
         Restic appdata backups.
 
@@ -45,6 +45,7 @@ in
 
         Internal routes through Gateway nodes:
       ${serviceRouteLines}
+        https://it-tools.jax22.com
 
         Direct LAN ports:
           AFFiNE: ${toString cfg.ports.affine}
@@ -56,6 +57,7 @@ in
           Syncthing GUI: ${toString cfg.ports.syncthing}
           Stirling PDF: ${toString cfg.ports.stirlingPdf}
           OpenSpeedTest: ${toString cfg.ports.openspeedtest}
+          IT-Tools: ${toString cfg.ports.itTools} (Gateway nodes only)
           netboot.xyz WebUI: ${toString cfg.netbootxyz.webUiPort}
           netboot.xyz assets: ${toString cfg.netbootxyz.assetPort}
           netboot.xyz TFTP UDP: ${toString cfg.netbootxyz.tftpPort}
@@ -136,6 +138,14 @@ in
 
         iperf3 is available through gateway-vm and direct productivity-vm access:
         iperf3 -c ${serviceHosts.iperf3} -p ${toString cfg.ports.iperf3}
+
+        IT-Tools runs as podman-it-tools.service on
+        ${config.networking.hostName}:${toString cfg.ports.itTools}. It is
+        stateless: saved tools/favorites live in browser local storage, so there
+        is no /srv/appsdata/it-tools path, no SOPS secret, and no app-specific
+        restore step. Gateway Traefik routes https://it-tools.jax22.com through
+        Authentik forward-auth for productivity-users. No it-tools.h route is
+        declared.
 
         Shlink uses the PostgreSQL database named shlink and the short-link route
         ${serviceHosts.shlink}. The local Shlink Web Client is served at

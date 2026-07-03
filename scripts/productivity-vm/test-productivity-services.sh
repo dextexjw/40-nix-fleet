@@ -28,6 +28,7 @@ KEY_SERVICES=(
   syncthing
   phpfpm-nextcloud
   podman-openspeedtest
+  podman-it-tools
   iperf3
   podman-memos
   podman-netbootxyz
@@ -75,6 +76,7 @@ declare -A OPTIONAL_FIRST_DEPLOY_SERVICE=(
   [forgejo]=1
   [iperf3]=1
   [podman-affine]=1
+  [podman-it-tools]=1
   [podman-openspeedtest]=1
   [redis-affine]=1
   [podman-memos]=1
@@ -330,6 +332,10 @@ if ! service_is_skipped phpfpm-firefly-iii; then
 fi
 if ! service_is_skipped podman-openspeedtest; then
   colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8989/ >/dev/null"
+fi
+if ! service_is_skipped podman-it-tools; then
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:8093/ >/dev/null"
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 -H 'Host: it-tools.jax22.com' http://127.0.0.1:8093/ >/dev/null"
 fi
 if ! service_is_skipped iperf3; then
   colmena exec --on "$HOST" -- "iperf3 -c 127.0.0.1 -p 5201 -t 1 >/dev/null"

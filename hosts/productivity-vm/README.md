@@ -2,7 +2,7 @@
 
 `productivity-vm` runs the personal productivity stack, AFFiNE, the
 On-Demand Apps Dashboard, nginx-backed internal apps, Git forges,
-OpenSpeedTest, iperf3,
+OpenSpeedTest, IT-Tools, iperf3,
 RustDesk, Shlink short links, Memos notes, netboot.xyz,
 standalone Garage and RustFS object storage, PostgreSQL, appdata
 backups, and restore checks.
@@ -49,6 +49,7 @@ path backed up by Restic.
 | Firefly III | `https://firefly.jax22.com` | `http://firefly.h` | `10.2.20.114:80` |
 | Nextcloud | `https://nextcloud.jax22.com` | `http://nextcloud.h` | `10.2.20.114:80` |
 | OpenSpeedTest | `https://openspeedtest.jax22.com` | `http://openspeedtest.h` | `10.2.20.114:8989` |
+| IT-Tools | `https://it-tools.jax22.com` | none | `10.2.20.114:8093` from Gateway nodes only |
 | Memos | `https://memos.jax22.com` | `http://memos.h` | `10.2.20.114:5230` |
 | netboot.xyz WebUI | `https://netbootxyz.jax22.com` | `http://netbootxyz.h` | `10.2.20.114:3001` |
 | iperf3 | `iperf3.jax22.com:5201` | `iperf3.h:5201` | `10.2.20.114:5201/tcp+udp` |
@@ -63,6 +64,8 @@ Traefik routes and Homepage cards are declared on the Gateway nodes.
 The On-Demand Apps Dashboard route is protected by Authentik forward-auth for
 `productivity-users` plus the fleet-wide `fleet-admins` admin override; its
 backend port is source-restricted to `gateway-vm` and `gateway2-vm`.
+IT-Tools is also protected by Authentik forward-auth for `productivity-users`
+at `https://it-tools.jax22.com`; no `it-tools.h` LAN alias is declared.
 netboot.xyz local assets are served at `10.2.20.114:8083`; TFTP is served at
 `10.2.20.114:69/udp` with boot file `netboot.xyz.efi`.
 
@@ -97,6 +100,9 @@ Important appdata paths:
 `productivity-memos-sqlite-backup.service` writes
 `/srv/appsdata/memos-backups/latest.db` before Restic backups when the Memos
 SQLite database exists.
+
+IT-Tools has no server-side appdata path. Browser-side saved values remain in
+client local storage, so there is no `/srv/appsdata/it-tools` restore step.
 
 netboot.xyz runs as `podman-netbootxyz.service` with persistent config and
 downloaded assets under `/srv/appsdata/netbootxyz`. Configure the LAN DHCP
@@ -169,6 +175,9 @@ Required productivity secrets:
 Required Gateway/Auth secret for AFFiNE exposure:
 
 - `affine-oidc-client-secret`
+
+IT-Tools uses Gateway Authentik forward-auth and does not require a SOPS secret
+or app-side OIDC client secret.
 
 Gitea uses native OIDC with Authentik. Authentik provisions the `gitea`
 client and allows `productivity-users`; `gitea-oidc-config.service` provisions
@@ -386,6 +395,10 @@ iperf3 is available through Gateway and direct productivity-vm access:
 iperf3 -c iperf3.jax22.com -p 5201
 iperf3 -u -c iperf3.jax22.com -p 5201
 ```
+
+IT-Tools runs as `podman-it-tools.service` on `10.2.20.114:8093`. Gateway
+Traefik routes only `https://it-tools.jax22.com` to that backend and protects
+the route with Authentik forward-auth for `productivity-users`.
 
 Shlink uses `s.jax22.com` for short links and its API. The local Shlink Web
 Client is served at `shlink.jax22.com`. Get the API key from the encrypted

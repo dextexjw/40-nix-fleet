@@ -16,6 +16,7 @@
     ./services/firefly.nix
     ./services/nextcloud.nix
     ./services/openspeedtest.nix
+    ./services/it-tools.nix
     ./services/iperf3.nix
     ./services/rustdesk.nix
     ./services/vaultwarden.nix

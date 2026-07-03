@@ -59,9 +59,10 @@ for domain in "${SERVICE_DOMAINS[@]}"; do
 done
 
 printf 'Checking declarative Checkmate provisioning state...\n'
-colmena exec --on "$HOST" -- "getent hosts homepage.jax22.com | grep -q '10[.]2[.]20[.]112'"
+colmena exec --on "$HOST" -- "getent hosts homepage.jax22.com | grep -q '10[.]2[.]20[.]102'"
 colmena exec --on "$HOST" -- "jq -e '.expectedServiceMonitors == (.serviceMonitors | length) and .expectedHardwareMonitors == (.hardwareMonitors | length) and .expectedManagedMonitors == (.expectedServiceMonitors + .expectedHardwareMonitors)' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'any(.serviceMonitors[]; .id == \"memos\") and any(.serviceMonitors[]; .id == \"openspeedtest\") and all(.serviceMonitors[]; (.id | test(\"^libr(e)?speed$\") | not))' /etc/fleet/checkmate-targets.json >/dev/null"
+colmena exec --on "$HOST" -- "jq -e 'any(.serviceMonitors[]; .id == \"it-tools\" and .type == \"http\" and .url == \"https://it-tools.jax22.com/\")' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'any(.serviceMonitors[]; .id == \"ntfy\" and .type == \"http\" and .url == \"https://ntfy.jax22.com/v1/health\")' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'any(.serviceMonitors[]; .id == \"gluetun\" and .type == \"http\" and .url == \"https://gluetun.gateway.jax22.com/\") and any(.serviceMonitors[]; .id == \"media-gluetun\" and .type == \"http\" and .url == \"https://gluetun.media.jax22.com/\")' /etc/fleet/checkmate-targets.json >/dev/null"
 colmena exec --on "$HOST" -- "jq -e 'all(.hardwareMonitors[]; .url | endswith(\"/api/v1/metrics\"))' /etc/fleet/checkmate-targets.json >/dev/null"
