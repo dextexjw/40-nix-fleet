@@ -15,11 +15,9 @@ let
   inherit (productivityLib) cfg;
   gatewayOnlyTCPPorts = unique [
     80
-    cfg.ports.affine
     cfg.ports.forgejo
     cfg.ports.garageS3
     cfg.ports.garageWeb
-    cfg.ports.gitea
     cfg.ports.itTools
     cfg.ports.memos
     cfg.ports.openspeedtest
@@ -28,7 +26,6 @@ let
     cfg.ports.searxng
     cfg.ports.shlink
     cfg.ports.shlinkWeb
-    cfg.ports.stirlingPdf
     cfg.ports.syncthing
     cfg.ports.vaultwarden
   ];
@@ -37,7 +34,7 @@ let
     concatMapStringsSep "\n" (
       gatewayAddress:
       "iptables -A nixos-fw -p tcp -s ${gatewayAddress} --dport ${toString port} -j nixos-fw-accept"
-    ) cfg.onDemandLauncher.gatewayAddresses;
+    ) cfg.gatewayAddresses;
 in
 {
   config = mkIf cfg.enable {

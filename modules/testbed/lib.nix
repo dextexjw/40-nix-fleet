@@ -10,7 +10,10 @@ let
   cfg = config.fleet.testbed.stack;
   appdata = cfg.appdataRoot;
   serviceHostPrefixes = {
+    affine = "affine";
+    firefly = "firefly";
     fizzy = "fizzy";
+    gitea = "gitea";
     homebox = "homebox";
     invoiceplane = "invoiceplane";
     kaneo = "kaneo";
@@ -20,10 +23,14 @@ let
     outline = "outline";
     plane = "plane";
     postiz = "postiz";
+    stirlingPdf = "stirling-pdf";
     sure = "sure";
   };
   serviceHostKeys = [
+    "affine"
+    "firefly"
     "fizzy"
+    "gitea"
     "homebox"
     "invoiceplane"
     "kaneo"
@@ -33,6 +40,7 @@ let
     "outline"
     "plane"
     "postiz"
+    "stirlingPdf"
     "sure"
   ];
   mkServiceHostNames =
@@ -64,8 +72,13 @@ let
   ) cfg.smb.mountOptions;
 
   statefulServices = [
+    "redis-affine.service"
+    "podman-affine.service"
+    "gitea.service"
     "podman-fizzy.service"
     "homebox.service"
+    "phpfpm-firefly-iii.service"
+    "firefly-iii-cron.timer"
     "phpfpm-invoiceplane.service"
     "invoiceplane-bootstrap.service"
     "podman-kaneo.service"
@@ -89,6 +102,7 @@ let
     "podman-postiz-temporal.service"
     "podman-postiz-temporal-elasticsearch.service"
     "podman-postiz-temporal-postgres.service"
+    "stirling-pdf.service"
     "podman-sure-web.service"
     "podman-sure-worker.service"
     "postgresql.service"

@@ -10,14 +10,11 @@ let
   cfg = config.fleet.productivity.stack;
   appdata = cfg.appdataRoot;
   serviceHostPrefixes = {
-    affine = "affine";
     docs = "docs";
-    firefly = "firefly";
     forgejo = "forgejo";
     freshrss = "freshrss";
     garage = "garage";
     garageWeb = "s3.garage";
-    gitea = "gitea";
     iperf3 = "iperf3";
     memos = "memos";
     netbootxyz = "netbootxyz";
@@ -31,13 +28,10 @@ let
     searxng = "searxng";
     shlink = "s";
     shlinkWeb = "shlink";
-    stirlingPdf = "stirling-pdf";
     syncthing = "syncthing";
     vaultwarden = "vaultwarden";
   };
   serviceHostKeys = [
-    "affine"
-    "gitea"
     "forgejo"
     "docs"
     "paperless"
@@ -46,8 +40,6 @@ let
     "privatebin"
     "vaultwarden"
     "syncthing"
-    "stirlingPdf"
-    "firefly"
     "nextcloud"
     "openspeedtest"
     "iperf3"
@@ -131,9 +123,6 @@ let
   ];
 
   statefulServices = [
-    "redis-affine.service"
-    "podman-affine.service"
-    "gitea.service"
     "forgejo.service"
     "nginx.service"
     "paperless-scheduler.service"
@@ -147,9 +136,6 @@ let
     "vaultwarden.service"
     "phpfpm-privatebin.service"
     "syncthing.service"
-    "stirling-pdf.service"
-    "phpfpm-firefly-iii.service"
-    "firefly-iii-cron.timer"
     "phpfpm-nextcloud.service"
     "iperf3.service"
     "podman-memos.service"

@@ -1,11 +1,14 @@
 # productivity-vm
 
-`productivity-vm` runs the personal productivity stack, AFFiNE, the
-On-Demand Apps Dashboard, nginx-backed internal apps, Git forges,
+`productivity-vm` runs the personal productivity stack, nginx-backed internal apps, Git forges,
 OpenSpeedTest, IT-Tools, iperf3,
 RustDesk, Shlink short links, Memos notes, netboot.xyz,
 standalone Garage and RustFS object storage, PostgreSQL, appdata
 backups, and restore checks.
+
+AFFiNE, Gitea, Stirling PDF, and Firefly III are now testbed-vm-owned
+always-on services. Their public URLs are unchanged, but Gateway and Homepage
+point at `10.2.20.129`.
 
 Fleet inventory lives in `../../hosts.nix`. Host configuration lives in
 `configuration.nix` and imports the stack from
@@ -34,9 +37,6 @@ path backed up by Restic.
 
 | Service | Canonical route | Alias | Backend |
 | --- | --- | --- | --- |
-| AFFiNE | `https://affine.jax22.com` | `http://affine.h` | `10.2.20.114:3010` |
-| On-Demand Apps Dashboard | `https://ondemand.jax22.com` | none | `10.2.20.114:8092` from Gateway nodes only |
-| Gitea | `https://gitea.jax22.com` | `http://gitea.h` | `10.2.20.114:3000` |
 | Forgejo | `https://forgejo.jax22.com` | `http://forgejo.h` | `10.2.20.114:3002` |
 | Material for MkDocs | `https://docs.jax22.com` | `http://docs.h` | `10.2.20.114:80` |
 | Paperless-ngx | `https://paperless.jax22.com` | `http://paperless.h` | `10.2.20.114:80` |
@@ -45,8 +45,6 @@ path backed up by Restic.
 | PrivateBin | `https://privatebin.jax22.com` | `http://privatebin.h` | `10.2.20.114:80` |
 | Vaultwarden | `https://vaultwarden.jax22.com` | `http://vaultwarden.h` | `10.2.20.114:8222` |
 | Syncthing | `https://syncthing.jax22.com` | `http://syncthing.h` | `10.2.20.114:8384` |
-| Stirling PDF | `https://stirling-pdf.jax22.com` | `http://stirling-pdf.h` | `10.2.20.114:8086` |
-| Firefly III | `https://firefly.jax22.com` | `http://firefly.h` | `10.2.20.114:80` |
 | Nextcloud | `https://nextcloud.jax22.com` | `http://nextcloud.h` | `10.2.20.114:80` |
 | OpenSpeedTest | `https://openspeedtest.jax22.com` | `http://openspeedtest.h` | `10.2.20.114:8989` |
 | IT-Tools | `https://it-tools.jax22.com` | none | `10.2.20.114:8093` from Gateway nodes only |
@@ -61,9 +59,6 @@ path backed up by Restic.
 | RustFS S3 API | `https://s3.rustfs.jax22.com` | `http://s3.rustfs.h` | `10.2.20.114:9000` |
 | RustFS console | `https://rustfs.jax22.com` | `http://rustfs.h` | `10.2.20.114:9001` |
 Traefik routes and Homepage cards are declared on the Gateway nodes.
-The On-Demand Apps Dashboard route is protected by Authentik forward-auth for
-`productivity-users` plus the fleet-wide `fleet-admins` admin override; its
-backend port is source-restricted to `gateway-vm` and `gateway2-vm`.
 IT-Tools is also protected by Authentik forward-auth for `productivity-users`
 at `https://it-tools.jax22.com`; no `it-tools.h` LAN alias is declared.
 netboot.xyz local assets are served at `10.2.20.114:8083`; TFTP is served at
@@ -73,22 +68,18 @@ netboot.xyz local assets are served at `10.2.20.114:8083`; TFTP is served at
 
 Important appdata paths:
 
-- `/srv/appsdata/affine`
-- `/srv/appsdata/gitea`
 - `/srv/appsdata/forgejo`
 - `/srv/appsdata/mkdocs`
 - `/srv/appsdata/paperless`
 - `/srv/appsdata/freshrss`
 - `/srv/appsdata/privatebin`
 - `/srv/appsdata/shlink`
-- `/srv/appsdata/firefly-iii`
 - `/srv/appsdata/nextcloud`
 - `/srv/appsdata/memos`
 - `/srv/appsdata/memos-backups`
 - `/srv/appsdata/netbootxyz`
 - `/srv/appsdata/vaultwarden`
 - `/srv/appsdata/syncthing`
-- `/srv/appsdata/stirling-pdf`
 - `/srv/appsdata/rustdesk`
 - `/srv/appsdata/garage`
 - `/srv/appsdata/rustfs`
@@ -110,26 +101,6 @@ server to point option 66 at `10.2.20.114` and option 67 at
 `netboot.xyz.efi`. Gateway Traefik routes only the browser UI; the asset server
 and TFTP listener are direct Productivity LAN services.
 
-## On-Demand Apps
-
-Homepage cards for AFFiNE, Gitea, Stirling PDF, and Firefly III open the
-On-Demand Apps Dashboard instead of assuming the app is already running. The
-dashboard starts the allowlisted units, waits for the app health check, redirects
-to the normal app URL, and can stop the app again.
-
-Initial bundles:
-
-- `affine`: `redis-affine.service`, then `podman-affine.service`.
-- `gitea`: `gitea.service`, then `gitea-oidc-config.service`.
-- `stirling-pdf`: `stirling-pdf.service`.
-- `firefly`: `phpfpm-firefly-iii.service` and `firefly-iii-cron.timer`.
-
-These units remain installed but are not wanted by boot targets. Core services
-such as nginx, PostgreSQL, backups, restore checks, Gateway,
-Homepage, Traefik, and Authentik stay always-on. Dashboard actions are refused
-while backup, restore-check, dump, app migration, or deployment lock signals are
-active under `/run/on-demand-apps-dashboard/maintenance.lock`.
-
 ## Secrets
 
 Required shared secrets:
@@ -140,13 +111,8 @@ Required shared secrets:
 
 Required productivity secrets:
 
-- `affine-environment`
 - `authentik-bootstrap-email`
-- `firefly-admin-password`
-- `firefly-admin-username`
-- `firefly-app-key`
 - `forgejo-oidc-client-secret`
-- `gitea-oidc-client-secret`
 - `freshrss-admin-password`
 - `freshrss-admin-username`
 - `garage-admin-token`
@@ -172,19 +138,8 @@ Required productivity secrets:
 - `syncthing-gui-username`
 - `vaultwarden-environment`
 
-Required Gateway/Auth secret for AFFiNE exposure:
-
-- `affine-oidc-client-secret`
-
 IT-Tools uses Gateway Authentik forward-auth and does not require a SOPS secret
 or app-side OIDC client secret.
-
-Gitea uses native OIDC with Authentik. Authentik provisions the `gitea`
-client and allows `productivity-users`; `gitea-oidc-config.service` provisions
-the Gitea `authentik` OpenID Connect authentication source using the
-SOPS-managed `gitea-oidc-client-secret`. The only allowed callback is
-`https://gitea.jax22.com/user/oauth2/authentik/callback`. Local Gitea accounts
-and password login remain enabled for break-glass access.
 
 Forgejo uses native OIDC with Authentik. Authentik provisions the `forgejo`
 client and allows `productivity-users`; `forgejo-oidc-config.service`
@@ -221,19 +176,6 @@ installs the Authentik provider with `nextcloud-occ` from the encrypted
 separate from same-named local users by Nextcloud's unique OIDC user IDs, and
 `allow_multiple_user_backends=1` keeps local username/password login available
 for break-glass access.
-
-AFFiNE starts on demand as `podman-affine.service` on `10.2.20.114:3010`, stores
-uploads and config under `/srv/appsdata/affine`, uses PostgreSQL database
-`affine`, and uses `redis-affine.service` as a host-local volatile Redis cache.
-The `affine-environment` secret supplies `DB_PASSWORD`; the service generates
-the derived `DATABASE_URL` under `/run/affine/environment` at runtime.
-
-Gateway Authentik provisioning creates the `affine` OIDC client for
-`productivity-users` with callback `https://affine.jax22.com/oauth/callback`.
-AFFiNE's app-side OIDC settings are completed from the AFFiNE admin panel:
-`Admin Panel > Settings > OAuth`, OIDC config
-`{"args":{},"issuer":"https://auth.jax22.com/application/o/affine","clientId":"affine","clientSecret":"<affine-oidc-client-secret>"}`.
-Local AFFiNE email/password login remains available for break-glass access.
 
 FreshRSS is not wired to native OIDC in this NixOS deployment yet. The upstream
 FreshRSS OIDC path is Apache `mod_auth_openidc` or the official Apache-based
@@ -320,7 +262,7 @@ scripts/productivity-vm/deploy-productivity.sh
 
 `productivity-vm` backs up `/srv/appsdata` with Restic.
 
-- Timer service: `productivity-consistency-backup.service`
+- Timer service: `productivity-appdata-backup.service`
 - Restic service: `productivity-appdata-backup.service`
 - Timer: `productivity-appdata-backup.timer`
 - Source: `/srv/appsdata`
@@ -336,10 +278,8 @@ Recommended consistency-first manual backup:
 scripts/productivity-vm/create-productivity-backup.sh
 ```
 
-The manual backup helper records whether each on-demand app was running before
-the backup and only restarts those apps afterward.
-The scheduled timer uses the same maintenance lock and on-demand quiesce model
-before it runs the database dumps and Restic backup.
+The manual backup helper runs the database dumps and Restic backup for the
+always-on productivity services.
 
 Post-deploy validation:
 
@@ -355,8 +295,7 @@ Destructive restore outline:
 4. Choose a `productivity-vm` appdata snapshot ID.
 5. Restore the snapshot to `/` with `restic --verify`.
 6. Run `systemd-tmpfiles --create`.
-7. Restart PostgreSQL, MariaDB, and always-on productivity services. On-demand
-   apps remain stopped until opened through the On-Demand Apps Dashboard.
+7. Restart PostgreSQL and always-on productivity services.
 
 Garage is standalone S3 in this pass. It does not back Nextcloud primary
 storage. `garage.jax22.com` is the authenticated S3 API, so anonymous browser
@@ -410,11 +349,6 @@ Memos stores its SQLite database and local app state under `/srv/appsdata/memos`
 The pre-backup SQLite copy is `/srv/appsdata/memos-backups/latest.db`.
 `memos-oidc-config.service` declaratively keeps the Authentik OAuth2 provider
 visible on the Memos sign-in page without disabling existing local auth.
-
-Gitea uses Authentik native OIDC for `productivity-users`.
-`gitea-oidc-client-secret` is shared between Gateway Authentik provisioning and
-`gitea-oidc-config.service`. Local Gitea password login stays enabled for
-break-glass access. Gitea is started on demand through the On-Demand Apps Dashboard.
 
 Forgejo uses Authentik native OIDC for `productivity-users`.
 `forgejo-oidc-client-secret` is shared between Gateway Authentik provisioning

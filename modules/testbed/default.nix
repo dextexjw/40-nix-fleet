@@ -3,7 +3,10 @@
     ./options.nix
     ./common.nix
     ./mounts.nix
+    ./services/affine.nix
     ./services/fizzy.nix
+    ./services/firefly.nix
+    ./services/gitea.nix
     ./services/homebox.nix
     ./services/invoiceplane.nix
     ./services/kaneo.nix
@@ -12,6 +15,7 @@
     ./services/outline.nix
     ./services/plane.nix
     ./services/postiz.nix
+    ./services/stirling-pdf.nix
     ./services/sure.nix
     ./backup.nix
     ./firewall.nix

@@ -22,7 +22,10 @@ in
 {
   config = mkIf cfg.enable {
     networking.firewall.extraCommands = concatStringsSep "\n" [
+      (mkGatewayAccept cfg.ports.affine)
+      (mkGatewayAccept cfg.ports.firefly)
       (mkGatewayAccept cfg.ports.fizzy)
+      (mkGatewayAccept cfg.ports.gitea)
       (mkGatewayAccept cfg.ports.homebox)
       (mkGatewayAccept cfg.ports.invoiceplane)
       (mkGatewayAccept cfg.ports.kaneo)
@@ -33,6 +36,7 @@ in
       (mkGatewayAccept cfg.ports.outline)
       (mkGatewayAccept cfg.ports.plane)
       (mkGatewayAccept cfg.ports.postiz)
+      (mkGatewayAccept cfg.ports.stirlingPdf)
       (mkGatewayAccept cfg.ports.sure)
     ];
   };

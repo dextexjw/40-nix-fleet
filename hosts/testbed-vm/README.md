@@ -1,6 +1,6 @@
 # testbed-vm
 
-`testbed-vm` runs Fizzy as a project-board testbed, Homebox as a home-inventory
+`testbed-vm` runs AFFiNE, Gitea, Stirling PDF, Firefly III, Fizzy as a project-board testbed, Homebox as a home-inventory
 testbed, InvoicePlane as an invoicing testbed, Kaneo as a project-management testbed, Keeper as a calendar-sync
 testbed, Listmonk as a newsletter and mailing-list testbed, Outline as a
 knowledge-base testbed, Plane as a project-management testbed, Postiz as a
@@ -10,6 +10,18 @@ SMTP integration is intentionally added.
 
 ## Service URLs
 
+- AFFiNE public route: `https://affine.jax22.com/`
+- AFFiNE LAN alias: `http://affine.h/`
+- AFFiNE direct backend: `http://10.2.20.129:3010/` from Gateway nodes only
+- Gitea public route: `https://gitea.jax22.com/`
+- Gitea LAN alias: `http://gitea.h/`
+- Gitea direct backend: `http://10.2.20.129:9070/` from Gateway nodes only
+- Stirling PDF public route: `https://stirling-pdf.jax22.com/`
+- Stirling PDF LAN alias: `http://stirling-pdf.h/`
+- Stirling PDF direct backend: `http://10.2.20.129:8086/` from Gateway nodes only
+- Firefly III public route: `https://firefly.jax22.com/`
+- Firefly III LAN alias: `http://firefly.h/`
+- Firefly III direct backend: `http://10.2.20.129:80/` from Gateway nodes only
 - Fizzy public route: `https://fizzy.jax22.com/`
 - Fizzy LAN alias: `http://fizzy.h/`
 - Fizzy direct backend: `http://10.2.20.129:9010/` from Gateway nodes only
@@ -50,6 +62,13 @@ SMTP integration is intentionally added.
 ## State
 
 - Appdata root: `/srv/appsdata`
+- AFFiNE uploads and config: `/srv/appsdata/affine`
+- AFFiNE PostgreSQL database: `affine`
+- AFFiNE Redis cache: `redis-affine.service`
+- Gitea repositories, LFS, custom config, and dumps: `/srv/appsdata/gitea`
+- Gitea PostgreSQL database: `gitea`
+- Stirling PDF runtime state: `/srv/appsdata/stirling-pdf`
+- Firefly III runtime state: `/srv/appsdata/firefly-iii`
 - Fizzy SQLite, queue/cache databases, and uploads: `/srv/appsdata/fizzy/storage`
 - Homebox SQLite database, uploads, and generated assets: `/srv/appsdata/homebox`
 - InvoicePlane runtime state: `/srv/appsdata/invoiceplane`
@@ -81,10 +100,13 @@ SMTP integration is intentionally added.
 Required SOPS keys:
 
 - `admin-password-hash`
+- `affine-environment`
 - `beszel-agent-key`
 - `beszel-agent-token`
 - `checkmate-capture-environment`
+- `firefly-app-key`
 - `fizzy-secret-key-base`
+- `gitea-oidc-client-secret`
 - `homebox-api-key-pepper`
 - `homebox-oidc-client-secret`
 - `invoiceplane-admin-email`
@@ -144,6 +166,36 @@ Testbed apps submit mail to local Mailpit on `127.0.0.1:1025`. Homelab clients
 can submit capture-only mail through Gateway at `smtp.mailpit.jax22.com:25`.
 Mailpit accepts dummy SMTP AUTH for compatibility only; there are no real relay
 credentials or SOPS secrets for this endpoint.
+
+AFFiNE is exposed at `https://affine.jax22.com/` and `http://affine.h/` as an
+always-on container backed by native PostgreSQL database `affine` and
+`redis-affine.service`. The `affine-environment` secret supplies `DB_PASSWORD`;
+the derived `DATABASE_URL` is generated under `/run/affine/environment` at
+runtime. Authentik owns the `affine` client for `productivity-users` with
+callback `https://affine.jax22.com/oauth/callback`. Complete AFFiNE's app-side
+OIDC setup from the admin panel with issuer
+`https://auth.jax22.com/application/o/affine`, client ID `affine`, and the
+encrypted `affine-oidc-client-secret`.
+
+Gitea is exposed at `https://gitea.jax22.com/` and `http://gitea.h/` on backend
+port `9070` to avoid Keeper's `3000` port on testbed. It uses native PostgreSQL
+database `gitea` and native OIDC through Authentik client `gitea` for
+`productivity-users` with callback
+`https://gitea.jax22.com/user/oauth2/authentik/callback`.
+`gitea-oidc-config.service` provisions the `authentik` login source from the
+SOPS-managed `gitea-oidc-client-secret`. Local Gitea password login remains
+enabled for break-glass access.
+
+Stirling PDF is exposed at `https://stirling-pdf.jax22.com/` and
+`http://stirling-pdf.h/` as an always-on service with state under
+`/srv/appsdata/stirling-pdf`.
+
+Firefly III is exposed at `https://firefly.jax22.com/` and `http://firefly.h/`
+through the testbed nginx/PHP-FPM stack. It uses SQLite-backed appdata under
+`/srv/appsdata/firefly-iii` and the SOPS-managed `firefly-app-key`.
+
+The former On-Demand Apps Dashboard is dormant: its source remains in the repo
+for reference, but no route, Homepage card, or enabled service imports it.
 
 Listmonk uses a SOPS-backed local admin account for break-glass access. Native
 OIDC is provisioned through Authentik client `listmonk` for `fleet-admins`.
@@ -260,8 +312,9 @@ exists:
 scripts/testbed-vm/restore-testbed-appdata.sh <snapshot-id>
 ```
 
-The restore script stops Fizzy, Homebox, InvoicePlane, Kaneo, Keeper, Listmonk, Outline,
-Plane, Postiz, Sure, MariaDB, PostgreSQL, Mailpit, Redis, and the backup timer, restores `/srv/appsdata`,
+The restore script stops AFFiNE, Gitea, Stirling PDF, Firefly III, Fizzy,
+Homebox, InvoicePlane, Kaneo, Keeper, Listmonk, Outline, Plane, Postiz, Sure,
+MariaDB, PostgreSQL, Mailpit, Redis, and the backup timer, restores `/srv/appsdata`,
 reapplies declared directories and ownership, and restarts service units.
 Outline and Plane object data are not in this testbed backup; they live in
 Garage buckets `outline-uploads` and `plane-uploads` and are covered by the
@@ -273,8 +326,9 @@ Garage buckets `outline-uploads` and `plane-uploads` and are covered by the
 scripts/testbed-vm/test-testbed-services.sh
 ```
 
-The helper checks Fizzy, Homebox, InvoicePlane, Kaneo, Keeper, Listmonk, Outline, Plane,
-Postiz, Sure, MariaDB, PostgreSQL, Redis, Mailpit, OIDC and admin provisioning, local HTTP,
+The helper checks AFFiNE, Gitea, Stirling PDF, Firefly III, Fizzy, Homebox,
+InvoicePlane, Kaneo, Keeper, Listmonk, Outline, Plane, Postiz, Sure, MariaDB,
+PostgreSQL, Redis, Mailpit, OIDC and admin provisioning, local HTTP,
 Gateway-routed URLs,
 homelab SMTP capture, Homepage output, backup and restore validation, and recent
 Restic snapshots.

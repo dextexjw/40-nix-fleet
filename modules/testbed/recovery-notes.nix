@@ -25,7 +25,9 @@ in
           testbed-vm service model
           ========================
 
-          testbed-vm runs Fizzy with local SQLite storage, Homebox with local
+          testbed-vm runs AFFiNE with local PostgreSQL and Redis, Gitea with
+          local PostgreSQL and OIDC provisioning, Stirling PDF, Firefly III,
+          Fizzy with local SQLite storage, Homebox with local
           SQLite storage, InvoicePlane with local MariaDB and SOPS-backed
           bootstrap secrets, Kaneo with local PostgreSQL and Garage S3 uploads,
           Keeper calendar sync with local PostgreSQL and Redis, Listmonk with
@@ -38,6 +40,22 @@ in
 
           Persistent state root:
             ${appdata}
+
+          AFFiNE state:
+            ${cfg.affine.stateDir}
+            ${cfg.affine.stateDir}/storage
+            ${cfg.affine.stateDir}/config
+            PostgreSQL database: ${cfg.affine.databaseName}
+
+          Gitea state:
+            ${appdata}/gitea
+            PostgreSQL database: gitea
+
+          Stirling PDF state:
+            ${appdata}/stirling-pdf
+
+          Firefly III state:
+            ${appdata}/firefly-iii
 
           Fizzy state:
             ${cfg.fizzy.stateDir}
@@ -102,6 +120,10 @@ in
       ${serviceRouteLines}
 
           Direct LAN ports:
+            AFFiNE: ${toString cfg.ports.affine} (Gateway nodes only)
+            Gitea: ${toString cfg.ports.gitea} (Gateway nodes only)
+            Stirling PDF: ${toString cfg.ports.stirlingPdf} (Gateway nodes only)
+            Firefly III: 80 (Gateway nodes only)
             Fizzy: ${toString cfg.ports.fizzy} (Gateway nodes only)
             InvoicePlane: ${toString cfg.ports.invoiceplane} (Gateway nodes only)
             Keeper Web: ${toString cfg.ports.keeper} (Gateway nodes only)
@@ -123,6 +145,30 @@ in
             Outline Redis: ${toString cfg.ports.outlineRedis} (local host only)
 
           Auth model:
+            AFFiNE exposes browser access through native OIDC with Authentik
+            client affine for productivity-users and redirect URI
+            https://affine.jax22.com/oauth/callback. affine-environment
+            supplies DB_PASSWORD at runtime and the derived DATABASE_URL is
+            generated outside the Nix store.
+
+            Gitea exposes browser access through native OIDC with Authentik
+            client gitea for productivity-users and redirect URI
+            https://gitea.jax22.com/user/oauth2/authentik/callback.
+            gitea-oidc-config.service provisions the app-side login source
+            from gitea-oidc-client-secret. Local password login remains enabled
+            for break-glass access. The backend listens on
+            ${toString cfg.ports.gitea} to avoid Keeper's port 3000.
+
+            Stirling PDF exposes browser access at
+            https://stirling-pdf.jax22.com/ and http://stirling-pdf.h/.
+
+            Firefly III exposes browser access at https://firefly.jax22.com/
+            and http://firefly.h/ and uses firefly-app-key from SOPS.
+
+            The former On-Demand Apps Dashboard is dormant: source files remain
+            in the repository for reference, but no route, Homepage card, or
+            enabled unit imports it.
+
             Fizzy public HTTPS access uses Authentik forward-auth for
             fleet-admins. The fizzy.h LAN alias is unprotected. Fizzy itself
             uses email-link sign-in through local Mailpit.
@@ -215,7 +261,7 @@ in
             4. Choose a testbed-vm/appsdata snapshot ID.
             5. Restore the snapshot to / with restic --verify.
             6. Run systemd-tmpfiles --create.
-            7. Restart MariaDB, PostgreSQL, Redis, RabbitMQ, InvoicePlane, Outline, Plane, Postiz, Sure, Mailpit, Listmonk, Homebox, Kaneo, Fizzy, Keeper, provisioning units, and the backup timer.
+            7. Restart MariaDB, PostgreSQL, Redis, RabbitMQ, AFFiNE, Gitea, Stirling PDF, Firefly III, InvoicePlane, Outline, Plane, Postiz, Sure, Mailpit, Listmonk, Homebox, Kaneo, Fizzy, Keeper, provisioning units, and the backup timer.
 
           Services stopped during consistency-first manual backup:
             ${concatStringsSep " " statefulServices}
@@ -228,7 +274,8 @@ in
             scripts/testbed-vm/deploy-testbed.sh
             scripts/testbed-vm/test-testbed-services.sh
 
-          Keep Fizzy secret keys, Homebox API/OIDC secrets, InvoicePlane admin,
+          Keep AFFiNE database secrets, Gitea OIDC secrets, Firefly app keys,
+          Fizzy secret keys, Homebox API/OIDC secrets, InvoicePlane admin,
           database, and encryption secrets, Kaneo auth,
           database, OIDC, and Garage S3 secrets, Keeper auth/encryption/database/OAuth
           secrets, Listmonk admin credentials, Outline application, database,

@@ -10,7 +10,10 @@ with lib;
 let
   cfg = config.fleet.testbed.stack;
   serviceHostPrefixes = {
+    affine = "affine";
+    firefly = "firefly";
     fizzy = "fizzy";
+    gitea = "gitea";
     homebox = "homebox";
     invoiceplane = "invoiceplane";
     kaneo = "kaneo";
@@ -20,6 +23,7 @@ let
     outline = "outline";
     plane = "plane";
     postiz = "postiz";
+    stirlingPdf = "stirling-pdf";
     sure = "sure";
   };
   mkServiceHostNames =
@@ -72,7 +76,11 @@ in
     ports = mkOption {
       type = types.attrsOf types.port;
       default = {
+        affine = 3010;
+        affineRedis = 6379;
+        firefly = 80;
         fizzy = 9010;
+        gitea = 9070;
         homebox = 7745;
         invoiceplane = 9060;
         kaneo = 5173;
@@ -93,10 +101,83 @@ in
         planeSpace = 9023;
         planeWeb = 9021;
         postiz = 9040;
+        stirlingPdf = 8086;
         sure = 9030;
         sureRedis = 6382;
       };
       description = "LAN-facing or local testbed service ports.";
+    };
+
+    affine = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run AFFiNE on testbed-vm.";
+      };
+
+      databaseName = mkOption {
+        type = types.str;
+        default = "affine";
+        description = "PostgreSQL database used by AFFiNE.";
+      };
+
+      databaseUser = mkOption {
+        type = types.str;
+        default = "affine";
+        description = "PostgreSQL role used by AFFiNE.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://${cfg.serviceHosts.affine}";
+        description = "Canonical external AFFiNE URL used for generated links.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/toeverything/affine@sha256:295420d621d0d36e701e07072e467579c17e6fe74095d954eeb6f6df3453213d";
+        description = "Pinned AFFiNE OCI image reference.";
+      };
+
+      redisDatabase = mkOption {
+        type = types.int;
+        default = 0;
+        description = "Redis database index used by AFFiNE.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/affine";
+        description = "Persistent AFFiNE state directory.";
+      };
+
+      resources = {
+        cpus = mkOption {
+          type = types.str;
+          default = "1.5";
+          description = "Podman CPU limit for the AFFiNE server and migration container.";
+        };
+
+        memory = mkOption {
+          type = types.str;
+          default = "1536m";
+          description = "Podman memory limit for the AFFiNE server and migration container.";
+        };
+
+        memorySwap = mkOption {
+          type = types.str;
+          default = "2048m";
+          description = "Podman total memory plus swap limit for the AFFiNE server and migration container.";
+        };
+      };
+    };
+
+    firefly = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run Firefly III on testbed-vm.";
+      };
     };
 
     fizzy = {
@@ -128,6 +209,61 @@ in
         type = types.path;
         default = "${cfg.appdataRoot}/fizzy";
         description = "Persistent Fizzy state directory.";
+      };
+    };
+
+    gitea = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run Gitea on testbed-vm.";
+      };
+
+      oidc = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Provision the Gitea Authentik OpenID Connect login source.";
+        };
+
+        authName = mkOption {
+          type = types.str;
+          default = "authentik";
+          description = "Gitea authentication source name. This is part of the OAuth callback path.";
+        };
+
+        autoDiscoverUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/application/o/gitea/.well-known/openid-configuration";
+          description = "Authentik OIDC discovery URL used by Gitea.";
+        };
+
+        clientId = mkOption {
+          type = types.str;
+          default = "gitea";
+          description = "OIDC client ID registered in Authentik.";
+        };
+
+        clientSecretFile = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          description = "Runtime file containing the Gitea OIDC client secret.";
+        };
+
+        iconUrl = mkOption {
+          type = types.str;
+          default = "https://auth.jax22.com/static/dist/assets/icons/icon.png";
+          description = "Icon URL shown on the Gitea login button.";
+        };
+
+        scopes = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "email"
+            "profile"
+          ];
+          description = "Additional OIDC scopes requested by Gitea. Gitea adds openid implicitly.";
+        };
       };
     };
 
@@ -855,6 +991,14 @@ in
           default = "/run/postiz/temporal-environment";
           description = "Rendered runtime environment file for the Postiz Temporal server.";
         };
+      };
+    };
+
+    stirlingPdf = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run Stirling PDF on testbed-vm.";
       };
     };
 

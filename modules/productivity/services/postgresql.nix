@@ -20,14 +20,9 @@ in
       enable = true;
       dataDir = "${appdata}/postgresql/${config.services.postgresql.package.psqlSchema}";
       ensureDatabases = [
-        "affine"
         "shlink"
       ];
       ensureUsers = [
-        {
-          name = "affine";
-          ensureDBOwnership = true;
-        }
         {
           name = "shlink";
           ensureDBOwnership = true;

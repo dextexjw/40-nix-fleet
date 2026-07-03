@@ -51,12 +51,6 @@ in
     defaultSopsFile = secretsFile;
     age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
     secrets = {
-      affine-environment = {
-        restartUnits = [
-          "affine-postgresql-password.service"
-          "podman-affine.service"
-        ];
-      };
       admin-password-hash = {
         neededForUsers = true;
       };
@@ -81,12 +75,6 @@ in
       checkmate-capture-environment = {
         restartUnits = [ "checkmate-capture.service" ];
       };
-      firefly-app-key = {
-        owner = "firefly-iii";
-        group = "nginx";
-        mode = "0400";
-        restartUnits = [ "phpfpm-firefly-iii.service" ];
-      };
       freshrss-admin-username = {
         owner = "freshrss";
         group = "freshrss";
@@ -104,12 +92,6 @@ in
         group = "forgejo";
         mode = "0400";
         restartUnits = [ "forgejo-oidc-config.service" ];
-      };
-      gitea-oidc-client-secret = {
-        owner = "gitea";
-        group = "gitea";
-        mode = "0400";
-        restartUnits = [ "gitea-oidc-config.service" ];
       };
       garage-admin-token = {
         owner = "garage";
@@ -355,10 +337,7 @@ in
       enable = true;
       clientSecretFile = config.sops.secrets.forgejo-oidc-client-secret.path;
     };
-    gitea.oidc = lib.mkIf secretsEnabled {
-      enable = true;
-      clientSecretFile = config.sops.secrets.gitea-oidc-client-secret.path;
-    };
+    gatewayAddresses = gatewayCluster.addresses;
     garage.kaneoUploads = lib.mkIf secretsEnabled {
       enable = true;
       accessKeyIdFile = config.sops.secrets.kaneo-garage-access-key-id.path;
@@ -379,7 +358,6 @@ in
       adminTokenFile = config.sops.secrets.memos-admin-pat.path;
       clientSecretFile = config.sops.secrets.memos-oidc-client-secret.path;
     };
-    onDemandLauncher.gatewayAddresses = gatewayCluster.addresses;
     netbootxyz = {
       enable = true;
       assetBindAddress = host.ip;

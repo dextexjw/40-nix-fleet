@@ -18,11 +18,28 @@ in
     boot.supportedFilesystems.cifs = true;
 
     users.groups.testbed = { };
+    users.groups.stirling-pdf = { };
+
+    users.users.stirling-pdf = {
+      isSystemUser = true;
+      group = "stirling-pdf";
+      home = "${appdata}/stirling-pdf";
+    };
 
     systemd.tmpfiles.rules = [
       "d ${appdata} 0755 root root - -"
+      "d ${cfg.affine.stateDir} 0750 root root - -"
+      "z ${cfg.affine.stateDir} 0750 root root - -"
+      "d ${cfg.affine.stateDir}/config 0750 root root - -"
+      "z ${cfg.affine.stateDir}/config 0750 root root - -"
+      "d ${cfg.affine.stateDir}/storage 0750 root root - -"
+      "z ${cfg.affine.stateDir}/storage 0750 root root - -"
+      "d ${appdata}/firefly-iii 0750 firefly-iii nginx - -"
+      "z ${appdata}/firefly-iii 0750 firefly-iii nginx - -"
       "d ${cfg.fizzy.stateDir} 0750 1000 1000 - -"
       "d ${cfg.fizzy.stateDir}/storage 0750 1000 1000 - -"
+      "d ${appdata}/gitea 0750 gitea gitea - -"
+      "z ${appdata}/gitea 0750 gitea gitea - -"
       "d ${cfg.homebox.stateDir} 0750 homebox homebox - -"
       "d ${cfg.homebox.stateDir}/data 0750 homebox homebox - -"
       "d ${cfg.homebox.stateDir}/tmp 0750 homebox homebox - -"
@@ -56,6 +73,8 @@ in
       "d ${cfg.postiz.stateDir}/temporal/elasticsearch 0750 1000 root - -"
       "d ${cfg.postiz.stateDir}/temporal/postgresql 0750 999 999 - -"
       "d ${cfg.postiz.stateDir}/uploads 0750 root testbed - -"
+      "d ${appdata}/stirling-pdf 0750 stirling-pdf stirling-pdf - -"
+      "z ${appdata}/stirling-pdf 0750 stirling-pdf stirling-pdf - -"
       "d ${cfg.sure.stateDir} 0750 1000 testbed - -"
       "z ${cfg.sure.stateDir} 0750 1000 testbed - -"
       "d ${cfg.sure.stateDir}/redis 0750 redis-sure redis-sure - -"

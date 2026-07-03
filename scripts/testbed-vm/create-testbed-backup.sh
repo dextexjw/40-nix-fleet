@@ -8,6 +8,10 @@ REMOTE_USER="smoke"
 REPOSITORY="/mnt/backups/restic/appdata/testbed-vm"
 SOURCE="/srv/appsdata"
 SERVICES=(
+  podman-affine.service
+  gitea.service
+  phpfpm-firefly-iii.service
+  stirling-pdf.service
   podman-fizzy.service
   phpfpm-invoiceplane.service
   mysql.service
@@ -85,6 +89,9 @@ restart_services() {
   for ((i=${#SERVICES[@]} - 1; i >= 0; i--)); do
     ssh_testbed_vm "sudo systemctl start --no-block '${SERVICES[$i]}' || true"
   done
+  ssh_testbed_vm "sudo systemctl start affine-postgresql-extensions.service || true"
+  ssh_testbed_vm "sudo systemctl start affine-postgresql-password.service || true"
+  ssh_testbed_vm "sudo systemctl start gitea-oidc-config.service || true"
   ssh_testbed_vm "sudo systemctl start kaneo-postgresql-password.service || true"
   ssh_testbed_vm "sudo systemctl start keeper-postgresql-password.service || true"
   ssh_testbed_vm "sudo systemctl start listmonk-oidc-config.service || true"

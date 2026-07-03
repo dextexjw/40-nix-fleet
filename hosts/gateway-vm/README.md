@@ -89,11 +89,9 @@ Redis, uploaded media, and discovered certificates. The bootstrap admin password
 bootstrap API token, secret key, and PostgreSQL password are SOPS secrets.
 
 Authentik is attached as a Traefik forwardAuth proxy only for routes that
-explicitly declare it in the exposure catalog. The current forward-auth route is
-the On-Demand Apps Dashboard at `https://ondemand.jax22.com/`, limited
-to `productivity-users` plus the fleet-wide `fleet-admins` admin override.
-Ordinary app routes remain plain Traefik routes unless
-the application has its own auth or a native SSO integration is configured. Role
+explicitly declare it in the exposure catalog. Ordinary app routes remain plain
+Traefik routes unless the application has its own auth or a native SSO
+integration is configured. Role
 groups are `fleet-admins`, `media-users`, `productivity-users`, and
 `monitoring-users`; they are provisioned in Authentik for native app
 integrations.
@@ -124,9 +122,8 @@ provider and local break-glass account are declared on `media-vm` by
 
 Forward-auth proxy integrations are also provisioned from the exposure catalog.
 Use this only for small control surfaces or apps without a usable native SSO
-path. The On-Demand Apps Dashboard uses a generated Authentik proxy provider
-attached to the embedded outpost and Traefik's generated
-`authentik-forward-auth` middleware.
+path. They use generated Authentik proxy providers attached to the embedded
+outpost and Traefik's generated `authentik-forward-auth` middleware.
 
 Future Authentik integrations should follow this pattern:
 

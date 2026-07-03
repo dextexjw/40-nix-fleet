@@ -10,14 +10,11 @@ let
   cfg = config.fleet.productivity.stack;
   appdata = cfg.appdataRoot;
   serviceHostPrefixes = {
-    affine = "affine";
     docs = "docs";
-    firefly = "firefly";
     forgejo = "forgejo";
     freshrss = "freshrss";
     garage = "garage";
     garageWeb = "s3.garage";
-    gitea = "gitea";
     iperf3 = "iperf3";
     memos = "memos";
     netbootxyz = "netbootxyz";
@@ -31,13 +28,10 @@ let
     searxng = "searxng";
     shlink = "s";
     shlinkWeb = "shlink";
-    stirlingPdf = "stirling-pdf";
     syncthing = "syncthing";
     vaultwarden = "vaultwarden";
   };
   serviceHostKeys = [
-    "affine"
-    "gitea"
     "forgejo"
     "docs"
     "paperless"
@@ -46,8 +40,6 @@ let
     "privatebin"
     "vaultwarden"
     "syncthing"
-    "stirlingPdf"
-    "firefly"
     "nextcloud"
     "openspeedtest"
     "iperf3"
@@ -79,6 +71,12 @@ in
       description = "Single restore-critical application data root.";
     };
 
+    gatewayAddresses = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      description = "Gateway node addresses allowed to reach backend service ports.";
+    };
+
     secrets.enable = mkOption {
       type = types.bool;
       default = false;
@@ -106,14 +104,11 @@ in
     ports = mkOption {
       type = types.attrsOf types.port;
       default = {
-        affine = 3010;
-        affineRedis = 6379;
         forgejo = 3002;
         garageAdmin = 3903;
         garageRpc = 3901;
         garageS3 = 3900;
         garageWeb = 3902;
-        gitea = 3000;
         iperf3 = 5201;
         itTools = 8093;
         memos = 5230;
@@ -128,75 +123,10 @@ in
         searxng = 8087;
         shlink = 8088;
         shlinkWeb = 8089;
-        stirlingPdf = 8086;
         syncthing = 8384;
         vaultwarden = 8222;
       };
       description = "LAN-facing web or API ports for non-nginx productivity services.";
-    };
-
-    affine = {
-      enable = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Run AFFiNE on productivity-vm.";
-      };
-
-      databaseName = mkOption {
-        type = types.str;
-        default = "affine";
-        description = "PostgreSQL database used by AFFiNE.";
-      };
-
-      databaseUser = mkOption {
-        type = types.str;
-        default = "affine";
-        description = "PostgreSQL role used by AFFiNE.";
-      };
-
-      externalUrl = mkOption {
-        type = types.str;
-        default = "https://${cfg.serviceHosts.affine}";
-        description = "Canonical external AFFiNE URL used for generated links.";
-      };
-
-      image = mkOption {
-        type = types.str;
-        default = "ghcr.io/toeverything/affine@sha256:295420d621d0d36e701e07072e467579c17e6fe74095d954eeb6f6df3453213d";
-        description = "Pinned AFFiNE OCI image reference.";
-      };
-
-      redisDatabase = mkOption {
-        type = types.int;
-        default = 0;
-        description = "Redis database index used by AFFiNE.";
-      };
-
-      stateDir = mkOption {
-        type = types.path;
-        default = "${cfg.appdataRoot}/affine";
-        description = "Persistent AFFiNE state directory.";
-      };
-
-      resources = {
-        cpus = mkOption {
-          type = types.str;
-          default = "1.5";
-          description = "Podman CPU limit for the AFFiNE server and migration container.";
-        };
-
-        memory = mkOption {
-          type = types.str;
-          default = "1536m";
-          description = "Podman memory limit for the AFFiNE server and migration container.";
-        };
-
-        memorySwap = mkOption {
-          type = types.str;
-          default = "2048m";
-          description = "Podman total memory plus swap limit for the AFFiNE server and migration container.";
-        };
-      };
     };
 
     itTools = {
@@ -485,55 +415,6 @@ in
         type = types.path;
         default = "/var/tmp/productivity-appdata-restore-check";
         description = "Temporary target used by productivity-appdata-restore-check.service.";
-      };
-    };
-
-    gitea = {
-      oidc = {
-        enable = mkOption {
-          type = types.bool;
-          default = false;
-          description = "Provision the Gitea Authentik OpenID Connect login source.";
-        };
-
-        authName = mkOption {
-          type = types.str;
-          default = "authentik";
-          description = "Gitea authentication source name. This is part of the OAuth callback path.";
-        };
-
-        autoDiscoverUrl = mkOption {
-          type = types.str;
-          default = "https://auth.jax22.com/application/o/gitea/.well-known/openid-configuration";
-          description = "Authentik OIDC discovery URL used by Gitea.";
-        };
-
-        clientId = mkOption {
-          type = types.str;
-          default = "gitea";
-          description = "OIDC client ID registered in Authentik.";
-        };
-
-        clientSecretFile = mkOption {
-          type = types.nullOr types.path;
-          default = null;
-          description = "Runtime file containing the Gitea OIDC client secret.";
-        };
-
-        iconUrl = mkOption {
-          type = types.str;
-          default = "https://auth.jax22.com/static/dist/assets/icons/icon.png";
-          description = "Icon URL shown on the Gitea login button.";
-        };
-
-        scopes = mkOption {
-          type = types.listOf types.str;
-          default = [
-            "email"
-            "profile"
-          ];
-          description = "Additional OIDC scopes requested by Gitea. Gitea adds openid implicitly.";
-        };
       };
     };
 

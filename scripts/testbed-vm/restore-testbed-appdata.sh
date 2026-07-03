@@ -7,7 +7,7 @@ REPOSITORY="/mnt/backups/restic/appdata/testbed-vm"
 SOURCE="/srv/appsdata"
 TAG="appsdata"
 SNAPSHOT="${1:-}"
-SERVICES="podman-fizzy phpfpm-invoiceplane homebox podman-kaneo podman-keeper podman-outline podman-plane-space podman-plane-admin podman-plane-web podman-plane-live podman-plane-beat-worker podman-plane-worker podman-plane-api podman-plane-rabbitmq podman-postiz podman-postiz-postgres podman-postiz-redis podman-postiz-temporal podman-postiz-temporal-elasticsearch podman-postiz-temporal-postgres podman-sure-worker podman-sure-web listmonk mailpit-testbed redis-plane redis-sure redis-outline redis-keeper postgresql mysql"
+SERVICES="podman-affine redis-affine gitea phpfpm-firefly-iii stirling-pdf podman-fizzy phpfpm-invoiceplane homebox podman-kaneo podman-keeper podman-outline podman-plane-space podman-plane-admin podman-plane-web podman-plane-live podman-plane-beat-worker podman-plane-worker podman-plane-api podman-plane-rabbitmq podman-postiz podman-postiz-postgres podman-postiz-redis podman-postiz-temporal podman-postiz-temporal-elasticsearch podman-postiz-temporal-postgres podman-sure-worker podman-sure-web listmonk mailpit-testbed redis-plane redis-sure redis-outline redis-keeper postgresql mysql"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -37,7 +37,7 @@ export RESTIC_REPOSITORY="\$repository"
 export RESTIC_PASSWORD_FILE=/run/secrets/restic-password
 
 echo 'Stopping testbed services before appdata restore...'
-systemctl stop testbed-appdata-backup.timer invoiceplane-bootstrap.service invoiceplane-prepare.service invoiceplane-mysql-password.service plane-admin-bootstrap.service plane-migrate.service plane-rabbitmq-config.service plane-postgresql-password.service postiz-environment.service kaneo-postgresql-password.service outline-postgresql-password.service sure-postgresql-password.service listmonk-oidc-config.service \$services || true
+systemctl stop testbed-appdata-backup.timer affine-postgresql-extensions.service affine-postgresql-password.service gitea-oidc-config.service invoiceplane-bootstrap.service invoiceplane-prepare.service invoiceplane-mysql-password.service plane-admin-bootstrap.service plane-migrate.service plane-rabbitmq-config.service plane-postgresql-password.service postiz-environment.service kaneo-postgresql-password.service outline-postgresql-password.service sure-postgresql-password.service listmonk-oidc-config.service \$services || true
 
 echo 'Mounting /mnt/backups...'
 findmnt -rn --target /mnt/backups >/dev/null || mount /mnt/backups
@@ -109,6 +109,9 @@ echo 'Normalizing restored ownership for rebuilt host users...'
 chown root:root "\$source_path"
 chmod 0755 "\$source_path"
 [ -d "\$source_path/listmonk" ] && chown -R listmonk:listmonk "\$source_path/listmonk"
+[ -d "\$source_path/affine" ] && chown -R root:root "\$source_path/affine"
+[ -d "\$source_path/firefly-iii" ] && chown -R firefly-iii:nginx "\$source_path/firefly-iii"
+[ -d "\$source_path/gitea" ] && chown -R gitea:gitea "\$source_path/gitea"
 [ -d "\$source_path/homebox" ] && chown -R homebox:homebox "\$source_path/homebox"
 [ -d "\$source_path/invoiceplane" ] && chown -R invoiceplane:nginx "\$source_path/invoiceplane"
 [ -d "\$source_path/fizzy" ] && chown -R 1000:1000 "\$source_path/fizzy"
@@ -125,6 +128,7 @@ chmod 0755 "\$source_path"
 [ -d "\$source_path/postiz/redis" ] && chown -R 999:999 "\$source_path/postiz/redis"
 [ -d "\$source_path/postiz/temporal/elasticsearch" ] && chown -R 1000:root "\$source_path/postiz/temporal/elasticsearch"
 [ -d "\$source_path/postiz/temporal/postgresql" ] && chown -R 999:999 "\$source_path/postiz/temporal/postgresql"
+[ -d "\$source_path/stirling-pdf" ] && chown -R stirling-pdf:stirling-pdf "\$source_path/stirling-pdf"
 [ -d "\$source_path/sure" ] && chown 1000:testbed "\$source_path/sure"
 [ -d "\$source_path/sure/redis" ] && chown -R redis-sure:redis-sure "\$source_path/sure/redis"
 [ -d "\$source_path/sure/storage" ] && chown -R 1000:1000 "\$source_path/sure/storage"
@@ -138,10 +142,13 @@ echo 'Reapplying declared directories and restarting testbed services...'
 systemd-tmpfiles --create
 systemctl start postgresql
 systemctl start mysql
+systemctl start redis-affine
 systemctl start redis-keeper
 systemctl start redis-outline
 systemctl start redis-plane
 systemctl start redis-sure
+systemctl start affine-postgresql-extensions
+systemctl start affine-postgresql-password
 systemctl start kaneo-postgresql-password
 systemctl start keeper-postgresql-password
 systemctl start outline-postgresql-password
@@ -163,6 +170,8 @@ systemctl start podman-postiz-temporal
 systemctl start podman-postiz-postgres podman-postiz-redis podman-postiz
 systemctl start mailpit-testbed listmonk homebox podman-kaneo podman-keeper podman-outline podman-sure-web podman-sure-worker podman-fizzy
 systemctl start listmonk-oidc-config.service
+systemctl start gitea-oidc-config.service
+systemctl start podman-affine gitea phpfpm-firefly-iii stirling-pdf
 systemctl start testbed-appdata-backup.timer
 systemctl start testbed-appdata-restore-check.service
 

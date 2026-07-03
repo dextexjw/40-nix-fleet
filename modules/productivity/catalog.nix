@@ -6,7 +6,6 @@
 
 let
   backend = port: "http://${host.ip}:${toString port}";
-  launcherBase = "https://ondemand.jax22.com";
   hostnames = name: map (domain: "${name}.${domain}") serviceDomains;
   monitorBase = port: if port == 80 then "http://${host.ip}" else backend port;
   urlScheme = hostName: if builtins.match ".*[.]h" hostName != null then "http" else "https";
@@ -491,96 +490,6 @@ in
             requiredUnit = "traefik.service";
           };
         }
-      ];
-    }
-    {
-      name = "Productivity on-demand Apps";
-      order = 31;
-      columns = 4;
-      style = "row";
-      services = [
-        (mkService {
-          id = "on-demand-apps-dashboard";
-          name = "On-Demand Apps";
-          port = 8092;
-          routeDescription = "On-demand apps dashboard";
-          icon = "mdi-power-standby";
-          homepageDescription = "Start and stop productivity apps\n${backend 8092}";
-          hostNames = [ "ondemand.jax22.com" ];
-          monitorPath = "/healthz";
-          authMode = "forward-auth";
-          authGroups = [ "productivity-users" ];
-          smokeHttp = {
-            discard = true;
-            hosts = [ "ondemand.jax22.com" ];
-            path = "/healthz";
-            requiredUnit = "on-demand-apps-dashboard.service";
-          };
-        })
-        (mkService {
-          id = "affine";
-          name = "AFFiNE";
-          port = 3010;
-          routeDescription = "AFFiNE collaborative workspace";
-          icon = "affine.png";
-          homepageDescription = "On-demand collaborative workspace\n${backend 3010}";
-          homepageEnableSiteMonitor = false;
-          homepageHref = "${launcherBase}/apps/affine";
-          authMode = "native-oidc";
-          authGroups = [ "productivity-users" ];
-          authOidc = {
-            clientId = "affine";
-            clientSecretFile = "/run/secrets/affine-oidc-client-secret";
-            launchUrl = "https://affine.jax22.com/";
-            redirectUris = [ "https://affine.jax22.com/oauth/callback" ];
-          };
-          smokeHttp = {
-            discard = true;
-            path = "/";
-          };
-          checkmate.enable = false;
-        })
-        (mkService {
-          id = "gitea";
-          name = "Gitea";
-          port = 3000;
-          routeDescription = "Gitea Git repositories";
-          icon = "gitea.png";
-          homepageDescription = "On-demand Git repositories\n${backend 3000}";
-          homepageEnableSiteMonitor = false;
-          homepageHref = "${launcherBase}/apps/gitea";
-          authMode = "native-oidc";
-          authGroups = [ "productivity-users" ];
-          authOidc = {
-            clientId = "gitea";
-            clientSecretFile = "/run/secrets/gitea-oidc-client-secret";
-            launchUrl = "https://gitea.jax22.com/";
-            redirectUris = [ "https://gitea.jax22.com/user/oauth2/authentik/callback" ];
-          };
-          checkmate.enable = false;
-        })
-        (mkService {
-          id = "stirling-pdf";
-          name = "Stirling PDF";
-          port = 8086;
-          routeDescription = "Stirling PDF toolkit";
-          icon = "stirling-pdf.png";
-          homepageDescription = "On-demand PDF toolkit\n${backend 8086}";
-          homepageEnableSiteMonitor = false;
-          homepageHref = "${launcherBase}/apps/stirling-pdf";
-          checkmate.enable = false;
-        })
-        (mkService {
-          id = "firefly";
-          name = "Firefly III";
-          port = 80;
-          routeDescription = "Firefly III personal finance";
-          icon = "firefly-iii.png";
-          homepageDescription = "On-demand personal finance\n${backend 80}";
-          homepageEnableSiteMonitor = false;
-          homepageHref = "${launcherBase}/apps/firefly";
-          checkmate.enable = false;
-        })
       ];
     }
   ];

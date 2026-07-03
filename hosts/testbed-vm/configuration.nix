@@ -53,6 +53,12 @@ in
       admin-password-hash = {
         neededForUsers = true;
       };
+      affine-environment = {
+        restartUnits = [
+          "affine-postgresql-password.service"
+          "podman-affine.service"
+        ];
+      };
       beszel-agent-key = {
         owner = "beszel-agent";
         group = "beszel-agent";
@@ -70,6 +76,18 @@ in
       };
       fizzy-secret-key-base = {
         restartUnits = [ "podman-fizzy.service" ];
+      };
+      firefly-app-key = {
+        owner = "firefly-iii";
+        group = "nginx";
+        mode = "0400";
+        restartUnits = [ "phpfpm-firefly-iii.service" ];
+      };
+      gitea-oidc-client-secret = {
+        owner = "gitea";
+        group = "gitea";
+        mode = "0400";
+        restartUnits = [ "gitea-oidc-config.service" ];
       };
       homebox-api-key-pepper = {
         restartUnits = [ "homebox.service" ];
@@ -453,6 +471,10 @@ in
         config.sops.templates."kaneo-environment".path
       else
         "/run/secrets/kaneo-environment";
+    gitea.oidc = lib.mkIf secretsEnabled {
+      enable = true;
+      clientSecretFile = config.sops.secrets.gitea-oidc-client-secret.path;
+    };
     keeper.environmentFile =
       if secretsEnabled then
         config.sops.templates."keeper-environment".path

@@ -79,11 +79,7 @@ MONITORING_REQUIRED_SECRET_KEYS=(
 
 PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   "${FLEET_COMMON_REQUIRED_SECRET_KEYS[@]}"
-  affine-environment
   authentik-bootstrap-email
-  firefly-admin-password
-  firefly-admin-username
-  firefly-app-key
   forgejo-oidc-client-secret
   freshrss-admin-password
   freshrss-admin-username
@@ -94,7 +90,6 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
   garage-rpc-secret
   outline-garage-access-key-id
   outline-garage-secret-access-key
-  gitea-oidc-client-secret
   memos-admin-pat
   memos-oidc-client-secret
   nextcloud-admin-password
@@ -118,7 +113,10 @@ PRODUCTIVITY_REQUIRED_SECRET_KEYS=(
 
 TESTBED_REQUIRED_SECRET_KEYS=(
   "${FLEET_COMMON_REQUIRED_SECRET_KEYS[@]}"
+  affine-environment
+  firefly-app-key
   fizzy-secret-key-base
+  gitea-oidc-client-secret
   homebox-api-key-pepper
   homebox-oidc-client-secret
   invoiceplane-admin-email

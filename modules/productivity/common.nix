@@ -29,7 +29,6 @@ in
     users.groups.productivity = { };
     users.groups.garage = { };
     users.groups.memos.gid = memosGid;
-    users.groups.stirling-pdf = { };
 
     users.users.garage = {
       isSystemUser = true;
@@ -44,21 +43,7 @@ in
       home = "${appdata}/memos";
     };
 
-    users.users.stirling-pdf = {
-      isSystemUser = true;
-      group = "stirling-pdf";
-      home = "${appdata}/stirling-pdf";
-    };
-
     systemd.tmpfiles.rules = (map (path: "d '${path}' 0755 root root - -") appsdataDirs) ++ [
-      "d '${appdata}/affine' 0750 root root - -"
-      "z '${appdata}/affine' 0750 root root - -"
-      "d '${appdata}/affine/config' 0750 root root - -"
-      "z '${appdata}/affine/config' 0750 root root - -"
-      "d '${appdata}/affine/storage' 0750 root root - -"
-      "z '${appdata}/affine/storage' 0750 root root - -"
-      "d '${appdata}/firefly-iii' 0750 firefly-iii nginx - -"
-      "z '${appdata}/firefly-iii' 0750 firefly-iii nginx - -"
       "d '${appdata}/forgejo' 0750 forgejo forgejo - -"
       "z '${appdata}/forgejo' 0750 forgejo forgejo - -"
       "d '${appdata}/freshrss' 0750 freshrss freshrss - -"
@@ -71,8 +56,6 @@ in
       "z '${appdata}/garage/meta' 0750 garage garage - -"
       "d '${appdata}/garage/snapshots' 0750 garage garage - -"
       "z '${appdata}/garage/snapshots' 0750 garage garage - -"
-      "d '${appdata}/gitea' 0750 gitea gitea - -"
-      "z '${appdata}/gitea' 0750 gitea gitea - -"
       "d '${appdata}/mkdocs' 0775 root productivity - -"
       "z '${appdata}/mkdocs' 0775 root productivity - -"
       "d '${appdata}/mkdocs/docs' 0775 root productivity - -"
@@ -107,8 +90,6 @@ in
       "z '${appdata}/searxng' 0750 searx searx - -"
       "d '${appdata}/shlink' 0750 root productivity - -"
       "z '${appdata}/shlink' 0750 root productivity - -"
-      "d '${appdata}/stirling-pdf' 0750 stirling-pdf stirling-pdf - -"
-      "z '${appdata}/stirling-pdf' 0750 stirling-pdf stirling-pdf - -"
       "d '${appdata}/syncthing' 0750 syncthing syncthing - -"
       "z '${appdata}/syncthing' 0750 syncthing syncthing - -"
       "d '${appdata}/vaultwarden' 0750 vaultwarden vaultwarden - -"

@@ -36,6 +36,102 @@ in
       style = "row";
       services = [
         {
+          id = "affine";
+          name = "AFFiNE";
+          route = {
+            description = "AFFiNE collaborative workspace";
+            hosts = hostnames "affine";
+            url = backend 3010;
+          };
+          homepage = {
+            description = "Collaborative workspace\n${backend 3010}";
+            href = publicServiceUrl "affine";
+            icon = "affine.png";
+            siteMonitor = "${backend 3010}/";
+          };
+          auth = {
+            mode = "native-oidc";
+            groups = [ "productivity-users" ];
+            oidc = {
+              clientId = "affine";
+              clientSecretFile = "/run/secrets/affine-oidc-client-secret";
+              launchUrl = "https://affine.jax22.com/";
+              redirectUris = [ "https://affine.jax22.com/oauth/callback" ];
+            };
+          };
+          smoke.http = {
+            discard = true;
+            path = "/";
+          };
+        }
+        {
+          id = "gitea";
+          name = "Gitea";
+          route = {
+            description = "Gitea Git repositories";
+            hosts = hostnames "gitea";
+            url = backend 9070;
+          };
+          homepage = {
+            description = "Git repositories\n${backend 9070}";
+            href = publicServiceUrl "gitea";
+            icon = "gitea.png";
+            siteMonitor = "${backend 9070}/";
+          };
+          auth = {
+            mode = "native-oidc";
+            groups = [ "productivity-users" ];
+            oidc = {
+              clientId = "gitea";
+              clientSecretFile = "/run/secrets/gitea-oidc-client-secret";
+              launchUrl = "https://gitea.jax22.com/";
+              redirectUris = [ "https://gitea.jax22.com/user/oauth2/authentik/callback" ];
+            };
+          };
+          smoke.http = {
+            discard = true;
+            path = "/";
+          };
+        }
+        {
+          id = "stirling-pdf";
+          name = "Stirling PDF";
+          route = {
+            description = "Stirling PDF toolkit";
+            hosts = hostnames "stirling-pdf";
+            url = backend 8086;
+          };
+          homepage = {
+            description = "PDF toolkit\n${backend 8086}";
+            href = publicServiceUrl "stirling-pdf";
+            icon = "stirling-pdf.png";
+            siteMonitor = "${backend 8086}/";
+          };
+          smoke.http = {
+            discard = true;
+            path = "/";
+          };
+        }
+        {
+          id = "firefly";
+          name = "Firefly III";
+          route = {
+            description = "Firefly III personal finance";
+            hosts = hostnames "firefly";
+            url = backend 80;
+          };
+          homepage = {
+            description = "Personal finance\n${backend 80}";
+            href = publicServiceUrl "firefly";
+            icon = "firefly-iii.png";
+            siteMonitor = "${backend 80}/";
+          };
+          smoke.http = {
+            discard = true;
+            path = "/";
+          };
+        }
+        {
           id = "fizzy";
           name = "Fizzy";
           route = {

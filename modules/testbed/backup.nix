@@ -14,6 +14,10 @@ let
   };
   inherit (testbedLib) cfg appdata resticPasswordFile;
   backupGuardedServices = [
+    "podman-affine.service"
+    "gitea.service"
+    "phpfpm-firefly-iii.service"
+    "stirling-pdf.service"
     "podman-plane-rabbitmq.service"
     "podman-plane-api.service"
     "podman-plane-worker.service"
@@ -131,6 +135,9 @@ in
         restarted_services=
         cleanup() {
           for service in \
+            affine-postgresql-password.service \
+            affine-postgresql-extensions.service \
+            gitea-oidc-config.service \
             plane-postgresql-password.service \
             plane-rabbitmq-config.service \
             plane-migrate.service \
@@ -150,6 +157,9 @@ in
           for service in $restarted_services; do
             systemctl start --no-block "$service" || true
           done
+          systemctl start affine-postgresql-extensions.service || true
+          systemctl start affine-postgresql-password.service || true
+          systemctl start gitea-oidc-config.service || true
           systemctl start plane-postgresql-password.service || true
           systemctl start plane-rabbitmq-config.service || true
           systemctl start plane-migrate.service || true

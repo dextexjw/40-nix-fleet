@@ -4,16 +4,12 @@
     ./common.nix
     ./mounts.nix
     ./services/postgresql.nix
-    ./services/affine.nix
-    ./services/gitea.nix
     ./services/forgejo.nix
     ./services/paperless.nix
     ./services/freshrss.nix
     ./services/searxng.nix
     ./services/privatebin.nix
     ./services/syncthing.nix
-    ./services/stirling-pdf.nix
-    ./services/firefly.nix
     ./services/nextcloud.nix
     ./services/openspeedtest.nix
     ./services/it-tools.nix
@@ -27,7 +23,6 @@
     ./services/rustfs.nix
     ./services/mkdocs.nix
     ./services/nginx.nix
-    ./services/on-demand-launcher.nix
     ./backup.nix
     ./firewall.nix
     ./recovery-notes.nix
