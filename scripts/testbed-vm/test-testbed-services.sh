@@ -19,7 +19,7 @@ command -v colmena >/dev/null 2>&1 || die "colmena is missing; run nix develop f
 cd "$ROOT"
 
 printf 'Checking key testbed services...\n'
-services=(postgresql mysql redis-affine redis-keeper redis-plane listmonk homebox mailpit-testbed gitea phpfpm-firefly-iii phpfpm-invoiceplane podman-affine podman-fizzy podman-kaneo podman-keeper podman-plane-rabbitmq podman-plane-api podman-plane-worker podman-plane-beat-worker podman-plane-live podman-plane-web podman-plane-admin podman-plane-space podman-postiz podman-postiz-postgres podman-postiz-redis podman-postiz-temporal podman-postiz-temporal-elasticsearch podman-postiz-temporal-postgres stirling-pdf nginx)
+services=(postgresql mysql redis-affine redis-keeper redis-plane listmonk homebox mailpit-testbed gitea phpfpm-firefly-iii phpfpm-invoiceplane podman-affine podman-fizzy podman-kaneo podman-keeper podman-metube podman-plane-rabbitmq podman-plane-api podman-plane-worker podman-plane-beat-worker podman-plane-live podman-plane-web podman-plane-admin podman-plane-space podman-postiz podman-postiz-postgres podman-postiz-redis podman-postiz-temporal podman-postiz-temporal-elasticsearch podman-postiz-temporal-postgres stirling-pdf nginx)
 if [ "$SKIP_OUTLINE_SMOKE" != 1 ]; then
   services+=(redis-outline podman-outline)
 fi
@@ -143,6 +143,20 @@ if [ "$SKIP_SURE_SMOKE" != 1 ]; then
   colmena exec --on "$HOST" -- "podman exec sure-web env | grep -Fxq 'POSTGRES_DB=sure'"
   colmena exec --on "$HOST" -- "podman exec sure-web env | grep -Fxq 'REDIS_URL=redis://127.0.0.1:6382/1'"
 fi
+colmena exec --on "$HOST" -- "sh -lc 'findmnt -rn --target /mnt/media >/dev/null || mount /mnt/media'"
+colmena exec --on "$HOST" -- test -d /srv/appsdata/metube/state
+colmena exec --on "$HOST" -- test -d /mnt/media/downloads/metube
+colmena exec --on "$HOST" -- test -d /var/lib/metube-downloads
+colmena exec --on "$HOST" -- "sh -lc 'case /var/lib/metube-downloads in /srv/appsdata|/srv/appsdata/*) exit 1 ;; esac'"
+colmena exec --on "$HOST" -- "test \"\$(stat -c '%u:%G' /srv/appsdata/metube/state)\" = 1000:testbed"
+colmena exec --on "$HOST" -- "test \"\$(stat -c '%u:%G' /var/lib/metube-downloads)\" = 1000:testbed"
+colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:8081/ >/dev/null"
+colmena exec --on "$HOST" -- "podman exec --user 1000:1000 metube test -w /downloads"
+colmena exec --on "$HOST" -- "podman exec --user 1000:1000 metube test -w /state"
+colmena exec --on "$HOST" -- "podman exec --user 1000:1000 metube test -w /temp"
+colmena exec --on "$HOST" -- "podman exec metube env | grep -Fxq 'DOWNLOAD_DIR=/downloads'"
+colmena exec --on "$HOST" -- "podman exec metube env | grep -Fxq 'STATE_DIR=/state'"
+colmena exec --on "$HOST" -- "podman exec metube env | grep -Fxq 'TEMP_DIR=/temp'"
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:8025/api/v1/messages >/dev/null"
 colmena exec --on "$HOST" -- "podman exec fizzy env | grep -Fxq 'SMTP_USERNAME=fizzy'"
 colmena exec --on "$HOST" -- "python3 -c 'import email.message, smtplib; msg = email.message.EmailMessage(); msg[\"Subject\"] = \"testbed SMTP AUTH smoke\"; msg[\"From\"] = \"fizzy@testbed.home.arpa\"; msg[\"To\"] = \"test@example.com\"; msg.set_content(\"testbed SMTP AUTH smoke\"); smtp = smtplib.SMTP(\"127.0.0.1\", 1025, timeout=5); smtp.login(\"fizzy\", \"mailpit\"); smtp.send_message(msg); smtp.quit()'"
@@ -223,6 +237,11 @@ if [ "$SKIP_SURE_SMOKE" != 1 ]; then
   colmena exec --on gateway-vm -- "grep -Fq 'https://sure.jax22.com/' /etc/homepage-dashboard/services.yaml"
   colmena exec --on gateway-vm -- "grep -Fq 'http://${HOST_IP}:9030/up' /etc/homepage-dashboard/services.yaml"
 fi
+colmena exec --on gateway-vm -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 --resolve metube.jax22.com:443:127.0.0.1 https://metube.jax22.com/); case \"\$status\" in 30[1278]|401|403) exit 0 ;; *) echo \"unexpected MeTube auth status \$status\" >&2; exit 1 ;; esac'"
+colmena exec --on gateway-vm -- "grep -Fq 'https://metube.jax22.com/' /etc/homepage-dashboard/services.yaml"
+colmena exec --on gateway-vm -- "grep -Fq 'http://${HOST_IP}:8081/' /etc/homepage-dashboard/services.yaml"
+colmena exec --on gateway-vm -- "sh -lc 'if grep -Fq \"metube.h\" /etc/homepage-dashboard/services.yaml; then exit 1; fi'"
+colmena exec --on monitoring-vm -- "grep -Fq 'metube.jax22.com' /etc/fleet/checkmate-targets.json"
 colmena exec --on gateway-vm -- "sh -lc 'status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 --resolve mailpit.jax22.com:443:127.0.0.1 https://mailpit.jax22.com/api/v1/messages); case \"\$status\" in 30[1278]|401|403) exit 0 ;; *) echo \"unexpected Mailpit auth status \$status\" >&2; exit 1 ;; esac'"
 colmena exec --on gateway-vm -- "python3 -c 'import email.message, smtplib; msg = email.message.EmailMessage(); msg[\"Subject\"] = \"homelab Mailpit SMTP smoke\"; msg[\"From\"] = \"gateway@testbed.home.arpa\"; msg[\"To\"] = \"test@example.com\"; msg.set_content(\"homelab Mailpit SMTP smoke\"); smtp = smtplib.SMTP(\"10.2.20.102\", 25, local_hostname=\"smtp.mailpit.jax22.com\", timeout=5); smtp.login(\"gateway\", \"mailpit\"); smtp.send_message(msg); smtp.quit()'"
 colmena exec --on gateway-vm -- "grep -Fq 'https://mailpit.jax22.com/' /etc/homepage-dashboard/services.yaml"

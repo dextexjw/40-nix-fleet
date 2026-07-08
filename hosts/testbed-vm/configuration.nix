@@ -38,7 +38,7 @@ in
   # ============================================================================
 
   fleet.host.name = "testbed-vm";
-  users.motd = "testbed-vm: Fizzy project board testbed, Homebox inventory testbed, InvoicePlane invoicing testbed, Kaneo project-management testbed, Keeper calendar sync testbed, Listmonk newsletter testbed, Outline knowledge-base testbed, Plane project-management testbed, Postiz social media scheduling testbed, Sure personal finance testbed, Mailpit SMTP capture, and appdata backups";
+  users.motd = "testbed-vm: Fizzy project board testbed, Homebox inventory testbed, InvoicePlane invoicing testbed, Kaneo project-management testbed, Keeper calendar sync testbed, Listmonk newsletter testbed, MeTube video downloader testbed, Outline knowledge-base testbed, Plane project-management testbed, Postiz social media scheduling testbed, Sure personal finance testbed, Mailpit SMTP capture, and appdata backups";
 
   networking.hosts.${gatewayCluster.clientAddress} = routeHosts;
 
@@ -520,5 +520,6 @@ in
     };
     inherit serviceDomains;
     smb.backupDevice = "//10.2.10.10/backups";
+    smb.mediaDevice = "//nas.home.arpa/media";
   };
 }

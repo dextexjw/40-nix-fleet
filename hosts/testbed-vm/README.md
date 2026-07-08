@@ -4,9 +4,10 @@
 testbed, InvoicePlane as an invoicing testbed, Kaneo as a project-management testbed, Keeper as a calendar-sync
 testbed, Listmonk as a newsletter and mailing-list testbed, Outline as a
 knowledge-base testbed, Plane as a project-management testbed, Postiz as a
-social media scheduling testbed, and Sure as a personal-finance testbed. Mail is
-captured locally by Mailpit so test messages cannot leave the lab until a real
-SMTP integration is intentionally added.
+social media scheduling testbed, Sure as a personal-finance testbed, and
+MeTube as a video-downloader testbed. Mail is captured locally by Mailpit so
+test messages cannot leave the lab until a real SMTP integration is
+intentionally added.
 
 ## Service URLs
 
@@ -54,6 +55,8 @@ SMTP integration is intentionally added.
 - Sure public route: `https://sure.jax22.com/`
 - Sure LAN alias: `http://sure.h/`
 - Sure direct backend: `http://10.2.20.129:9030/` from Gateway nodes only
+- MeTube public route: `https://metube.jax22.com/`
+- MeTube direct backend: `http://10.2.20.129:8081/` from Gateway nodes only
 - Mailpit public route: `https://mailpit.jax22.com/`
 - Mailpit direct backend: `http://10.2.20.129:8025/` from Gateway nodes only
 - Mailpit local SMTP capture: `127.0.0.1:1025` on `testbed-vm`
@@ -62,6 +65,7 @@ SMTP integration is intentionally added.
 ## State
 
 - Appdata root: `/srv/appsdata`
+- Media SMB share: `//nas.home.arpa/media` mounted at `/mnt/media`
 - AFFiNE uploads and config: `/srv/appsdata/affine`
 - AFFiNE PostgreSQL database: `affine`
 - AFFiNE Redis cache: `redis-affine.service`
@@ -90,6 +94,11 @@ SMTP integration is intentionally added.
 - Sure uploads and service state: `/srv/appsdata/sure`
 - Sure Redis state: `/srv/appsdata/sure/redis`
 - Sure PostgreSQL database: `sure`
+- MeTube queue and subscription state: `/srv/appsdata/metube/state`
+- MeTube completed downloads: `/mnt/media/downloads/metube` on the NAS media
+  share, outside Restic appdata backups
+- MeTube temporary downloads: `/var/lib/metube-downloads` on local VM storage,
+  outside Restic appdata backups
 - PostgreSQL data: `/srv/appsdata/postgresql`
 - PostgreSQL dump: `/srv/appsdata/postgresql-dumps/latest.sql.gz`
 - MariaDB dump: `/srv/appsdata/mariadb-dumps/latest.sql.gz`
@@ -245,6 +254,14 @@ account through Authentik OIDC. Local login remains enabled for future
 break-glass accounts, but no plaintext local credentials are declared in Nix.
 Optional paid AI and market-data integrations are intentionally disabled in the
 initial deployment.
+
+MeTube is exposed at `https://metube.jax22.com/` through Authentik forward-auth
+for `fleet-admins`. No unauthenticated `metube.h` LAN alias is declared.
+Completed files are written to the NAS media mount at
+`/mnt/media/downloads/metube`; queue, pending, completed-list, and subscription
+state is kept under `/srv/appsdata/metube/state` and is included in the normal
+testbed appdata backup. Temporary and in-progress files use local VM storage at
+`/var/lib/metube-downloads`.
 
 Keeper uses SOPS-backed auth, encryption, PostgreSQL, and Google/Microsoft
 OAuth client secrets. The Google OAuth app must allow

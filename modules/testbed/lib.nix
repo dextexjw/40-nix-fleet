@@ -85,6 +85,7 @@ let
     "podman-keeper.service"
     "redis-keeper.service"
     "listmonk.service"
+    "podman-metube.service"
     "podman-outline.service"
     "redis-outline.service"
     "nginx.service"

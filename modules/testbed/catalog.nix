@@ -414,6 +414,30 @@ in
           };
         }
         {
+          id = "metube";
+          name = "MeTube";
+          route = {
+            description = "MeTube video downloader testbed";
+            hosts = publicHostnames "metube";
+            url = backend 8081;
+          };
+          homepage = {
+            description = "Video downloader testbed\n${backend 8081}";
+            href = publicOnlyServiceUrl "metube";
+            icon = "metube.png";
+            siteMonitor = "${backend 8081}/";
+          };
+          auth = {
+            mode = "forward-auth";
+            groups = [ "fleet-admins" ];
+          };
+          checkmate.url = "https://metube.jax22.com/";
+          smoke.http = {
+            discard = true;
+            path = "/";
+          };
+        }
+        {
           id = "mailpit";
           name = "Mailpit";
           route = {

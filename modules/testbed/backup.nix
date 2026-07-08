@@ -37,6 +37,7 @@ let
     "homebox.service"
     "podman-kaneo.service"
     "podman-keeper.service"
+    "podman-metube.service"
     "podman-outline.service"
     "podman-sure-web.service"
     "podman-sure-worker.service"

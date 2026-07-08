@@ -90,6 +90,7 @@ in
         listmonk = 9000;
         mailpit = 8025;
         mailpitSmtp = 1025;
+        metube = 8081;
         outline = 9050;
         outlineRedis = 6383;
         plane = 9020;
@@ -594,6 +595,44 @@ in
       };
     };
 
+    metube = {
+      downloadDir = mkOption {
+        type = types.path;
+        default = "/mnt/media/downloads/metube";
+        description = "NAS-backed directory for completed MeTube downloads, outside the Restic appdata source.";
+      };
+
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run the MeTube video downloader testbed service.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://metube.jax22.com";
+        description = "Canonical external MeTube URL.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/alexta69/metube:2026.07.05@sha256:48c8700bccd51f828606464ad12147b76f5ce7ef1d9ed935bd933f5e8c816fe9";
+        description = "Pinned MeTube OCI image.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/metube";
+        description = "Persistent MeTube queue and subscription state directory.";
+      };
+
+      tempDir = mkOption {
+        type = types.path;
+        default = "/var/lib/metube-downloads";
+        description = "Local VM directory for MeTube temporary and in-progress download files.";
+      };
+    };
+
     outline = {
       databaseName = mkOption {
         type = types.str;
@@ -1089,6 +1128,18 @@ in
         type = types.path;
         default = "/mnt/backups";
         description = "Backup SMB mount point.";
+      };
+
+      mediaDevice = mkOption {
+        type = types.str;
+        default = "//nas.home.arpa/media";
+        description = "SMB device for the NAS media share used by MeTube completed downloads.";
+      };
+
+      mediaMount = mkOption {
+        type = types.path;
+        default = "/mnt/media";
+        description = "NAS media mount point used by MeTube completed downloads.";
       };
 
       mountOptions = mkOption {

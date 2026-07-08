@@ -35,8 +35,9 @@ in
           uploads, Plane Community Edition with local PostgreSQL,
           Redis, RabbitMQ, and Garage S3 uploads, Postiz with private
           PostgreSQL, Redis, and Temporal containers, Sure with local
-          PostgreSQL, Redis, and local uploads, local Mailpit SMTP capture, Authentik
-          integration, and Restic appdata backups.
+          PostgreSQL, Redis, and local uploads, MeTube with NAS-backed completed
+          downloads, local Mailpit SMTP capture, Authentik integration, and
+          Restic appdata backups.
 
           Persistent state root:
             ${appdata}
@@ -63,6 +64,11 @@ in
 
           Listmonk state:
             ${cfg.listmonk.stateDir}
+
+          MeTube state:
+            ${cfg.metube.stateDir}/state
+            Completed downloads: ${cfg.metube.downloadDir} (NAS media share, not in Restic)
+            Temporary downloads: ${cfg.metube.tempDir} (local VM storage, not in Restic)
 
           Outline state:
             ${cfg.outline.stateDir}
@@ -113,6 +119,9 @@ in
           Backup repository:
             ${cfg.backup.repository}
 
+          NAS media mount:
+            ${cfg.smb.mediaMount} from ${cfg.smb.mediaDevice}
+
           Password file:
             ${resticPasswordFile}
 
@@ -138,6 +147,7 @@ in
             Postiz: ${toString cfg.ports.postiz} (Gateway nodes only)
             Sure: ${toString cfg.ports.sure} (Gateway nodes only)
             Sure Redis: ${toString cfg.ports.sureRedis} (local host only)
+            MeTube: ${toString cfg.ports.metube} (Gateway nodes only)
             Mailpit UI/API: ${toString cfg.ports.mailpit} (Gateway nodes only)
             Mailpit SMTP backend: ${toString cfg.ports.mailpitSmtp} (Gateway nodes only)
             Mailpit SMTP homelab endpoint: smtp.mailpit.jax22.com:25
@@ -241,6 +251,15 @@ in
             be created through Authentik OIDC. Local login remains enabled for
             break-glass accounts.
 
+            MeTube browser access is routed as https://metube.jax22.com/
+            through Authentik forward-auth for fleet-admins. No metube.h LAN
+            alias is declared. Queue and subscription state lives under
+            ${cfg.metube.stateDir}/state and is backed up with appdata.
+            Completed videos are written to ${cfg.metube.downloadDir} on the
+            NAS media share and are intentionally outside Restic appdata
+            backups. Temporary downloads use ${cfg.metube.tempDir} on local VM
+            storage.
+
           Mail model:
             Fizzy, Homebox, Kaneo, Listmonk, Outline, and Sure send to local Mailpit on 127.0.0.1:${toString cfg.ports.mailpitSmtp}.
             Homelab clients can submit capture-only mail through Gateway at
@@ -261,7 +280,7 @@ in
             4. Choose a testbed-vm/appsdata snapshot ID.
             5. Restore the snapshot to / with restic --verify.
             6. Run systemd-tmpfiles --create.
-            7. Restart MariaDB, PostgreSQL, Redis, RabbitMQ, AFFiNE, Gitea, Stirling PDF, Firefly III, InvoicePlane, Outline, Plane, Postiz, Sure, Mailpit, Listmonk, Homebox, Kaneo, Fizzy, Keeper, provisioning units, and the backup timer.
+            7. Restart MariaDB, PostgreSQL, Redis, RabbitMQ, AFFiNE, Gitea, Stirling PDF, Firefly III, InvoicePlane, Outline, Plane, Postiz, Sure, MeTube, Mailpit, Listmonk, Homebox, Kaneo, Fizzy, Keeper, provisioning units, and the backup timer.
 
           Services stopped during consistency-first manual backup:
             ${concatStringsSep " " statefulServices}

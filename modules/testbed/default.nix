@@ -12,6 +12,7 @@
     ./services/kaneo.nix
     ./services/keeper.nix
     ./services/listmonk.nix
+    ./services/metube.nix
     ./services/outline.nix
     ./services/plane.nix
     ./services/postiz.nix

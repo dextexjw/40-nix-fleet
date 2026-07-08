@@ -33,6 +33,7 @@ in
       (mkGatewayAccept cfg.ports.listmonk)
       (mkGatewayAccept cfg.ports.mailpit)
       (mkGatewayAccept cfg.ports.mailpitSmtp)
+      (mkGatewayAccept cfg.ports.metube)
       (mkGatewayAccept cfg.ports.outline)
       (mkGatewayAccept cfg.ports.plane)
       (mkGatewayAccept cfg.ports.postiz)
