@@ -263,6 +263,9 @@ in
       gluetun-openvpn-username = {
         restartUnits = [ "podman-gluetun.service" ];
       };
+      gluetun-shadowsocks-password = {
+        restartUnits = [ "podman-gluetun.service" ];
+      };
       restic-password = {
         restartUnits = [ "gateway-state-backup.service" ];
       };
@@ -305,6 +308,11 @@ in
     enable = true;
     openvpnPasswordFile = config.sops.secrets.gluetun-openvpn-password.path;
     openvpnUsernameFile = config.sops.secrets.gluetun-openvpn-username.path;
+    shadowsocks = {
+      cipher = "chacha20-ietf-poly1305";
+      enable = true;
+      passwordFile = config.sops.secrets.gluetun-shadowsocks-password.path;
+    };
     webUi = {
       enable = true;
       trustProxy = true;
@@ -558,7 +566,7 @@ in
           Traefik: traefik.service, version 3.7.6, HTTP ingress port 80, HTTPS ingress port 443 for jax22.com routes using Let's Encrypt DNS-01, ACME state /srv/appsdata/traefik/acme.json, dashboard and metrics port 8080, JSON access logs in the service journal
           Homepage: homepage-dashboard.service, declarative service directory, LAN access on ${host.ip}:8082, https://homepage.jax22.com, and http://homepage.h
           Technitium: technitium-dns-server.service, version 15.2.0, state /srv/appsdata/technitium-dns-server, admin HTTP on ${host.ip}:5380, https://technitium.jax22.com, and http://technitium.h
-          Gluetun: podman-gluetun.service, PIA OpenVPN container, state /srv/appsdata/gluetun, unauthenticated LAN HTTP proxy on ${host.ip}:8888, authenticated control API internal to the container namespace
+          Gluetun: podman-gluetun.service, PIA OpenVPN container, state /srv/appsdata/gluetun, unauthenticated LAN HTTP proxy on ${host.ip}:8888, Shadowsocks on ${host.ip}:8388/tcp+udp using chacha20-ietf-poly1305 and gluetun-shadowsocks-password, authenticated control API internal to the container namespace
           Gluetun WebUI: podman-gluetun-webui.service, LAN access through Traefik at https://gluetun.gateway.jax22.com and http://gluetun.gateway.h, backend only on 127.0.0.1:3000
           Keepalived: keepalived.service, unicast VRRP on ${host.ip}, shared client VIP ${gatewayClientAddress}, preferred primary ${gatewayCluster.primary}
           netboot.xyz route: Gateway Traefik routes https://netbootxyz.jax22.com and http://netbootxyz.h to productivity-vm at ${hosts.productivity-vm.ip}:3001; direct assets and TFTP live on productivity-vm

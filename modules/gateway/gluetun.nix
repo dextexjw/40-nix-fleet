@@ -12,8 +12,11 @@ let
   controlAuthConfigDir = "/run/gluetun-control-server";
   controlAuthConfigFile = "${controlAuthConfigDir}/config.toml";
   controlWebUiEnvFile = "${controlAuthConfigDir}/webui.env";
+  shadowsocksSecretPath = "/run/secrets/shadowsocks_password";
   inputPorts =
-    optional cfg.httpProxy.enable cfg.httpProxy.port ++ optional cfg.webUi.enable cfg.webUi.port;
+    optional cfg.httpProxy.enable cfg.httpProxy.port
+    ++ optional cfg.shadowsocks.enable cfg.shadowsocks.port
+    ++ optional cfg.webUi.enable cfg.webUi.port;
 in
 {
   # ============================================================================
@@ -41,6 +44,42 @@ in
         type = types.port;
         default = 8888;
         description = "Host and container port for Gluetun's HTTP proxy.";
+      };
+    };
+
+    shadowsocks = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Expose Gluetun's Shadowsocks proxy.";
+      };
+
+      cipher = mkOption {
+        type = types.enum [
+          "aes-128-gcm"
+          "aes-256-gcm"
+          "chacha20-ietf-poly1305"
+        ];
+        default = "chacha20-ietf-poly1305";
+        description = "AEAD cipher used by Gluetun's Shadowsocks proxy.";
+      };
+
+      log = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Enable Gluetun Shadowsocks proxy logging.";
+      };
+
+      passwordFile = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        description = "Runtime secret file containing the Shadowsocks password.";
+      };
+
+      port = mkOption {
+        type = types.port;
+        default = 8388;
+        description = "Host and container port for Gluetun's Shadowsocks proxy.";
       };
     };
 
@@ -173,6 +212,10 @@ in
         assertion = !cfg.controlServer.enable || cfg.controlServer.apiKeyFile != null;
         message = "fleet.gateway.gluetun.controlServer.apiKeyFile must be set when the Gluetun control server is enabled.";
       }
+      {
+        assertion = !cfg.shadowsocks.enable || cfg.shadowsocks.passwordFile != null;
+        message = "fleet.gateway.gluetun.shadowsocks.passwordFile must be set when the Gluetun Shadowsocks proxy is enabled.";
+      }
     ];
 
     boot.kernelModules = [ "tun" ];
@@ -201,6 +244,13 @@ in
         VPN_SERVICE_PROVIDER = cfg.provider;
         VPN_TYPE = cfg.vpnType;
       }
+      // optionalAttrs cfg.shadowsocks.enable {
+        SHADOWSOCKS = "on";
+        SHADOWSOCKS_CIPHER = cfg.shadowsocks.cipher;
+        SHADOWSOCKS_LISTENING_ADDRESS = ":${toString cfg.shadowsocks.port}";
+        SHADOWSOCKS_LOG = if cfg.shadowsocks.log then "on" else "off";
+        SHADOWSOCKS_PASSWORD_SECRETFILE = shadowsocksSecretPath;
+      }
       // optionalAttrs (inputPorts != [ ]) {
         FIREWALL_INPUT_PORTS = concatMapStringsSep "," toString inputPorts;
       }
@@ -212,6 +262,10 @@ in
       ports =
         optionals cfg.httpProxy.enable [
           "${cfg.bindAddress}:${toString cfg.httpProxy.port}:${toString cfg.httpProxy.port}/tcp"
+        ]
+        ++ optionals cfg.shadowsocks.enable [
+          "${cfg.bindAddress}:${toString cfg.shadowsocks.port}:${toString cfg.shadowsocks.port}/tcp"
+          "${cfg.bindAddress}:${toString cfg.shadowsocks.port}:${toString cfg.shadowsocks.port}/udp"
         ]
         ++ optionals cfg.webUi.enable [
           "${cfg.webUi.bindAddress}:${toString cfg.webUi.port}:${toString cfg.webUi.port}/tcp"
@@ -231,6 +285,9 @@ in
         "${cfg.stateDir}:/gluetun"
         "${cfg.openvpnUsernameFile}:/run/secrets/openvpn_user:ro"
         "${cfg.openvpnPasswordFile}:/run/secrets/openvpn_password:ro"
+      ]
+      ++ optionals cfg.shadowsocks.enable [
+        "${cfg.shadowsocks.passwordFile}:${shadowsocksSecretPath}:ro"
       ]
       ++ optionals cfg.controlServer.enable [
         "${controlAuthConfigFile}:/run/gluetun-control-server/config.toml:ro"
@@ -262,7 +319,10 @@ in
 
     networking.firewall.allowedTCPPorts =
       optional cfg.httpProxy.enable cfg.httpProxy.port
+      ++ optional cfg.shadowsocks.enable cfg.shadowsocks.port
       ++ optional (cfg.webUi.enable && cfg.webUi.openFirewall) cfg.webUi.port;
+
+    networking.firewall.allowedUDPPorts = optional cfg.shadowsocks.enable cfg.shadowsocks.port;
 
     systemd.services.gluetun-control-auth-config = mkIf cfg.controlServer.enable {
       description = "Generate Gluetun control server authentication config";

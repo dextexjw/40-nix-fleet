@@ -51,6 +51,7 @@ Service access:
 - Technitium admin HTTP: `http://10.2.20.112:5380`
 - Technitium HTTPS and DNS-over-HTTPS: `https://10.2.20.112:53443`
 - Gluetun HTTP proxy: `http://10.2.20.112:8888`
+- Gluetun Shadowsocks: `10.2.20.112:8388` over TCP and UDP, cipher `chacha20-ietf-poly1305`, password from `gluetun-shadowsocks-password`
 - Gluetun WebUI: `https://gluetun.gateway.jax22.com/` through Traefik, `http://gluetun.gateway.h/` as an alias; backend only on `127.0.0.1:3000`
 - MediaVM Gluetun WebUI: `https://gluetun.media.jax22.com/` through Traefik, `http://gluetun.media.h/` as an alias; backend on `10.2.20.113:3001`
 - BookOrbit: `https://bookorbit.jax22.com/` through Traefik, `http://bookorbit.h/` as an alias; backend on `10.2.20.113:3000`
@@ -188,10 +189,13 @@ while the rest of the fleet remains on the locked `nixpkgs` package set.
 
 Gluetun uses Private Internet Access over OpenVPN. The HTTP proxy is exposed on
 the LAN without separate proxy authentication; access is controlled by LAN
-reachability and the host firewall. PIA VPN port forwarding and fixed region
-selection are disabled for now. Gluetun's control API is authenticated with a
-SOPS-managed API key and is only consumed by the WebUI sidecar inside Gluetun's
-container network namespace.
+reachability and the host firewall. The Shadowsocks proxy is exposed on
+`10.2.20.112:8388` for TCP and UDP. Shadowsocks clients should use server
+`10.2.20.112`, port `8388`, cipher `chacha20-ietf-poly1305`, and the password
+stored in `gluetun-shadowsocks-password`; this is Shadowsocks, not a raw SOCKS5
+listener. PIA VPN port forwarding and fixed region selection are disabled for
+now. Gluetun's control API is authenticated with a SOPS-managed API key and is
+only consumed by the WebUI sidecar inside Gluetun's container network namespace.
 
 The Gluetun WebUI runs as `podman-gluetun-webui.service` and is available on
 the LAN through Traefik at `https://gluetun.gateway.jax22.com/` and
@@ -302,6 +306,7 @@ Required secrets:
 - `gluetun-control-api-key`
 - `gluetun-openvpn-username`
 - `gluetun-openvpn-password`
+- `gluetun-shadowsocks-password`
 - `smb-credentials`
 - `restic-password`
 - `technitium-admin-username`

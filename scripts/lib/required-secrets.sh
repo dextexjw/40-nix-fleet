@@ -32,6 +32,7 @@ GATEWAY_REQUIRED_SECRET_KEYS=(
   gluetun-control-api-key
   gluetun-openvpn-password
   gluetun-openvpn-username
+  gluetun-shadowsocks-password
   kaneo-oidc-client-secret
   listmonk-oidc-client-secret
   homebox-oidc-client-secret
