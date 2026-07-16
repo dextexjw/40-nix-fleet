@@ -18,6 +18,7 @@
     ./services/postiz.nix
     ./services/stirling-pdf.nix
     ./services/sure.nix
+    ./recovery-lifecycle.nix
     ./backup.nix
     ./firewall.nix
     ./recovery-notes.nix

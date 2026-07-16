@@ -103,6 +103,10 @@
 
       formatter.${system} = pkgs.nixfmt;
 
+      checks.${system}.testbed-recovery-lifecycle = import ./tests/testbed-recovery-lifecycle.nix {
+        inherit nixpkgs pkgs system;
+      };
+
       # ==========================================================================
       # COLMENA HIVE - Fleet deployment configuration
       # ==========================================================================
