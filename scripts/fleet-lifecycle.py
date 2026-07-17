@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -16,6 +17,236 @@ from typing import Any
 
 
 STATUSES = ("passed", "failed", "blocked", "not_run", "not_applicable")
+FLOATING_TARGETS = {"edge", "latest", "main", "master", "rolling", "stable"}
+OCI_DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
+CONTENT_PIN = re.compile(
+    r"(?:[0-9a-f]{40,64}|sha256[-:][A-Za-z0-9+/=]{32,}|/nix/store/[a-z0-9]{32}-[^/]+)$"
+)
+REMOVAL_SURFACES = (
+    "runtime",
+    "listeners",
+    "routes",
+    "homepage",
+    "authentication",
+    "monitoring",
+    "secrets",
+    "backup",
+    "restore",
+    "smoke",
+    "documentation",
+    "endpoint",
+)
+RECOVERY_DISPOSITIONS = {"retained", "exported", "destroyed", "not_applicable"}
+
+
+def immutable_upgrade_target(target: str, target_kind: str, immutable_reference: str) -> bool:
+    """Return whether an operator-selected release target is reproducible."""
+    normalized = target.strip().lower().removesuffix("/")
+    final_component = normalized.rsplit("/", 1)[-1]
+    tag = final_component.rsplit(":", 1)[-1] if ":" in final_component else final_component
+    if not normalized or tag in FLOATING_TARGETS:
+        return False
+    if target_kind == "image":
+        match = OCI_DIGEST.search(normalized)
+        return match is not None and immutable_reference.lower() == match.group(0)[1:]
+    return CONTENT_PIN.fullmatch(immutable_reference) is not None
+
+
+def upgrade_plan(arguments: argparse.Namespace) -> dict[str, Any] | None:
+    if arguments.action != "upgrade":
+        return None
+    return {
+        "currentVersionSource": arguments.current_version_source,
+        "targetKind": arguments.target_kind,
+        "targetVersion": arguments.target_version,
+        "immutableReference": arguments.immutable_reference,
+        "targetIsImmutable": immutable_upgrade_target(
+            arguments.target_version,
+            arguments.target_kind,
+            arguments.immutable_reference,
+        ),
+        "migrationRequirements": arguments.migration_requirements,
+        "dependencyCompatibility": arguments.dependency_compatibility,
+        "downgradeSupport": arguments.downgrade_support,
+        "intermediateVersions": arguments.intermediate_versions,
+        "configurationRollback": arguments.configuration_rollback,
+        "dataRollback": arguments.data_rollback,
+    }
+
+
+def move_plan(arguments: argparse.Namespace) -> dict[str, Any] | None:
+    if arguments.action != "move":
+        return None
+    plan = {
+        "service": arguments.service,
+        "sourceOwner": arguments.source_host,
+        "targetOwner": arguments.target_host,
+        "stateBoundary": arguments.state_boundary,
+        "transferMethod": arguments.transfer_method,
+        "consistencyWindow": arguments.consistency_window,
+        "cutoverOrder": arguments.cutover_order,
+        "verificationCommand": arguments.move_verification_command,
+    }
+    return plan
+
+
+def validate_verification(check: Any, context: str) -> None:
+    if not isinstance(check, dict):
+        raise ValueError(f"{context} must be an object")
+    command = check.get("command")
+    if (
+        not isinstance(command, list)
+        or not command
+        or not all(isinstance(argument, str) and argument for argument in command)
+    ):
+        raise ValueError(f"{context} requires a non-empty command array")
+    expected_exit_codes = check.get("expectedExitCodes", [0])
+    if (
+        not isinstance(expected_exit_codes, list)
+        or not expected_exit_codes
+        or not all(isinstance(code, int) for code in expected_exit_codes)
+    ):
+        raise ValueError(f"{context} expectedExitCodes must be a non-empty integer array")
+    if "expectedStdout" in check and not isinstance(check["expectedStdout"], str):
+        raise ValueError(f"{context} expectedStdout must be a string")
+    executable = command[0]
+    repository_test = executable.startswith("scripts/") and Path(executable).name.startswith(
+        "test-"
+    )
+    read_only_tool = (
+        executable == "rg"
+        or executable == "curl"
+        or (executable == "nix" and len(command) > 1 and command[1] == "eval")
+    )
+    if not repository_test and not read_only_tool:
+        raise ValueError(
+            f"{context} must use a repository test script, nix eval, rg, or curl"
+        )
+
+
+def validate_recovery_disposition(value: Any, context: str) -> None:
+    if not isinstance(value, dict):
+        raise ValueError(f"removal {context} disposition must be an object")
+    disposition = value.get("disposition")
+    if disposition not in RECOVERY_DISPOSITIONS:
+        raise ValueError(
+            f"removal {context} disposition must be retained, exported, destroyed, or not_applicable"
+        )
+    if disposition == "not_applicable":
+        if not isinstance(value.get("reason"), str) or not value["reason"].strip():
+            raise ValueError(f"removal {context} not_applicable disposition requires a reason")
+        return
+    for field in ("recoveryMaterial", "documentation"):
+        if not isinstance(value.get(field), str) or not value[field].strip():
+            raise ValueError(f"removal {context} disposition requires {field}")
+
+
+def load_removal_plan(arguments: argparse.Namespace) -> dict[str, Any] | None:
+    if arguments.action != "removal":
+        return None
+    if arguments.removal_manifest is None:
+        raise ValueError("removal requires --removal-manifest")
+    try:
+        plan = json.loads(arguments.removal_manifest.read_text(encoding="utf-8"))
+    except FileNotFoundError as error:
+        raise ValueError(f"removal manifest is unavailable: {arguments.removal_manifest}") from error
+    except json.JSONDecodeError as error:
+        raise ValueError(f"removal manifest is invalid JSON: {arguments.removal_manifest}") from error
+    if not isinstance(plan, dict) or plan.get("schemaVersion") != 1:
+        raise ValueError("removal manifest must be a schemaVersion 1 object")
+    if not isinstance(plan.get("service"), str) or not plan["service"].strip():
+        raise ValueError("removal manifest requires a service identifier")
+
+    validate_recovery_disposition(plan.get("state"), "state")
+    validate_recovery_disposition(plan.get("snapshots"), "snapshots")
+    destruction_requested = any(
+        plan[subject]["disposition"] == "destroyed" for subject in ("state", "snapshots")
+    )
+    if destruction_requested and not arguments.authorize_destruction:
+        raise ValueError("destroying retained state or snapshots requires --authorize-destruction")
+    plan["destructionAuthorized"] = arguments.authorize_destruction
+
+    inventory = plan.get("inventory")
+    if not isinstance(inventory, dict):
+        raise ValueError("removal manifest requires an inventory object")
+    missing_surfaces = [surface for surface in REMOVAL_SURFACES if surface not in inventory]
+    extra_surfaces = [surface for surface in inventory if surface not in REMOVAL_SURFACES]
+    if missing_surfaces or extra_surfaces:
+        details = []
+        if missing_surfaces:
+            details.append(f"missing: {', '.join(missing_surfaces)}")
+        if extra_surfaces:
+            details.append(f"unsupported: {', '.join(extra_surfaces)}")
+        raise ValueError(f"removal inventory surfaces are incomplete ({'; '.join(details)})")
+    for surface in REMOVAL_SURFACES:
+        section = inventory[surface]
+        if not isinstance(section, dict):
+            raise ValueError(f"removal inventory {surface} must be an object")
+        resources = section.get("resources")
+        if resources is None:
+            reason = section.get("notApplicableReason")
+            if not isinstance(reason, str) or not reason.strip():
+                raise ValueError(
+                    f"removal inventory {surface} requires resources or notApplicableReason"
+                )
+            continue
+        if not isinstance(resources, list) or not resources:
+            raise ValueError(f"removal inventory {surface} resources must be non-empty")
+        for index, resource in enumerate(resources):
+            context = f"removal inventory {surface} resource {index}"
+            if not isinstance(resource, dict):
+                raise ValueError(f"{context} must be an object")
+            for field in ("id", "resource"):
+                if not isinstance(resource.get(field), str) or not resource[field].strip():
+                    raise ValueError(f"{context} requires {field}")
+            if resource.get("ownership") not in ("shared", "unshared"):
+                raise ValueError(f"{context} ownership must be shared or unshared")
+            if resource.get("disposition") not in ("remove", "retain"):
+                raise ValueError(f"{context} disposition must be remove or retain")
+            if resource["ownership"] == "shared" and resource["disposition"] != "retain":
+                raise ValueError("shared resources must be retained during removal")
+            validate_verification(resource.get("verification"), f"{context} verification")
+
+    retained_or_exported = any(
+        plan[subject]["disposition"] in ("retained", "exported")
+        for subject in ("state", "snapshots")
+    )
+    retained_checks = plan.get("retainedRecoveryChecks", [])
+    if retained_or_exported and not retained_checks:
+        raise ValueError("retained or exported recovery material requires retainedRecoveryChecks")
+    if not isinstance(retained_checks, list):
+        raise ValueError("retainedRecoveryChecks must be an array")
+    for index, check in enumerate(retained_checks):
+        if not isinstance(check, dict) or not isinstance(check.get("id"), str):
+            raise ValueError(f"retainedRecoveryChecks item {index} requires an id")
+        validate_verification(check, f"retainedRecoveryChecks item {index}")
+
+    surviving_checks = plan.get("survivingServiceChecks")
+    if not isinstance(surviving_checks, list) or not surviving_checks:
+        raise ValueError("removal manifest requires survivingServiceChecks")
+    for index, check in enumerate(surviving_checks):
+        if not isinstance(check, dict) or not isinstance(check.get("id"), str):
+            raise ValueError(f"survivingServiceChecks item {index} requires an id")
+        validate_verification(check, f"survivingServiceChecks item {index}")
+    return plan
+
+
+def enrich_scope(
+    scope: dict[str, Any] | None,
+    arguments: argparse.Namespace,
+    selected_upgrade_plan: dict[str, Any] | None,
+    selected_move_plan: dict[str, Any] | None,
+    selected_removal_plan: dict[str, Any] | None,
+) -> None:
+    if scope is None:
+        return
+    if selected_upgrade_plan is not None:
+        scope["upgradePlan"] = selected_upgrade_plan
+    if selected_move_plan is not None:
+        scope["sourceHost"] = arguments.source_host
+        scope["movePlan"] = selected_move_plan
+    if selected_removal_plan is not None:
+        scope["removalPlan"] = selected_removal_plan
 
 
 def gate(
@@ -30,6 +261,9 @@ def gate(
     failure_classification: str = "target-service",
     applicability: str | None = None,
     expected_json: Any | None = None,
+    expected_exit_codes: list[int] | None = None,
+    expected_stdout: str | None = None,
+    matches_gate: str | None = None,
     evidence_sha256: str | None = None,
 ) -> dict[str, Any]:
     if status not in STATUSES:
@@ -51,6 +285,12 @@ def gate(
         result["applicability"] = applicability
     if expected_json is not None:
         result["expectedJson"] = expected_json
+    if expected_exit_codes is not None:
+        result["expectedExitCodes"] = expected_exit_codes
+    if expected_stdout is not None:
+        result["expectedStdout"] = expected_stdout
+    if matches_gate is not None:
+        result["matchesGate"] = matches_gate
     if evidence_sha256 is not None:
         result["evidenceSha256"] = evidence_sha256
     return result
@@ -70,7 +310,7 @@ def run_gate(item: dict[str, Any], *, cwd: Path, capture_output: bool = False) -
 
     print(f"==> {item['id']}: {' '.join(command)}", file=sys.stderr, flush=True)
     try:
-        should_capture = capture_output or "expectedJson" in item
+        should_capture = capture_output or "expectedJson" in item or "expectedStdout" in item
         run_options: dict[str, Any] = {"capture_output": True} if should_capture else {
             "stdout": sys.stderr,
             "stderr": sys.stderr,
@@ -85,13 +325,18 @@ def run_gate(item: dict[str, Any], *, cwd: Path, capture_output: bool = False) -
     if should_capture:
         stdout = result.stdout or b""
         stderr = result.stderr or b""
-        sys.stderr.buffer.write(stdout)
-        sys.stderr.buffer.write(stderr)
-        sys.stderr.flush()
+        if not item.get("sensitiveOutput", False):
+            sys.stderr.buffer.write(stdout)
+            sys.stderr.buffer.write(stderr)
+            sys.stderr.flush()
         item["outputSha256"] = hashlib.sha256(stdout + stderr).hexdigest()
-    if result.returncode != 0:
+    expected_exit_codes = item.get("expectedExitCodes", [0])
+    if result.returncode not in expected_exit_codes:
         item["status"] = "failed"
-        item["reason"] = f"command exited with status {result.returncode}"
+        item["reason"] = (
+            f"command exited with status {result.returncode}; "
+            f"expected one of {expected_exit_codes}"
+        )
         return False
     if "expectedJson" in item:
         try:
@@ -103,6 +348,17 @@ def run_gate(item: dict[str, Any], *, cwd: Path, capture_output: bool = False) -
         if actual_json != item["expectedJson"]:
             item["status"] = "failed"
             item["reason"] = "rendered consumer surface is not enabled"
+            return False
+    if "expectedStdout" in item:
+        try:
+            actual_stdout = (result.stdout or b"").decode()
+        except UnicodeDecodeError:
+            item["status"] = "failed"
+            item["reason"] = "command did not emit UTF-8 verification evidence"
+            return False
+        if actual_stdout != item["expectedStdout"]:
+            item["status"] = "failed"
+            item["reason"] = "command output did not match the required verification evidence"
             return False
     item["status"] = "passed"
     return True
@@ -129,8 +385,11 @@ def resolve_consumer_impact(
 ) -> tuple[str, str]:
     if requested_impact != "auto":
         return requested_impact, "consumer impact was explicitly selected by the operator"
-    if action == "addition":
-        return "generated", "service additions are validated against generated fleet consumers"
+    if action in ("addition", "move", "upgrade"):
+        return (
+            "generated",
+            f"service {action}s are validated against generated fleet consumers",
+        )
 
     paths = changed_paths(repo_root)
     if paths is None:
@@ -411,6 +670,392 @@ def stateful_gates(
     return items
 
 
+def manifest_verification_gate(
+    gate_id: str,
+    *,
+    phase: str,
+    check: dict[str, Any],
+    reason: str | None = None,
+    matches_gate: str | None = None,
+) -> dict[str, Any]:
+    return gate(
+        gate_id,
+        phase=phase,
+        required=True,
+        reason=reason,
+        command=check["command"],
+        expected_exit_codes=check.get("expectedExitCodes", [0]),
+        expected_stdout=check.get("expectedStdout"),
+        matches_gate=matches_gate,
+    )
+
+
+def removal_gates(
+    runtime_host: str,
+    scope: dict[str, Any],
+    operation: str,
+    service_class: str = "stateful",
+) -> list[dict[str, Any]]:
+    plan = scope["removalPlan"]
+    plan_reason = (
+        "plan operation reports required gates without executing them"
+        if operation == "plan"
+        else None
+    )
+    if service_class == "stateful":
+        items = stateful_gates(runtime_host, scope)
+    else:
+        items = [
+            gate(
+                "static-validation",
+                phase="static-validation",
+                required=True,
+                reason=plan_reason,
+                command=["scripts/check.sh"],
+                failure_classification="repository-wide",
+            )
+        ]
+        items.extend(
+            gate(
+                f"build:{host}",
+                phase="affected-host-build",
+                required=True,
+                reason=plan_reason,
+                command=["colmena", "build", "--on", host],
+            )
+            for host in scope["affectedHosts"]
+        )
+        items.extend(consumer_surface_gates(scope, plan_reason))
+        items.append(
+            gate(
+                "pre-change-backup",
+                phase="pre-change-backup",
+                required=False,
+                status="not_applicable",
+                reason="the removed service is stateless, so it has no restore-critical state",
+            )
+        )
+        items.extend(
+            gate(
+                f"dry-activate:{host}",
+                phase="dry-activation",
+                required=True,
+                reason=plan_reason,
+                command=["colmena", "apply", "--on", host, "dry-activate"],
+            )
+            for host in scope["affectedHosts"]
+        )
+        items.extend(
+            gate(
+                f"guarded-deployment:{host}",
+                phase="guarded-deployment",
+                required=True,
+                reason=plan_reason,
+                command=["colmena", "apply", "--on", host, "switch"],
+            )
+            for host in scope["affectedHosts"]
+        )
+        items.append(
+            gate(
+                f"owning-host-health:{runtime_host}",
+                phase="live-verification",
+                required=True,
+                reason=plan_reason,
+                command=[
+                    f"scripts/{runtime_host}/test-{runtime_host.removesuffix('-vm')}-services.sh"
+                ],
+            )
+        )
+        items.extend(
+            gate(
+                f"consumer-host-health:{host}",
+                phase="live-verification",
+                required=True,
+                reason=plan_reason,
+                command=[f"scripts/{host}/test-{host.removesuffix('-vm')}-services.sh"],
+            )
+            for host in scope["consumerHosts"]
+            if host != runtime_host
+        )
+
+    pre_change_backup_index = next(
+        index for index, item in enumerate(items) if item["id"] == "pre-change-backup"
+    )
+    retained_before = [
+        manifest_verification_gate(
+            f"retained-recovery-before:{check['id']}",
+            phase="pre-change-recovery-proof",
+            check=check,
+            reason=plan_reason,
+        )
+        for check in plan.get("retainedRecoveryChecks", [])
+    ]
+    items[pre_change_backup_index + 1 : pre_change_backup_index + 1] = retained_before
+
+    if service_class == "stateful":
+        owner_deployment_index = next(
+            index
+            for index, item in enumerate(items)
+            if item["id"] == f"guarded-deployment:{runtime_host}"
+        )
+        consumer_deployments = [
+            gate(
+                f"guarded-deployment:{host}",
+                phase="guarded-deployment",
+                required=True,
+                reason=plan_reason,
+                command=["colmena", "apply", "--on", host, "switch"],
+            )
+            for host in scope["consumerHosts"]
+            if host != runtime_host
+        ]
+        items[owner_deployment_index + 1 : owner_deployment_index + 1] = consumer_deployments
+
+    proof_items: list[dict[str, Any]] = []
+    for surface in REMOVAL_SURFACES:
+        section = plan["inventory"][surface]
+        if "resources" not in section:
+            proof_items.append(
+                gate(
+                    f"inventory-not-applicable:{surface}",
+                    phase="live-removal-proof",
+                    required=False,
+                    status="not_applicable",
+                    reason=section["notApplicableReason"],
+                )
+            )
+            continue
+        for resource in section["resources"]:
+            disposition = "removed" if resource["disposition"] == "remove" else "retained"
+            proof_items.append(
+                manifest_verification_gate(
+                    f"{disposition}:{surface}:{resource['id']}",
+                    phase="live-removal-proof",
+                    check=resource["verification"],
+                    reason=plan_reason,
+                )
+            )
+    proof_items.extend(
+        manifest_verification_gate(
+            f"surviving:{check['id']}",
+            phase="surviving-service-proof",
+            check=check,
+            reason=plan_reason,
+        )
+        for check in plan["survivingServiceChecks"]
+    )
+    proof_items.extend(
+        manifest_verification_gate(
+            f"retained-recovery-after:{check['id']}",
+            phase="post-change-recovery-proof",
+            check=check,
+            reason=plan_reason,
+            matches_gate=f"retained-recovery-before:{check['id']}",
+        )
+        for check in plan.get("retainedRecoveryChecks", [])
+    )
+    if service_class == "stateful":
+        proof_index = next(
+            index for index, item in enumerate(items) if item["id"] == "backup-timer"
+        )
+    else:
+        proof_index = len(items)
+    items[proof_index:proof_index] = proof_items
+    if plan_reason is not None:
+        for item in items:
+            if item["status"] == "not_run" and "reason" not in item:
+                item["reason"] = plan_reason
+    return items
+
+
+def move_gates(scope: dict[str, Any]) -> list[dict[str, Any]]:
+    source_host = scope["sourceHost"]
+    target_host = scope["runtimeHost"]
+    source_wrapper = f"scripts/{source_host}/upgrade-{source_host}.sh"
+    target_wrapper = f"scripts/{target_host}/upgrade-{target_host}.sh"
+    move = scope["movePlan"]
+    verification_command = move["verificationCommand"]
+
+    def proof_command(proof: str, *, recovery_point: bool = False) -> list[str]:
+        command = [
+            verification_command,
+            proof,
+            "--service",
+            move["service"],
+            "--source-host",
+            source_host,
+            "--target-host",
+            target_host,
+            "--state-boundary",
+            move["stateBoundary"],
+        ]
+        if recovery_point:
+            command.extend(
+                ["--source-recovery-sha256", "{sourceRecoveryPointSha256}"]
+            )
+        return command
+
+    def proof_gate(gate_id: str, proof: str, phase: str) -> dict[str, Any]:
+        item = gate(
+            gate_id,
+            phase=phase,
+            required=True,
+            command=proof_command(proof, recovery_point=proof == "transfer"),
+            expected_json=True,
+        )
+        item["sensitiveOutput"] = True
+        return item
+    other_consumer_hosts = [
+        host
+        for host in scope["consumerHosts"]
+        if host not in (source_host, target_host)
+    ]
+    items = [
+        gate(
+            f"source-readiness:{source_host}",
+            phase="readiness",
+            required=True,
+            command=[source_wrapper, "check-upgrade-readiness"],
+        ),
+        gate(
+            f"target-readiness:{target_host}",
+            phase="readiness",
+            required=True,
+            command=[target_wrapper, "check-upgrade-readiness"],
+        ),
+        proof_gate(
+            f"target-secrets-permissions:{target_host}",
+            "target-secrets-permissions",
+            "readiness",
+        ),
+    ]
+    items.extend(
+        gate(
+            f"build:{host}",
+            phase="affected-host-build",
+            required=True,
+            command=["colmena", "build", "--on", host],
+        )
+        for host in other_consumer_hosts
+    )
+    items.extend(consumer_surface_gates(scope))
+    items.extend(
+        [
+            gate(
+                f"source-recovery-point:{source_host}",
+                phase="pre-change-backup",
+                required=True,
+                command=[source_wrapper, "create-pre-upgrade-backup"],
+            ),
+            proof_gate(
+                "transfer-evidence",
+                "transfer",
+                "state-transfer",
+            ),
+            gate(
+                f"dry-activate:{target_host}",
+                phase="dry-activation",
+                required=True,
+                command=[target_wrapper, f"dry-activate-{target_host}"],
+            ),
+            gate(
+                f"dry-activate:{source_host}",
+                phase="dry-activation",
+                required=True,
+                command=[source_wrapper, f"dry-activate-{source_host}"],
+            ),
+        ]
+    )
+    items.extend(
+        gate(
+            f"dry-activate:{host}",
+            phase="dry-activation",
+            required=True,
+            command=["colmena", "apply", "--on", host, "dry-activate"],
+        )
+        for host in other_consumer_hosts
+    )
+    items.extend(
+        [
+            gate(
+                f"guarded-deployment:{target_host}",
+                phase="target-cutover",
+                required=True,
+                command=[target_wrapper, f"deploy-{target_host}"],
+            ),
+            gate(
+                f"owning-host-health:{target_host}",
+                phase="target-verification",
+                required=True,
+                command=[target_wrapper, f"verify-{target_host}"],
+            ),
+        ]
+    )
+    items.extend(
+        gate(
+            f"consumer-guarded-deployment:{host}",
+            phase="consumer-cutover",
+            required=True,
+            command=[f"scripts/{host}/deploy-{host.removesuffix('-vm')}.sh"],
+        )
+        for host in other_consumer_hosts
+    )
+    items.extend(
+        gate(
+            f"consumer-deployment:{host}",
+            phase="consumer-cutover",
+            required=True,
+            command=[f"scripts/{host}/deploy-{host.removesuffix('-vm')}.sh"],
+        )
+        for host in other_consumer_hosts
+    )
+    items.extend(
+        gate(
+            f"consumer-host-health:{host}",
+            phase="consumer-verification",
+            required=True,
+            command=[f"scripts/{host}/test-{host.removesuffix('-vm')}-services.sh"],
+        )
+        for host in other_consumer_hosts
+    )
+    items.extend(
+        [
+            proof_gate(
+                f"target-backup-recovery-ownership:{target_host}",
+                "target-backup-recovery-ownership",
+                "target-verification",
+            ),
+            gate(
+                f"source-retirement:{source_host}",
+                phase="source-retirement",
+                required=True,
+                command=[source_wrapper, f"deploy-{source_host}"],
+            ),
+            gate(
+                f"source-retirement-health:{source_host}",
+                phase="source-retirement",
+                required=True,
+                command=[source_wrapper, f"verify-{source_host}"],
+            ),
+        ]
+    )
+    for proof in (
+        "old-runtime-absence",
+        "old-listener-absence",
+        "old-launcher-absence",
+        "old-route-target-absence",
+        "old-backup-responsibility-absence",
+    ):
+        items.append(
+            proof_gate(
+                f"{proof}:{source_host}",
+                proof,
+                "source-retirement-verification",
+            )
+        )
+    return items
+
+
 def mark_remaining_not_run(items: list[dict[str, Any]], start: int, failed_gate: str) -> None:
     for item in items[start:]:
         if item["status"] == "not_run" and "reason" not in item:
@@ -504,7 +1149,10 @@ def write_phase_receipt(
         receipt["outputSha256"] = item["outputSha256"]
     if "verificationEvidence" in item:
         receipt["verificationEvidence"] = item["verificationEvidence"]
-    if item["id"] == "pre-change-backup":
+    if (
+        (item["id"] == "pre-change-backup" or item["id"].startswith("source-recovery-point:"))
+        and "command" in item
+    ):
         receipt["backupEvidence"] = {
             "delegatedCommand": item["command"],
             "completedAt": completed_at,
@@ -565,9 +1213,13 @@ def load_resume_manifest(
     if manifest.get("repositoryStateFingerprint") != fingerprint:
         raise RuntimeError("resume receipt repository state fingerprint changed")
 
-    expected_gate_ids = [
-        item["id"] for item in stateful_gates(runtime_host, target_scope)
-    ]
+    if action == "move":
+        expected_items = move_gates(target_scope)
+    elif action == "removal":
+        expected_items = removal_gates(runtime_host, target_scope, "run", service_class)
+    else:
+        expected_items = stateful_gates(runtime_host, target_scope)
+    expected_gate_ids = [item["id"] for item in expected_items]
     completed_gate_ids = manifest.get("completedGateIds")
     if not isinstance(completed_gate_ids, list) or completed_gate_ids != expected_gate_ids[: len(completed_gate_ids)]:
         raise RuntimeError("resume phase receipts are not a contiguous completed phase prefix")
@@ -585,7 +1237,12 @@ def load_resume_manifest(
             or not receipt.get("completedAt")
         ):
             raise RuntimeError(f"resume phase receipt does not match this run: {receipt_path}")
-        if gate_id == "pre-change-backup" and not receipt.get("backupEvidence"):
+        if (
+            (
+                service_class == "stateful" and gate_id == "pre-change-backup"
+            )
+            or gate_id.startswith("source-recovery-point:")
+        ) and not receipt.get("backupEvidence"):
             raise RuntimeError(f"resume phase receipt lacks mandatory backup evidence: {receipt_path}")
     return manifest
 
@@ -597,6 +1254,7 @@ def run_stateful_workflow(
     receipt_dir: Path,
     scope: dict[str, Any],
     action: str,
+    service_class: str,
     fingerprint: str,
     completed_gate_ids: list[str],
 ) -> None:
@@ -604,38 +1262,99 @@ def run_stateful_workflow(
     completed = set(completed_gate_ids)
     verification_passed = False
     verification_evidence: dict[str, Any] | None = None
+    output_hashes: dict[str, str] = {}
     for index, item in enumerate(items):
         if item["id"] in completed:
             item["status"] = "passed"
             item["resumed"] = True
             item["receipt"] = str(receipt_dir / receipt_filename(item["id"]))
-            if item["id"].startswith("owning-host-health:"):
+            receipt = json.loads(Path(item["receipt"]).read_text(encoding="utf-8"))
+            if "outputSha256" in receipt:
+                item["outputSha256"] = receipt["outputSha256"]
+                output_hashes[item["id"]] = receipt["outputSha256"]
+            if "matchesGate" in item and output_hashes.get(item["matchesGate"]) != item.get(
+                "outputSha256"
+            ):
+                item["status"] = "failed"
+                item["reason"] = "retained recovery evidence changed across the live switch"
+                mark_remaining_not_run(items, index + 1, item["id"])
+                break
+            if item["id"].startswith(("owning-host-health:", "source-retirement-health:")):
                 verification_passed = True
-                receipt = json.loads(Path(item["receipt"]).read_text(encoding="utf-8"))
                 verification_evidence = {
                     "delegatedCommand": item["command"],
                     "outputSha256": receipt["outputSha256"],
                 }
             continue
 
+        if item["status"] == "not_applicable":
+            write_phase_receipt(
+                item,
+                receipt_dir=receipt_dir,
+                scope=scope,
+                action=action,
+                fingerprint=fingerprint,
+            )
+            completed_gate_ids.append(item["id"])
+            completed.add(item["id"])
+            write_run_manifest(
+                manifest_path,
+                scope=scope,
+                action=action,
+                service_class=service_class,
+                fingerprint=fingerprint,
+                completed_gate_ids=completed_gate_ids,
+            )
+            continue
+
         if "command" in item:
+            if "{sourceRecoveryPointSha256}" in item["command"]:
+                recovery_hash = next(
+                    (
+                        value
+                        for gate_id, value in output_hashes.items()
+                        if gate_id.startswith("source-recovery-point:")
+                    ),
+                    None,
+                )
+                if recovery_hash is None:
+                    item["status"] = "blocked"
+                    item["reason"] = "fresh source recovery-point evidence is unavailable"
+                    mark_remaining_not_run(items, index + 1, item["id"])
+                    break
+                item["command"] = [
+                    recovery_hash if value == "{sourceRecoveryPointSha256}" else value
+                    for value in item["command"]
+                ]
             if not run_gate(
                 item,
                 cwd=repo_root,
                 capture_output=(
                     item["id"] == "pre-change-backup"
+                    or item["id"].startswith("source-recovery-point:")
+                    or item["id"].startswith("target-secrets-permissions:")
                     or item["id"].startswith("owning-host-health:")
                     or item["id"].startswith("consumer-host-health:")
+                    or item["id"].startswith("source-retirement-health:")
                 ),
             ):
                 mark_remaining_not_run(items, index + 1, item["id"])
                 break
-            if item["id"].startswith("owning-host-health:"):
+            if item["id"].startswith(("owning-host-health:", "source-retirement-health:")):
                 verification_passed = True
                 verification_evidence = {
                     "delegatedCommand": item["command"],
                     "outputSha256": item["outputSha256"],
                 }
+            if "outputSha256" in item:
+                output_hashes[item["id"]] = item["outputSha256"]
+            if "matchesGate" in item and output_hashes.get(item["matchesGate"]) != item.get(
+                "outputSha256"
+            ):
+                item["status"] = "failed"
+                item["reason"] = "retained recovery evidence changed across the live switch"
+                mark_remaining_not_run(items, index + 1, item["id"])
+                break
         elif verification_passed:
             item["status"] = "passed"
             item["verificationEvidence"] = verification_evidence
@@ -658,7 +1377,7 @@ def run_stateful_workflow(
             manifest_path,
             scope=scope,
             action=action,
-            service_class="stateful",
+            service_class=service_class,
             fingerprint=fingerprint,
             completed_gate_ids=completed_gate_ids,
         )
@@ -688,8 +1407,13 @@ def parse_arguments() -> argparse.Namespace:
         description="Plan, validate, or run a fleet production service lifecycle."
     )
     parser.add_argument("operation", choices=("plan", "validate", "run"))
-    parser.add_argument("--action", required=True, choices=("addition", "edit"))
-    parser.add_argument("--host", required=True, help="Owning runtime host from hosts.nix")
+    parser.add_argument(
+        "--action", required=True, choices=("addition", "edit", "move", "removal", "upgrade")
+    )
+    parser.add_argument("--host", help="Owning runtime host from hosts.nix")
+    parser.add_argument("--source-host", help="Current runtime owner for a move")
+    parser.add_argument("--target-host", help="New runtime owner for a move")
+    parser.add_argument("--service", help="Service identifier for move-specific proof")
     parser.add_argument(
         "--service-class", default="stateless", choices=("stateless", "stateful")
     )
@@ -709,16 +1433,129 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--receipt-dir", type=Path, help="Directory for resumable phase receipts")
     parser.add_argument("--resume", action="store_true", help="Resume matching completed phases")
     parser.add_argument(
+        "--removal-manifest",
+        type=Path,
+        help="Structured removal inventory, disposition, and proof contract",
+    )
+    parser.add_argument(
+        "--authorize-destruction",
+        action="store_true",
+        help="Explicitly authorize a manifest that destroys durable state or snapshots",
+    )
+    parser.add_argument(
+        "--current-version-source", help="Declarative source of the deployed version"
+    )
+    parser.add_argument(
+        "--target-version", help="Immutable package, image, input, or release target"
+    )
+    parser.add_argument(
+        "--target-kind", choices=("flake-input", "image", "package", "source")
+    )
+    parser.add_argument(
+        "--immutable-reference",
+        help="OCI digest, locked revision, source hash, or Nix store reference",
+    )
+    parser.add_argument(
+        "--migration-requirements",
+        help="Required migrations, or an explicit none decision",
+    )
+    parser.add_argument(
+        "--dependency-compatibility",
+        help="Compatibility decision for service dependencies",
+    )
+    parser.add_argument("--downgrade-support", help="Upstream downgrade support decision")
+    parser.add_argument("--intermediate-versions", help="Required intermediate releases, or explicit none")
+    parser.add_argument("--configuration-rollback", help="Safe Nix generation rollback boundary")
+    parser.add_argument("--data-rollback", help="Separate explicit snapshot/data recovery boundary")
+    parser.add_argument("--state-boundary", help="Restore-critical state included in a move")
+    parser.add_argument("--transfer-method", help="Explicit transfer or restore method for a move")
+    parser.add_argument(
+        "--move-verification-command",
+        help="Read-only repo command used for service-specific move proofs",
+    )
+    parser.add_argument("--consistency-window", help="Source data consistency window for a move")
+    parser.add_argument("--cutover-order", help="Operator-declared move cutover order")
+    parser.add_argument(
         "--repo-root",
         type=Path,
         default=Path(__file__).resolve().parents[1],
         help=argparse.SUPPRESS,
     )
     arguments = parser.parse_args()
-    if arguments.operation == "run" and arguments.service_class != "stateful":
+    try:
+        arguments.removal_plan = load_removal_plan(arguments)
+    except ValueError as error:
+        parser.error(str(error))
+    if arguments.action == "move":
+        required_decisions = {
+            "--service": arguments.service,
+            "--source-host": arguments.source_host,
+            "--target-host": arguments.target_host,
+            "--state-boundary": arguments.state_boundary,
+            "--transfer-method": arguments.transfer_method,
+            "--consistency-window": arguments.consistency_window,
+            "--cutover-order": arguments.cutover_order,
+            "--move-verification-command": arguments.move_verification_command,
+        }
+        missing = [
+            name
+            for name, value in required_decisions.items()
+            if not value or not value.strip()
+        ]
+        if missing:
+            parser.error(f"move requires explicit decisions: {', '.join(missing)}")
+        if arguments.source_host == arguments.target_host:
+            parser.error("move source and target owners must differ")
+        if arguments.host is not None:
+            parser.error("move uses --source-host and --target-host instead of --host")
+        arguments.host = arguments.target_host
+        if arguments.service_class != "stateful":
+            parser.error("move currently requires --service-class stateful")
+    elif not arguments.host:
+        parser.error("--host is required unless --action move is selected")
+    if arguments.action == "upgrade":
+        required_decisions = {
+            "--current-version-source": arguments.current_version_source,
+            "--target-version": arguments.target_version,
+            "--target-kind": arguments.target_kind,
+            "--immutable-reference": arguments.immutable_reference,
+            "--migration-requirements": arguments.migration_requirements,
+            "--dependency-compatibility": arguments.dependency_compatibility,
+            "--downgrade-support": arguments.downgrade_support,
+            "--intermediate-versions": arguments.intermediate_versions,
+            "--configuration-rollback": arguments.configuration_rollback,
+            "--data-rollback": arguments.data_rollback,
+        }
+        missing = [
+            name
+            for name, value in required_decisions.items()
+            if not value or not value.strip()
+        ]
+        if missing:
+            parser.error(f"upgrade requires explicit decisions: {', '.join(missing)}")
+        if not immutable_upgrade_target(
+            arguments.target_version,
+            arguments.target_kind,
+            arguments.immutable_reference,
+        ):
+            parser.error(
+                "upgrade target must include valid immutable evidence for its target kind"
+            )
+    if (
+        arguments.operation == "run"
+        and arguments.service_class != "stateful"
+        and arguments.action != "removal"
+    ):
         parser.error("run currently requires --service-class stateful")
-    if arguments.service_class == "stateful" and arguments.operation != "run":
-        parser.error("stateful execution requires the run operation")
+    if (
+        arguments.service_class == "stateful"
+        and arguments.operation != "run"
+        and not (
+            arguments.action in ("move", "removal", "upgrade")
+            and arguments.operation == "plan"
+        )
+    ):
+        parser.error("stateful execution requires the run operation; upgrades may also be planned")
     if arguments.operation == "run" and arguments.mutation_mode != "live":
         parser.error("stateful run requires --mutation-mode live")
     if arguments.operation != "run" and arguments.mutation_mode != "none":
@@ -730,6 +1567,9 @@ def parse_arguments() -> argparse.Namespace:
 
 def main() -> int:
     arguments = parse_arguments()
+    selected_upgrade_plan = upgrade_plan(arguments)
+    selected_move_plan = move_plan(arguments)
+    selected_removal_plan = arguments.removal_plan
     repo_root = arguments.repo_root.resolve()
     consumer_impact, consumer_reason = resolve_consumer_impact(
         repo_root, arguments.host, arguments.action, arguments.consumer_impact
@@ -756,12 +1596,26 @@ def main() -> int:
                 scope, scope_gate = discover_scope(
                     repo_root, arguments.host, consumer_impact, consumer_reason
                 )
+                enrich_scope(
+                    scope,
+                    arguments,
+                    selected_upgrade_plan,
+                    selected_move_plan,
+                    selected_removal_plan,
+                )
                 if scope != manifest["targetScope"]:
                     raise RuntimeError("resume receipt target scope changed")
                 completed_gate_ids = list(manifest.get("completedGateIds", []))
             else:
                 scope, scope_gate = discover_scope(
                     repo_root, arguments.host, consumer_impact, consumer_reason
+                )
+                enrich_scope(
+                    scope,
+                    arguments,
+                    selected_upgrade_plan,
+                    selected_move_plan,
+                    selected_removal_plan,
                 )
                 completed_gate_ids = []
         except RuntimeError as error:
@@ -779,13 +1633,32 @@ def main() -> int:
                 "consumerImpact": consumer_impact,
                 "consumerReason": consumer_reason,
             }
-            remaining = stateful_gates(arguments.host, scope)
+            if selected_move_plan is not None:
+                scope["sourceHost"] = arguments.source_host
+                scope["movePlan"] = selected_move_plan
+            if selected_removal_plan is not None:
+                scope["removalPlan"] = selected_removal_plan
+            if arguments.action == "move" and "movePlan" in scope:
+                remaining = move_gates(scope)
+            elif arguments.action == "removal" and "removalPlan" in scope:
+                remaining = removal_gates(
+                    arguments.host, scope, arguments.operation, arguments.service_class
+                )
+            else:
+                remaining = stateful_gates(arguments.host, scope)
             mark_remaining_not_run(remaining, 0, "scope-discovery")
             gates.extend(remaining)
         else:
             print(f"Runtime owner: {scope['runtimeHost']}", file=sys.stderr)
             print(f"Consumer hosts: {', '.join(scope['consumerHosts']) or 'none'}", file=sys.stderr)
-            remaining = stateful_gates(arguments.host, scope)
+            if arguments.action == "move":
+                remaining = move_gates(scope)
+            elif arguments.action == "removal":
+                remaining = removal_gates(
+                    arguments.host, scope, arguments.operation, arguments.service_class
+                )
+            else:
+                remaining = stateful_gates(arguments.host, scope)
             gates.extend(remaining)
             if not arguments.resume:
                 write_run_manifest(
@@ -802,12 +1675,20 @@ def main() -> int:
                 receipt_dir=receipt_dir,
                 scope=scope,
                 action=arguments.action,
+                service_class=arguments.service_class,
                 fingerprint=fingerprint,
                 completed_gate_ids=completed_gate_ids,
             )
     else:
         scope, scope_gate = discover_scope(
             repo_root, arguments.host, consumer_impact, consumer_reason
+        )
+        enrich_scope(
+            scope,
+            arguments,
+            selected_upgrade_plan,
+            selected_move_plan,
+            selected_removal_plan,
         )
         gates = [scope_gate]
         if scope is None:
@@ -820,14 +1701,39 @@ def main() -> int:
                 "consumerImpact": consumer_impact,
                 "consumerReason": consumer_reason,
             }
-            remaining = stateless_gates(scope, arguments.operation)
+            if selected_move_plan is not None:
+                scope["sourceHost"] = arguments.source_host
+                scope["movePlan"] = selected_move_plan
+            if selected_removal_plan is not None:
+                scope["removalPlan"] = selected_removal_plan
+            if arguments.action == "move":
+                remaining = move_gates(scope)
+            elif arguments.action == "removal":
+                remaining = removal_gates(
+                    arguments.host, scope, arguments.operation, arguments.service_class
+                )
+            else:
+                remaining = stateless_gates(scope, arguments.operation)
             mark_remaining_not_run(remaining, 0, "scope-discovery")
             gates.extend(remaining)
         else:
             print(f"Runtime owner: {scope['runtimeHost']}", file=sys.stderr)
             print(f"Consumer hosts: {', '.join(scope['consumerHosts']) or 'none'}", file=sys.stderr)
             print(f"Consumer impact: {consumer_impact} ({consumer_reason})", file=sys.stderr)
-            remaining = stateless_gates(scope, arguments.operation)
+            if arguments.action == "move":
+                remaining = move_gates(scope)
+            elif arguments.action == "removal":
+                remaining = removal_gates(
+                    arguments.host, scope, arguments.operation, arguments.service_class
+                )
+            elif arguments.service_class == "stateful":
+                remaining = stateful_gates(arguments.host, scope)
+            else:
+                remaining = stateless_gates(scope, arguments.operation)
+            if arguments.operation == "plan":
+                for item in remaining:
+                    if item["status"] == "not_run" and "reason" not in item:
+                        item["reason"] = "plan operation reports required gates without executing them"
             gates.extend(remaining)
             if arguments.operation == "validate":
                 for index, item in enumerate(remaining):
@@ -846,6 +1752,16 @@ def main() -> int:
         "scope": scope,
         "gates": gates,
     }
+    if selected_upgrade_plan is not None:
+        report["upgradePlan"] = selected_upgrade_plan
+        report["rollbackBoundaries"] = {
+            "configuration": selected_upgrade_plan["configurationRollback"],
+            "data": selected_upgrade_plan["dataRollback"],
+        }
+    if selected_move_plan is not None:
+        report["movePlan"] = selected_move_plan
+    if selected_removal_plan is not None:
+        report["removalPlan"] = selected_removal_plan
     report["outcome"] = outcome_for(gates)
     write_report(report, arguments.evidence)
     return 0 if report["outcome"] == "complete" else 2

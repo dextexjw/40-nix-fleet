@@ -191,6 +191,131 @@ with the same arguments plus `--resume`. Resume is rejected if the lifecycle
 action, target scope, Git-tracked or untracked repository state, receipt chain,
 or mandatory backup evidence no longer matches.
 
+For a stateful ownership move, declare the complete transition before any live
+mutation. The target is the new runtime owner; the source remains intact until
+the target and every generated consumer pass live verification:
+
+```sh
+scripts/fleet-lifecycle.py plan \
+  --action move \
+  --service-class stateful \
+  --service example \
+  --source-host productivity-vm \
+  --target-host testbed-vm \
+  --state-boundary /srv/appsdata/example \
+  --transfer-method "restore an explicitly selected source snapshot on the target" \
+  --consistency-window "source quiesced from recovery point through route cutover" \
+  --cutover-order "backup, transfer, target, consumers, source retirement" \
+  --move-verification-command scripts/testbed-vm/verify-example-move.sh
+```
+
+A live move additionally requires `--mutation-mode live` and `--receipt-dir`.
+The verification command is a service-specific, read-only repository command;
+the lifecycle invokes it separately for target secrets and permissions, state
+transfer, target backup/recovery ownership, and each old-owner absence proof.
+The transfer proof receives the fresh source recovery-point output hash, binding
+the proof to this run. Proof output must be JSON `true`; it is hashed into the
+evidence without being displayed, so permission and secret checks cannot leak
+plaintext. The workflow dry-activates both owners and consumers, deploys and
+verifies the target, deploys and verifies every generated consumer, and only
+then deploys the source's retirement configuration. The final evidence includes
+separate proofs that the old runtime, listener, launcher, route target, and
+backup responsibility are absent or intentionally dormant. The workflow never
+invokes restore, deletes source state, or chooses a snapshot automatically; a
+failed cutover leaves source retirement not run and can resume only with
+matching receipts and repo state.
+
+### Service removal lifecycle
+
+Use `--action removal` with a schema-versioned JSON manifest after removing the
+service declaratively. The manifest is a subordinate planning and proof
+artifact: it does not replace Nix configuration. It must record the service,
+the disposition of durable state and snapshots (`retained`, `exported`,
+`destroyed`, or a reasoned `not_applicable`), and an inventory for every
+runtime, listener, route, Homepage, authentication, monitoring, secret,
+backup, restore, smoke, documentation, and former-endpoint surface.
+
+Each applicable inventory resource records whether it is `shared` or
+`unshared`, whether removal retains or removes it, and a read-only verification
+command with expected exit codes or standard output. A surface with no
+applicable resource requires `notApplicableReason`. Shared resources cannot be
+marked for removal. Retained or exported recovery material requires documented
+pre- and post-switch checks, and every manifest requires surviving-service
+checks. Verification commands are restricted to repository `test-*` scripts,
+`nix eval`, `rg`, or `curl`.
+
+```sh
+scripts/fleet-lifecycle.py plan \
+  --action removal \
+  --host testbed-vm \
+  --service-class stateful \
+  --removal-manifest /tmp/example-removal.json
+
+scripts/fleet-lifecycle.py run \
+  --action removal \
+  --host testbed-vm \
+  --service-class stateful \
+  --mutation-mode live \
+  --consumer-impact generated \
+  --removal-manifest /tmp/example-removal.json \
+  --receipt-dir .git/fleet-lifecycle/example-removal \
+  --evidence /tmp/example-removal-evidence.json
+```
+
+The live workflow takes a fresh stateful recovery point, fingerprints retained
+recovery material before the switch, builds and dry-activates the owner and
+generated consumers, deploys only those affected hosts, and then verifies every
+removed and retained resource. It also proves the former endpoint's declared
+absence behavior, surviving-service health, shared-generator health, and an
+unchanged retained-recovery fingerprint. Any mismatched, failed, blocked, or
+unrun required proof leaves the removal incomplete. A manifest that marks
+state or snapshots `destroyed` is rejected unless the operator also passes
+`--authorize-destruction`; the lifecycle itself never deletes state, snapshots,
+or invokes restore.
+
+### Stable service upgrade lifecycle
+
+Use the same canonical command with `--action upgrade` before changing or
+deploying a production service version. An upgrade must identify the current
+declarative version source, select an immutable target, and explicitly record
+migration, dependency, downgrade, intermediate-version, configuration rollback,
+and data rollback decisions. Floating image targets such as `latest` or
+`stable`, and image references without an immutable digest, are rejected.
+
+Plan the upgrade first. A plan is intentionally incomplete because it records
+the required live gates without running them:
+
+```sh
+scripts/fleet-lifecycle.py plan \
+  --action upgrade \
+  --host testbed-vm \
+  --service-class stateful \
+  --current-version-source 'modules/testbed/services/example.nix: image 1.2.3' \
+  --target-kind image \
+  --target-version 'ghcr.io/example/app:1.3.0@sha256:<digest>' \
+  --immutable-reference 'sha256:<digest>' \
+  --migration-requirements 'run the upstream 1.3 schema migration' \
+  --dependency-compatibility 'PostgreSQL 16 remains supported' \
+  --downgrade-support 'unsupported after schema migration' \
+  --intermediate-versions 'none required from 1.2.3' \
+  --configuration-rollback 'previous Nix generation is safe only before migration' \
+  --data-rollback 'restore an explicitly selected pre-upgrade snapshot'
+```
+
+After review, repeat those exact decisions with `run`, `--mutation-mode live`,
+and a receipt directory. The decisions become part of the resumable target
+scope. The run cannot reach deployment until the owning host's guarded workflow
+has produced fresh verified backup evidence and completed dry activation. It
+then deploys and verifies the owning host and verifies all applicable generated
+consumer hosts. Configuration rollback and data recovery remain separate; the lifecycle
+never runs an older binary against migrated data and never restores a snapshot
+automatically.
+
+Stateless upgrades use the same decision record with `--service-class
+stateless`; their backup gate is explicitly not applicable, while static,
+build, dry-activation, and generated-consumer gates remain required. Live
+upgrade execution currently uses the stateful guarded owner workflow.
+
 ## Ubuntu Development Base
 
 `smoke@dev.ubuntu.home.arpa` is the preferred operator workstation for this

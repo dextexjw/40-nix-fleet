@@ -105,6 +105,13 @@ class FleetLifecycleCommandTests(unittest.TestCase):
             "if [[ \"${FLEET_TEST_FAIL_UPGRADE_PHASE:-}\" == \"$*\" ]]; then exit 42; fi\n"
             "printf 'verified phase %s\\n' \"$*\"\n",
         )
+        self.write_executable(
+            self.root / "scripts" / "testbed-vm" / "test-removal-evidence.sh",
+            f"#!{self.shell}\n"
+            "set -eu\n"
+            "printf 'scripts/testbed-vm/test-removal-evidence.sh %s\\n' \"$*\" >> \"$FLEET_TEST_COMMAND_LOG\"\n"
+            "printf '%s verified\\n' \"$*\"\n",
+        )
         consumer_checks = {
             "gateway-vm": "test-gateway-services.sh",
             "gateway2-vm": "test-gateway2-services.sh",
@@ -119,6 +126,26 @@ class FleetLifecycleCommandTests(unittest.TestCase):
                 f"#!{self.shell}\n"
                 f"printf 'scripts/{host}/{script_name}\\n' >> \"$FLEET_TEST_COMMAND_LOG\"\n",
             )
+            deploy_name = f"deploy-{host.removesuffix('-vm')}.sh"
+            self.write_executable(
+                script_dir / deploy_name,
+                f"#!{self.shell}\n"
+                f"printf 'scripts/{host}/{deploy_name}\\n' >> \"$FLEET_TEST_COMMAND_LOG\"\n",
+            )
+        self.write_executable(
+            self.root / "scripts" / "productivity-vm" / "upgrade-productivity-vm.sh",
+            f"#!{self.shell}\n"
+            "set -eu\n"
+            "printf 'scripts/productivity-vm/upgrade-productivity-vm.sh %s\\n' \"$*\" >> \"$FLEET_TEST_COMMAND_LOG\"\n"
+            "printf 'verified phase %s\\n' \"$*\"\n",
+        )
+        self.write_executable(
+            self.root / "scripts" / "test-move-evidence.sh",
+            f"#!{self.shell}\n"
+            "set -eu\n"
+            "printf 'scripts/test-move-evidence.sh %s\\n' \"$*\" >> \"$FLEET_TEST_COMMAND_LOG\"\n"
+            "printf '%s\\n' true\n",
+        )
 
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         subprocess.run(
@@ -166,6 +193,115 @@ class FleetLifecycleCommandTests(unittest.TestCase):
 
     def read_evidence(self) -> dict[str, object]:
         return json.loads(self.evidence.read_text(encoding="utf-8"))
+
+    def write_removal_manifest(
+        self,
+        *,
+        state_disposition: str = "retained",
+        snapshot_disposition: str = "retained",
+    ) -> Path:
+        surface_names = (
+            "runtime",
+            "listeners",
+            "routes",
+            "homepage",
+            "authentication",
+            "monitoring",
+            "secrets",
+            "backup",
+            "restore",
+            "smoke",
+            "documentation",
+            "endpoint",
+        )
+        inventory = {
+            surface: {
+                "resources": [
+                    {
+                        "id": f"example-{surface}",
+                        "resource": f"example {surface} resource",
+                        "ownership": "unshared",
+                        "disposition": "remove",
+                        "verification": {
+                            "command": [
+                                "scripts/testbed-vm/test-removal-evidence.sh",
+                                surface,
+                            ],
+                            "expectedStdout": f"{surface} verified\n",
+                        },
+                    }
+                ]
+            }
+            for surface in surface_names
+        }
+        inventory["routes"]["resources"].append(
+            {
+                "id": "shared-route-generator",
+                "resource": "fleet Gateway route generator",
+                "ownership": "shared",
+                "disposition": "retain",
+                "verification": {
+                    "command": [
+                        "scripts/testbed-vm/test-removal-evidence.sh",
+                        "shared-route-generator",
+                    ],
+                    "expectedStdout": "shared-route-generator verified\n",
+                },
+            }
+        )
+        inventory["documentation"]["resources"].append(
+            {
+                "id": "retained-recovery-doc",
+                "resource": "hosts/testbed-vm/README.md retained recovery note",
+                "ownership": "unshared",
+                "disposition": "retain",
+                "verification": {
+                    "command": [
+                        "scripts/testbed-vm/test-removal-evidence.sh",
+                        "retained-recovery-doc",
+                    ],
+                    "expectedStdout": "retained-recovery-doc verified\n",
+                },
+            }
+        )
+        manifest = {
+            "schemaVersion": 1,
+            "service": "example",
+            "state": {
+                "disposition": state_disposition,
+                "recoveryMaterial": "/srv/appsdata/example",
+                "documentation": "hosts/testbed-vm/README.md",
+            },
+            "snapshots": {
+                "disposition": snapshot_disposition,
+                "recoveryMaterial": "restic snapshots tagged example",
+                "documentation": "hosts/testbed-vm/README.md",
+            },
+            "inventory": inventory,
+            "retainedRecoveryChecks": [
+                {
+                    "id": "retained-recovery-material",
+                    "command": [
+                        "scripts/testbed-vm/test-removal-evidence.sh",
+                        "retained-recovery-material",
+                    ],
+                    "expectedStdout": "retained-recovery-material verified\n",
+                }
+            ],
+            "survivingServiceChecks": [
+                {
+                    "id": "surviving-services",
+                    "command": [
+                        "scripts/testbed-vm/test-removal-evidence.sh",
+                        "surviving-services",
+                    ],
+                    "expectedStdout": "surviving-services verified\n",
+                }
+            ],
+        }
+        path = self.root / ".git" / "removal-manifest.json"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        return path
 
     def test_validate_stateless_change_discovers_scope_and_runs_safe_gates(self) -> None:
         result = self.run_command(
@@ -508,6 +644,669 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("--mutation-mode live", result.stderr)
         self.assertFalse(self.command_log.exists())
+
+    def test_move_plan_records_ownership_state_and_cutover_contract(self) -> None:
+        result = self.run_command(
+            "plan",
+            "--action",
+            "move",
+            "--service-class",
+            "stateful",
+            "--service",
+            "example",
+            "--source-host",
+            "productivity-vm",
+            "--target-host",
+            "testbed-vm",
+            "--state-boundary",
+            "/srv/appsdata/example",
+            "--transfer-method",
+            "restore an explicitly selected source snapshot on the target",
+            "--consistency-window",
+            "source quiesced from recovery point through route cutover",
+            "--cutover-order",
+            "backup, transfer, target, consumers, source retirement",
+            "--move-verification-command",
+            "scripts/test-move-evidence.sh",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        report = self.read_evidence()
+        self.assertEqual(
+            report["movePlan"],
+            {
+                "service": "example",
+                "sourceOwner": "productivity-vm",
+                "targetOwner": "testbed-vm",
+                "stateBoundary": "/srv/appsdata/example",
+                "transferMethod": "restore an explicitly selected source snapshot on the target",
+                "consistencyWindow": "source quiesced from recovery point through route cutover",
+                "cutoverOrder": "backup, transfer, target, consumers, source retirement",
+                "verificationCommand": "scripts/test-move-evidence.sh",
+            },
+        )
+        self.assertEqual(report["scope"]["runtimeHost"], "testbed-vm")
+        self.assertEqual(report["scope"]["sourceHost"], "productivity-vm")
+        self.assertEqual(report["outcome"], "incomplete")
+        gates = {item["id"]: item for item in report["gates"]}
+        self.assertIn("source-recovery-point:productivity-vm", gates)
+        self.assertIn("target-secrets-permissions:testbed-vm", gates)
+        self.assertIn("source-retirement:productivity-vm", gates)
+        self.assertEqual(gates["transfer-evidence"]["status"], "not_run")
+        self.assertEqual(
+            self.command_log.read_text(encoding="utf-8").splitlines(),
+            ["nix eval --json .#fleetLifecycleConsumers"],
+        )
+
+    def test_move_run_proves_target_and_consumers_before_source_retirement(self) -> None:
+        result = self.run_command(
+            "run",
+            "--action",
+            "move",
+            "--service-class",
+            "stateful",
+            "--service",
+            "example",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "generated",
+            "--source-host",
+            "productivity-vm",
+            "--target-host",
+            "testbed-vm",
+            "--state-boundary",
+            "/srv/appsdata/example",
+            "--transfer-method",
+            "restore an explicitly selected source snapshot on the target",
+            "--consistency-window",
+            "source quiesced from recovery point through route cutover",
+            "--cutover-order",
+            "backup, transfer, target, consumers, source retirement",
+            "--move-verification-command",
+            "scripts/test-move-evidence.sh",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.read_evidence()
+        gates = {item["id"]: item for item in report["gates"]}
+        for gate_id in (
+            "source-recovery-point:productivity-vm",
+            "transfer-evidence",
+            "target-secrets-permissions:testbed-vm",
+            "owning-host-health:testbed-vm",
+            "target-backup-recovery-ownership:testbed-vm",
+            "source-retirement:productivity-vm",
+            "old-runtime-absence:productivity-vm",
+            "old-listener-absence:productivity-vm",
+            "old-launcher-absence:productivity-vm",
+            "old-route-target-absence:productivity-vm",
+            "old-backup-responsibility-absence:productivity-vm",
+        ):
+            self.assertEqual(gates[gate_id]["status"], "passed", gate_id)
+            if gate_id not in (
+                "source-recovery-point:productivity-vm",
+                "owning-host-health:testbed-vm",
+                "source-retirement:productivity-vm",
+            ):
+                self.assertTrue(gates[gate_id].get("outputSha256"), gate_id)
+
+        recovery_hash = gates["source-recovery-point:productivity-vm"]["outputSha256"]
+        self.assertIn(recovery_hash, gates["transfer-evidence"]["command"])
+        self.assertNotIn("\ntrue\n", result.stderr)
+
+        commands = self.command_log.read_text(encoding="utf-8").splitlines()
+        target_health = commands.index(
+            "scripts/testbed-vm/upgrade-testbed-vm.sh verify-testbed-vm"
+        )
+        consumer_health = max(
+            commands.index(command)
+            for command in commands
+            if command.startswith("scripts/gateway")
+            or command.startswith("scripts/monitoring")
+            or command.startswith("scripts/productivity-vm/test-")
+        )
+        source_retirement = commands.index(
+            "scripts/productivity-vm/upgrade-productivity-vm.sh deploy-productivity-vm"
+        )
+        self.assertLess(target_health, source_retirement)
+        self.assertLess(consumer_health, source_retirement)
+        for host in ("gateway-vm", "gateway2-vm", "monitoring-vm"):
+            deploy = f"scripts/{host}/deploy-{host.removesuffix('-vm')}.sh"
+            health = next(
+                command
+                for command in commands
+                if command.startswith(f"scripts/{host}/test-")
+            )
+            self.assertLess(commands.index(deploy), commands.index(health))
+            self.assertLess(commands.index(health), source_retirement)
+        self.assertFalse(any("restore-" in command for command in commands))
+
+    def test_move_cutover_failure_preserves_source_and_never_restores(self) -> None:
+        self.failed_upgrade_phase = "deploy-testbed-vm"
+        result = self.run_command(
+            "run",
+            "--action",
+            "move",
+            "--service-class",
+            "stateful",
+            "--service",
+            "example",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "host-local",
+            "--source-host",
+            "productivity-vm",
+            "--target-host",
+            "testbed-vm",
+            "--state-boundary",
+            "/srv/appsdata/example",
+            "--transfer-method",
+            "restore an explicitly selected source snapshot on the target",
+            "--consistency-window",
+            "source quiesced from recovery point through route cutover",
+            "--cutover-order",
+            "backup, transfer, target, consumers, source retirement",
+            "--move-verification-command",
+            "scripts/test-move-evidence.sh",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        commands = self.command_log.read_text(encoding="utf-8").splitlines()
+        self.assertIn(
+            "scripts/productivity-vm/upgrade-productivity-vm.sh create-pre-upgrade-backup",
+            commands,
+        )
+        self.assertNotIn(
+            "scripts/productivity-vm/upgrade-productivity-vm.sh deploy-productivity-vm",
+            commands,
+        )
+        self.assertFalse(any("restore-" in command for command in commands))
+        gates = {item["id"]: item for item in self.read_evidence()["gates"]}
+        self.assertEqual(
+            gates["source-retirement:productivity-vm"]["status"], "not_run"
+        )
+
+    def test_upgrade_plan_records_reproducibility_migration_and_rollback_decisions(self) -> None:
+        result = self.run_command(
+            "plan",
+            "--action",
+            "upgrade",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--current-version-source",
+            "modules/testbed/services/example.nix: image tag 1.2.3",
+            "--target-kind",
+            "image",
+            "--target-version",
+            "ghcr.io/example/app:1.3.0@sha256:" + "a" * 64,
+            "--immutable-reference",
+            "sha256:" + "a" * 64,
+            "--migration-requirements",
+            "run the documented 1.3 schema migration",
+            "--dependency-compatibility",
+            "PostgreSQL 16 remains supported",
+            "--downgrade-support",
+            "unsupported after the schema migration",
+            "--intermediate-versions",
+            "none required from 1.2.3",
+            "--configuration-rollback",
+            "switch to the previous Nix generation only before migration",
+            "--data-rollback",
+            "restore the explicitly selected pre-upgrade snapshot",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        report = self.read_evidence()
+        self.assertEqual(report["action"], "upgrade")
+        self.assertEqual(
+            report["upgradePlan"]["targetVersion"],
+            "ghcr.io/example/app:1.3.0@sha256:" + "a" * 64,
+        )
+        self.assertTrue(report["upgradePlan"]["targetIsImmutable"])
+        self.assertIn("migration", report["upgradePlan"]["migrationRequirements"])
+        self.assertNotEqual(
+            report["rollbackBoundaries"]["configuration"],
+            report["rollbackBoundaries"]["data"],
+        )
+        self.assertEqual(report["outcome"], "incomplete")
+        self.assertEqual(
+            self.command_log.read_text(encoding="utf-8").splitlines(),
+            ["nix eval --json .#fleetLifecycleConsumers"],
+        )
+
+    def test_upgrade_plan_rejects_floating_target_before_scope_discovery(self) -> None:
+        result = self.run_command(
+            "plan",
+            "--action",
+            "upgrade",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--current-version-source",
+            "modules/testbed/services/example.nix",
+            "--target-kind",
+            "image",
+            "--target-version",
+            "ghcr.io/example/app:latest",
+            "--immutable-reference",
+            "sha256:" + "a" * 64,
+            "--migration-requirements",
+            "none",
+            "--dependency-compatibility",
+            "compatible",
+            "--downgrade-support",
+            "unsupported",
+            "--intermediate-versions",
+            "none",
+            "--configuration-rollback",
+            "previous generation",
+            "--data-rollback",
+            "explicit snapshot restore",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("immutable", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_upgrade_plan_rejects_image_with_implicit_latest_tag(self) -> None:
+        result = self.run_command(
+            "plan",
+            "--action",
+            "upgrade",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--current-version-source",
+            "modules/testbed/services/example.nix",
+            "--target-kind",
+            "image",
+            "--target-version",
+            "ghcr.io/example/app",
+            "--immutable-reference",
+            "sha256:" + "a" * 64,
+            "--migration-requirements",
+            "none",
+            "--dependency-compatibility",
+            "compatible",
+            "--downgrade-support",
+            "supported",
+            "--intermediate-versions",
+            "none",
+            "--configuration-rollback",
+            "previous generation",
+            "--data-rollback",
+            "explicit snapshot restore",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("immutable", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_upgrade_plan_rejects_versioned_image_without_digest(self) -> None:
+        result = self.run_command(
+            "plan", "--action", "upgrade", "--host", "testbed-vm",
+            "--service-class", "stateful",
+            "--current-version-source", "modules/testbed/services/example.nix",
+            "--target-kind", "image",
+            "--target-version", "example-app:1.3.0",
+            "--immutable-reference", "sha256:" + "a" * 64,
+            "--migration-requirements", "none",
+            "--dependency-compatibility", "compatible",
+            "--downgrade-support", "supported",
+            "--intermediate-versions", "none",
+            "--configuration-rollback", "previous generation",
+            "--data-rollback", "explicit snapshot restore",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("immutable", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_stateless_upgrade_plan_uses_generated_consumers_without_backup(self) -> None:
+        result = self.run_command(
+            "plan", "--action", "upgrade", "--host", "testbed-vm",
+            "--service-class", "stateless",
+            "--current-version-source", "flake.lock: nixpkgs package 1.2.3",
+            "--target-kind", "package",
+            "--target-version", "1.3.0",
+            "--immutable-reference", "a" * 40,
+            "--migration-requirements", "none",
+            "--dependency-compatibility", "compatible",
+            "--downgrade-support", "supported",
+            "--intermediate-versions", "none",
+            "--configuration-rollback", "previous generation",
+            "--data-rollback", "not applicable because the service is stateless",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        report = self.read_evidence()
+        self.assertEqual(report["scope"]["consumerImpact"], "generated")
+        gates = {gate["id"]: gate for gate in report["gates"]}
+        self.assertEqual(gates["pre-change-backup"]["status"], "not_applicable")
+        self.assertTrue(report["scope"]["consumerHosts"])
+
+    def test_upgrade_run_requires_explicit_migration_and_rollback_decisions(self) -> None:
+        result = self.run_command(
+            "run",
+            "--action",
+            "upgrade",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--target-version",
+            "ghcr.io/example/app:1.3.0@sha256:" + "b" * 64,
+            "--target-kind",
+            "image",
+            "--immutable-reference",
+            "sha256:" + "b" * 64,
+            "--receipt-dir",
+            str(self.receipts),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("current-version-source", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_upgrade_run_backs_up_before_owner_deployment_and_never_restores(self) -> None:
+        result = self.run_command(
+            "run",
+            "--action",
+            "upgrade",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "host-local",
+            "--current-version-source",
+            "modules/testbed/services/example.nix: 1.2.3",
+            "--target-kind",
+            "package",
+            "--target-version",
+            "1.3.0",
+            "--immutable-reference",
+            "b" * 40,
+            "--migration-requirements",
+            "schema migration required",
+            "--dependency-compatibility",
+            "dependencies compatible",
+            "--downgrade-support",
+            "not supported after migration",
+            "--intermediate-versions",
+            "none required",
+            "--configuration-rollback",
+            "previous generation before migration only",
+            "--data-rollback",
+            "explicit pre-upgrade snapshot restore",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = self.command_log.read_text(encoding="utf-8").splitlines()
+        backup_index = commands.index(
+            "scripts/testbed-vm/upgrade-testbed-vm.sh create-pre-upgrade-backup"
+        )
+        deploy_index = commands.index(
+            "scripts/testbed-vm/upgrade-testbed-vm.sh deploy-testbed-vm"
+        )
+        self.assertLess(backup_index, deploy_index)
+        self.assertFalse(any("restore" in command for command in commands))
+        report = self.read_evidence()
+        self.assertEqual(report["outcome"], "complete")
+        self.assertEqual(report["scope"]["upgradePlan"], report["upgradePlan"])
+
+    def test_removal_plan_records_complete_inventory_and_recovery_disposition(self) -> None:
+        manifest_path = self.write_removal_manifest()
+
+        result = self.run_command(
+            "plan",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        report = self.read_evidence()
+        removal = report["removalPlan"]
+        self.assertEqual(removal["service"], "example")
+        self.assertEqual(removal["state"]["disposition"], "retained")
+        self.assertEqual(removal["snapshots"]["disposition"], "retained")
+        self.assertEqual(
+            set(removal["inventory"]),
+            {
+                "runtime",
+                "listeners",
+                "routes",
+                "homepage",
+                "authentication",
+                "monitoring",
+                "secrets",
+                "backup",
+                "restore",
+                "smoke",
+                "documentation",
+                "endpoint",
+            },
+        )
+        shared = removal["inventory"]["routes"]["resources"][1]
+        self.assertEqual(shared["ownership"], "shared")
+        self.assertEqual(shared["disposition"], "retain")
+        self.assertEqual(report["scope"]["removalPlan"], removal)
+        self.assertEqual(report["outcome"], "incomplete")
+        self.assertEqual(
+            self.command_log.read_text(encoding="utf-8").splitlines(),
+            ["nix eval --json .#fleetLifecycleConsumers"],
+        )
+
+    def test_removal_rejects_shared_resource_deletion_before_scope_discovery(self) -> None:
+        manifest_path = self.write_removal_manifest()
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["inventory"]["routes"]["resources"][1]["disposition"] = "remove"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = self.run_command(
+            "plan",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("shared resources must be retained", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_removal_rejects_incomplete_inventory_before_scope_discovery(self) -> None:
+        manifest_path = self.write_removal_manifest()
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        del manifest["inventory"]["authentication"]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = self.run_command(
+            "plan",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("authentication", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_removal_rejects_mutating_verification_command(self) -> None:
+        manifest_path = self.write_removal_manifest()
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["inventory"]["runtime"]["resources"][0]["verification"]["command"] = [
+            "rm",
+            "-rf",
+            "/srv/appsdata/example",
+        ]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = self.run_command(
+            "run",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("repository test script", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_removal_rejects_destruction_without_explicit_authority(self) -> None:
+        manifest_path = self.write_removal_manifest(state_disposition="destroyed")
+
+        result = self.run_command(
+            "run",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--authorize-destruction", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_removal_run_switches_affected_hosts_and_proves_live_absence(self) -> None:
+        manifest_path = self.write_removal_manifest()
+
+        result = self.run_command(
+            "run",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "generated",
+            "--removal-manifest",
+            str(manifest_path),
+            "--receipt-dir",
+            str(self.receipts),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.read_evidence()
+        self.assertEqual(report["outcome"], "complete")
+        gates = {gate["id"]: gate for gate in report["gates"]}
+        for surface in (
+            "runtime",
+            "listeners",
+            "routes",
+            "homepage",
+            "authentication",
+            "monitoring",
+            "secrets",
+            "backup",
+            "restore",
+            "smoke",
+            "documentation",
+            "endpoint",
+        ):
+            self.assertEqual(gates[f"removed:{surface}:example-{surface}"]["status"], "passed")
+        self.assertEqual(gates["retained:routes:shared-route-generator"]["status"], "passed")
+        self.assertEqual(gates["retained:documentation:retained-recovery-doc"]["status"], "passed")
+        self.assertEqual(gates["surviving:surviving-services"]["status"], "passed")
+        recovery_after = gates["retained-recovery-after:retained-recovery-material"]
+        self.assertEqual(recovery_after["status"], "passed")
+        self.assertEqual(
+            recovery_after["outputSha256"],
+            gates["retained-recovery-before:retained-recovery-material"]["outputSha256"],
+        )
+
+        commands = self.command_log.read_text(encoding="utf-8").splitlines()
+        owner_deploy = commands.index(
+            "scripts/testbed-vm/upgrade-testbed-vm.sh deploy-testbed-vm"
+        )
+        first_absence = commands.index(
+            "scripts/testbed-vm/test-removal-evidence.sh runtime"
+        )
+        self.assertLess(owner_deploy, first_absence)
+        for host in ("gateway-vm", "gateway2-vm", "monitoring-vm"):
+            consumer_switch = commands.index(f"colmena apply --on {host} switch")
+            self.assertLess(owner_deploy, consumer_switch)
+            self.assertLess(consumer_switch, first_absence)
+        self.assertFalse(any("restore" in command and "test-removal" not in command for command in commands))
+
+    def test_removal_run_stops_when_live_absence_proof_does_not_match(self) -> None:
+        manifest_path = self.write_removal_manifest()
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["inventory"]["runtime"]["resources"][0]["verification"][
+            "expectedStdout"
+        ] = "runtime absent\n"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = self.run_command(
+            "run",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "generated",
+            "--removal-manifest",
+            str(manifest_path),
+            "--receipt-dir",
+            str(self.receipts),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        gates = {gate["id"]: gate for gate in self.read_evidence()["gates"]}
+        self.assertEqual(gates["removed:runtime:example-runtime"]["status"], "failed")
+        self.assertEqual(gates["removed:listeners:example-listeners"]["status"], "not_run")
+        self.assertEqual(gates["surviving:surviving-services"]["status"], "not_run")
 
     def test_stateful_run_delegates_guarded_phases_and_records_receipts(self) -> None:
         result = self.run_command(
