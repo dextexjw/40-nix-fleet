@@ -30,10 +30,14 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.shell = shutil.which("bash")
         if self.shell is None:
             self.fail("bash is required to exercise the lifecycle command")
+        self.git = shutil.which("git")
+        if self.git is None:
+            self.fail("git is required to exercise resumable lifecycle receipts")
         (self.root / "scripts").mkdir()
         (self.root / "hosts.nix").write_text("{}\n", encoding="utf-8")
-        self.command_log = self.root / "commands.log"
-        self.evidence = self.root / "evidence.json"
+        self.command_log = self.root / ".git" / "commands.log"
+        self.evidence = self.root / ".git" / "evidence.json"
+        self.receipts = self.root / ".git" / "fleet-lifecycle-test"
 
         self.write_executable(
             self.root / "scripts/check.sh",
@@ -56,6 +60,43 @@ class FleetLifecycleCommandTests(unittest.TestCase):
             f"#!{self.shell}\n"
             "printf 'colmena %s\\n' \"$*\" >> \"$FLEET_TEST_COMMAND_LOG\"\n",
         )
+        (self.root / "scripts" / "testbed-vm").mkdir()
+        self.write_executable(
+            self.root / "scripts" / "testbed-vm" / "upgrade-testbed-vm.sh",
+            f"#!{self.shell}\n"
+            "set -eu\n"
+            "printf 'scripts/testbed-vm/upgrade-testbed-vm.sh %s\\n' \"$*\" >> \"$FLEET_TEST_COMMAND_LOG\"\n"
+            "if [[ \"${FLEET_TEST_FAIL_UPGRADE_PHASE:-}\" == \"$*\" ]]; then exit 42; fi\n"
+            "printf 'verified phase %s\\n' \"$*\"\n",
+        )
+        consumer_checks = {
+            "gateway-vm": "test-gateway-services.sh",
+            "gateway2-vm": "test-gateway2-services.sh",
+            "monitoring-vm": "test-monitoring-services.sh",
+            "productivity-vm": "test-productivity-services.sh",
+        }
+        for host, script_name in consumer_checks.items():
+            script_dir = self.root / "scripts" / host
+            script_dir.mkdir()
+            self.write_executable(
+                script_dir / script_name,
+                f"#!{self.shell}\n"
+                f"printf 'scripts/{host}/{script_name}\\n' >> \"$FLEET_TEST_COMMAND_LOG\"\n",
+            )
+
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.root), "config", "user.email", "fleet-test@example.invalid"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(self.root), "config", "user.name", "Fleet Test"],
+            check=True,
+        )
+        subprocess.run(["git", "-C", str(self.root), "add", "."], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.root), "commit", "-qm", "test fixture"], check=True
+        )
 
     @staticmethod
     def write_executable(path: Path, contents: str) -> None:
@@ -65,8 +106,10 @@ class FleetLifecycleCommandTests(unittest.TestCase):
     def run_command(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         environment = os.environ | {
             "FLEET_TEST_COMMAND_LOG": str(self.command_log),
-            "PATH": f"{self.bin_dir}:{Path(self.shell).parent}",
+            "PATH": f"{self.bin_dir}:{Path(self.shell).parent}:{Path(self.git).parent}",
         }
+        if hasattr(self, "failed_upgrade_phase"):
+            environment["FLEET_TEST_FAIL_UPGRADE_PHASE"] = self.failed_upgrade_phase
         return subprocess.run(
             [
                 sys.executable,
@@ -291,6 +334,334 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid choice", result.stderr)
         self.assertFalse(self.command_log.exists())
+
+    def test_stateful_run_requires_explicit_live_mutation_mode(self) -> None:
+        result = self.run_command(
+            "run",
+            "--action",
+            "edit",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--mutation-mode live", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_stateful_run_delegates_guarded_phases_and_records_receipts(self) -> None:
+        result = self.run_command(
+            "run",
+            "--action",
+            "edit",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "host-local",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.read_evidence()
+        self.assertEqual(report["outcome"], "complete")
+        self.assertTrue(report["mutationAllowed"])
+        gates = {gate["id"]: gate for gate in report["gates"]}
+        for gate_id in (
+            "readiness",
+            "pre-change-backup",
+            "dry-activate:testbed-vm",
+            "guarded-deployment:testbed-vm",
+            "owning-host-health:testbed-vm",
+            "backup-timer",
+            "snapshot",
+            "non-destructive-restore-check",
+        ):
+            self.assertEqual(gates[gate_id]["status"], "passed", gate_id)
+
+        commands = self.command_log.read_text(encoding="utf-8").splitlines()
+        wrapper = "scripts/testbed-vm/upgrade-testbed-vm.sh"
+        self.assertEqual(
+            commands,
+            [
+                f"nix eval --json --file {self.root / 'hosts.nix'}",
+                f"{wrapper} check-upgrade-readiness",
+                f"{wrapper} create-pre-upgrade-backup",
+                f"{wrapper} dry-activate-testbed-vm",
+                f"{wrapper} deploy-testbed-vm",
+                f"{wrapper} verify-testbed-vm",
+            ],
+        )
+        self.assertFalse(any("restore-" in command for command in commands))
+
+        receipt = json.loads((self.receipts / "pre-change-backup.json").read_text())
+        self.assertEqual(receipt["targetScope"], report["scope"])
+        self.assertEqual(receipt["lifecycleAction"], "edit")
+        self.assertTrue(receipt["repositoryStateFingerprint"])
+        self.assertTrue(receipt["completedAt"])
+        self.assertTrue(receipt["backupEvidence"]["outputSha256"])
+        for gate_id in ("backup-timer", "snapshot", "non-destructive-restore-check"):
+            evidence = gates[gate_id]["verificationEvidence"]
+            self.assertEqual(evidence["delegatedCommand"][-1], "verify-testbed-vm")
+            self.assertTrue(evidence["outputSha256"])
+            verification_receipt = json.loads(
+                (self.receipts / f"{gate_id}.json").read_text()
+            )
+            self.assertEqual(
+                verification_receipt["verificationEvidence"], evidence
+            )
+
+    def test_stateful_run_validates_consumers_without_switching_them(self) -> None:
+        result = self.run_command(
+            "run",
+            "--action",
+            "edit",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "generated",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.read_evidence()
+        gates = {gate["id"]: gate for gate in report["gates"]}
+        commands = self.command_log.read_text(encoding="utf-8").splitlines()
+        for host in report["scope"]["consumerHosts"]:
+            self.assertEqual(gates[f"build:{host}"]["status"], "passed")
+            self.assertEqual(gates[f"dry-activate:{host}"]["status"], "passed")
+            self.assertEqual(
+                gates[f"consumer-host-health:{host}"]["status"], "passed"
+            )
+            self.assertIn(f"colmena build --on {host}", commands)
+            self.assertIn(f"colmena apply --on {host} dry-activate", commands)
+            self.assertNotIn(f"colmena apply --on {host} switch", commands)
+            consumer_gate = gates[f"consumer-host-health:{host}"]
+            self.assertIn("outputSha256", consumer_gate)
+            self.assertIn("/test-", consumer_gate["command"][0])
+            self.assertIn(consumer_gate["command"][0], commands)
+
+    def test_stateful_run_rejects_receipts_inside_worktree(self) -> None:
+        result = self.run_command(
+            "run",
+            "--action",
+            "edit",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--receipt-dir",
+            str(self.root / "fleet-receipts"),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("receipt directory", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_stateful_resume_skips_completed_phases_for_unchanged_run(self) -> None:
+        arguments = (
+            "run",
+            "--action",
+            "edit",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "host-local",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+        first = self.run_command(*arguments)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.command_log.unlink()
+
+        resumed = self.run_command(*arguments, "--resume")
+
+        self.assertEqual(resumed.returncode, 0, resumed.stderr)
+        self.assertEqual(
+            self.command_log.read_text(encoding="utf-8").splitlines(),
+            [f"nix eval --json --file {self.root / 'hosts.nix'}"],
+        )
+        gates = {gate["id"]: gate for gate in self.read_evidence()["gates"]}
+        self.assertTrue(all(gate["resumed"] for gate in gates.values() if gate["id"] != "scope-discovery"))
+
+    def test_stateful_resume_continues_after_interrupted_phase(self) -> None:
+        arguments = (
+            "run",
+            "--action",
+            "edit",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "host-local",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+        self.failed_upgrade_phase = "deploy-testbed-vm"
+        interrupted = self.run_command(*arguments)
+        self.assertNotEqual(interrupted.returncode, 0)
+        first_commands = self.command_log.read_text(encoding="utf-8").splitlines()
+        self.assertIn(
+            "scripts/testbed-vm/upgrade-testbed-vm.sh create-pre-upgrade-backup",
+            first_commands,
+        )
+        self.assertNotIn(
+            "scripts/testbed-vm/upgrade-testbed-vm.sh verify-testbed-vm", first_commands
+        )
+        del self.failed_upgrade_phase
+        self.command_log.unlink()
+
+        resumed = self.run_command(*arguments, "--resume")
+
+        self.assertEqual(resumed.returncode, 0, resumed.stderr)
+        self.assertEqual(
+            self.command_log.read_text(encoding="utf-8").splitlines(),
+            [
+                f"nix eval --json --file {self.root / 'hosts.nix'}",
+                "scripts/testbed-vm/upgrade-testbed-vm.sh deploy-testbed-vm",
+                "scripts/testbed-vm/upgrade-testbed-vm.sh verify-testbed-vm",
+            ],
+        )
+
+    def test_stateful_resume_rejects_missing_phase_receipt(self) -> None:
+        arguments = (
+            "run",
+            "--action",
+            "edit",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "host-local",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+        first = self.run_command(*arguments)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        (self.receipts / "pre-change-backup.json").unlink()
+        self.command_log.unlink()
+
+        resumed = self.run_command(*arguments, "--resume")
+
+        self.assertNotEqual(resumed.returncode, 0)
+        self.assertIn("phase receipt", resumed.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_stateful_resume_rejects_changed_repository_state(self) -> None:
+        arguments = (
+            "run",
+            "--action",
+            "edit",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "host-local",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+        first = self.run_command(*arguments)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        (self.root / "changed.nix").write_text("{}\n", encoding="utf-8")
+        self.command_log.unlink()
+
+        resumed = self.run_command(*arguments, "--resume")
+
+        self.assertNotEqual(resumed.returncode, 0)
+        self.assertIn("repository state", resumed.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_stateful_resume_rejects_changed_target_scope(self) -> None:
+        base_arguments = (
+            "run",
+            "--action",
+            "edit",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "host-local",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+        first = self.run_command(*base_arguments, "--host", "testbed-vm")
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.command_log.unlink()
+
+        resumed = self.run_command(
+            *base_arguments, "--host", "monitoring-vm", "--resume"
+        )
+
+        self.assertNotEqual(resumed.returncode, 0)
+        self.assertIn("target scope", resumed.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_stateful_resume_rejects_tampered_recorded_scope(self) -> None:
+        arguments = (
+            "run",
+            "--action",
+            "edit",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "host-local",
+            "--receipt-dir",
+            str(self.receipts),
+        )
+        first = self.run_command(*arguments)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        manifest_path = self.receipts / "run.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["targetScope"]["affectedHosts"].append("gateway-vm")
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        for receipt_path in self.receipts.glob("*.json"):
+            if receipt_path == manifest_path:
+                continue
+            receipt = json.loads(receipt_path.read_text())
+            receipt["targetScope"] = manifest["targetScope"]
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+        self.command_log.unlink()
+
+        resumed = self.run_command(*arguments, "--resume")
+
+        self.assertNotEqual(resumed.returncode, 0)
+        self.assertIn("target scope changed", resumed.stderr)
+        self.assertEqual(
+            self.command_log.read_text(encoding="utf-8").splitlines(),
+            [f"nix eval --json --file {self.root / 'hosts.nix'}"],
+        )
 
 
 if __name__ == "__main__":

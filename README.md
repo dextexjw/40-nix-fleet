@@ -158,6 +158,27 @@ reason. A required `failed`, `blocked`, or `not_run` gate makes the overall
 outcome `incomplete` and the command exits non-zero. The report is printed to
 standard output and is also written to the path supplied with `--evidence`.
 
+For a stateful production change, use the explicit live mutation mode. The
+command delegates every phase to the owning host's existing guarded upgrade
+workflow, writes phase receipts under `.git`, and never invokes a restore:
+
+```sh
+scripts/fleet-lifecycle.py run \
+  --action edit \
+  --host testbed-vm \
+  --service-class stateful \
+  --mutation-mode live \
+  --receipt-dir .git/fleet-lifecycle/testbed-edit \
+  --evidence /tmp/testbed-stateful-lifecycle.json
+```
+
+The stateful sequence requires readiness, a fresh backup, owner-scoped dry
+activation, the host's guarded deployment, owning-host health, backup timer,
+snapshot, and non-destructive restore-check evidence. Resume an interrupted run
+with the same arguments plus `--resume`. Resume is rejected if the lifecycle
+action, target scope, Git-tracked or untracked repository state, receipt chain,
+or mandatory backup evidence no longer matches.
+
 ## Ubuntu Development Base
 
 `smoke@dev.ubuntu.home.arpa` is the preferred operator workstation for this
