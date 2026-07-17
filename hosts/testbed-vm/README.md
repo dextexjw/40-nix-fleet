@@ -329,10 +329,13 @@ exists:
 scripts/testbed-vm/restore-testbed-appdata.sh <snapshot-id>
 ```
 
-The restore script stops AFFiNE, Gitea, Stirling PDF, Firefly III, Fizzy,
-Homebox, InvoicePlane, Kaneo, Keeper, Listmonk, Outline, Plane, Postiz, Sure,
-MariaDB, PostgreSQL, Mailpit, Redis, and the backup timer, restores `/srv/appsdata`,
-reapplies declared directories and ownership, and restarts service units.
+The restore script consumes `/etc/fleet/testbed-recovery.sh`, generated from the
+evaluated recovery lifecycle. It stops the enabled applications and backup
+timer, preserves the existing appdata tree with a timestamped identity,
+restores `/srv/appsdata`, reapplies declared ownership, and starts enabled
+applications in the declared dependency order. Early exits restore the timer
+and attempt to return applications that were active before the restore to
+service.
 Outline and Plane object data are not in this testbed backup; they live in
 Garage buckets `outline-uploads` and `plane-uploads` and are covered by the
 `productivity-vm` Garage appdata backup.
