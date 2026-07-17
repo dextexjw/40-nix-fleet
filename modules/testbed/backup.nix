@@ -197,9 +197,9 @@ in
           --tag appsdata
         restic forget \
           --host testbed-vm \
-          --keep-daily 7 \
-          --keep-weekly 4 \
-          --keep-monthly 6 \
+          --keep-daily ${toString cfg.backup.retention.daily} \
+          --keep-weekly ${toString cfg.backup.retention.weekly} \
+          --keep-monthly ${toString cfg.backup.retention.monthly} \
           --path '${cfg.backup.source}' \
           --prune \
           --retry-lock 30m \

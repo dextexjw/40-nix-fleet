@@ -1160,6 +1160,26 @@ in
     };
 
     backup = {
+      retention = {
+        daily = mkOption {
+          type = types.ints.positive;
+          default = 7;
+          description = "Daily Testbed appdata snapshots retained by Restic.";
+        };
+
+        weekly = mkOption {
+          type = types.ints.positive;
+          default = 4;
+          description = "Weekly Testbed appdata snapshots retained by Restic.";
+        };
+
+        monthly = mkOption {
+          type = types.ints.positive;
+          default = 6;
+          description = "Monthly Testbed appdata snapshots retained by Restic.";
+        };
+      };
+
       repository = mkOption {
         type = types.path;
         default = "/mnt/backups/restic/appdata/testbed-vm";

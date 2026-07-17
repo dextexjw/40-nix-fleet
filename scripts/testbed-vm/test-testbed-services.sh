@@ -4,8 +4,6 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="testbed-vm"
 HOST_IP="10.2.20.129"
-REPOSITORY="/mnt/backups/restic/appdata/testbed-vm"
-SOURCE="/srv/appsdata"
 SKIP_SURE_SMOKE="${SKIP_SURE_SMOKE:-0}"
 SKIP_OUTLINE_SMOKE="${SKIP_OUTLINE_SMOKE:-0}"
 
@@ -166,10 +164,7 @@ printf 'Checking backup and restore validation...\n'
 colmena exec --on "$HOST" -- "sh -lc 'findmnt -rn --target /mnt/backups >/dev/null || mount /mnt/backups'"
 colmena exec --on "$HOST" -- systemctl start testbed-appdata-backup.service
 colmena exec --on "$HOST" -- systemctl start testbed-appdata-restore-check.service
-colmena exec --on "$HOST" -- systemctl is-active --quiet testbed-appdata-backup.timer
-colmena exec --on "$HOST" -- test -s /srv/appsdata/postgresql-dumps/latest.sql.gz
-colmena exec --on "$HOST" -- test -s /srv/appsdata/mariadb-dumps/latest.sql.gz
-colmena exec --on "$HOST" -- "env RESTIC_REPOSITORY='$REPOSITORY' RESTIC_PASSWORD_FILE=/run/secrets/restic-password restic snapshots --host '$HOST' --path '$SOURCE' --tag appsdata --latest 3"
+colmena exec --on "$HOST" -- /etc/fleet/testbed-recovery-verify
 
 printf 'Checking Gateway-routed Listmonk URLs when reachable from this environment...\n'
 colmena exec --on gateway-vm -- "sh -lc 'status=000; for attempt in \$(seq 1 12); do status=\$(curl -sS -o /dev/null -w \"%{http_code}\" --max-time 10 --resolve affine.jax22.com:443:127.0.0.1 https://affine.jax22.com/); case \"\$status\" in 2*|30[1278]|401|403) exit 0 ;; esac; sleep 5; done; echo \"unexpected AFFiNE status \$status\" >&2; exit 1'"

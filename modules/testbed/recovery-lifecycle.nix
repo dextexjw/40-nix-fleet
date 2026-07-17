@@ -54,6 +54,10 @@ let
 
   applicationType = types.submodule {
     options = {
+      displayName = mkOption {
+        type = types.str;
+        description = "Operator-facing application name used by generated recovery guidance.";
+      };
       databaseDumps = mkOption {
         type = types.listOf dumpType;
         description = "Database dumps required before snapshotting the application.";
@@ -106,6 +110,7 @@ let
   application =
     {
       path,
+      displayName,
       quiesceUnits,
       restartUnits ? quiesceUnits,
       verificationUnits ? quiesceUnits,
@@ -120,6 +125,7 @@ let
       durablePaths = [ path ];
       inherit
         databaseDumps
+        displayName
         excludedPaths
         ownership
         quiesceUnits
@@ -131,6 +137,7 @@ let
   applications =
     optionalAttrs cfg.affine.enable {
       affine = application {
+        displayName = "AFFiNE";
         path = cfg.affine.stateDir;
         quiesceUnits = [ "podman-affine.service" ];
         restartUnits = [
@@ -149,6 +156,7 @@ let
     }
     // optionalAttrs cfg.firefly.enable {
       firefly = application {
+        displayName = "Firefly III";
         path = "${cfg.appdataRoot}/firefly-iii";
         user = "firefly-iii";
         group = "nginx";
@@ -166,6 +174,7 @@ let
     }
     // optionalAttrs cfg.fizzy.enable {
       fizzy = application {
+        displayName = "Fizzy";
         path = cfg.fizzy.stateDir;
         user = "1000";
         group = "1000";
@@ -178,6 +187,7 @@ let
     }
     // optionalAttrs cfg.gitea.enable {
       gitea = application {
+        displayName = "Gitea";
         path = "${cfg.appdataRoot}/gitea";
         user = "gitea";
         group = "gitea";
@@ -192,6 +202,7 @@ let
     }
     // {
       homebox = application {
+        displayName = "Homebox";
         path = cfg.homebox.stateDir;
         user = "homebox";
         group = "homebox";
@@ -205,6 +216,7 @@ let
     }
     // optionalAttrs cfg.invoiceplane.enable {
       invoiceplane = application {
+        displayName = "InvoicePlane";
         path = cfg.invoiceplane.stateDir;
         user = "invoiceplane";
         group = "nginx";
@@ -221,6 +233,7 @@ let
     }
     // optionalAttrs cfg.kaneo.enable {
       kaneo = application {
+        displayName = "Kaneo";
         path = cfg.kaneo.stateDir;
         quiesceUnits = [ "podman-kaneo.service" ];
         restartUnits = [
@@ -233,6 +246,7 @@ let
     }
     // optionalAttrs cfg.keeper.enable {
       keeper = application {
+        displayName = "Keeper";
         path = cfg.keeper.stateDir;
         quiesceUnits = [
           "podman-keeper.service"
@@ -253,6 +267,7 @@ let
     }
     // {
       listmonk = application {
+        displayName = "Listmonk";
         path = cfg.listmonk.stateDir;
         user = "listmonk";
         group = "listmonk";
@@ -267,6 +282,7 @@ let
     }
     // optionalAttrs cfg.metube.enable {
       metube = application {
+        displayName = "MeTube";
         path = cfg.metube.stateDir;
         user = "1000";
         quiesceUnits = [ "podman-metube.service" ];
@@ -282,6 +298,7 @@ let
     }
     // optionalAttrs cfg.outline.enable {
       outline = application {
+        displayName = "Outline";
         path = cfg.outline.stateDir;
         quiesceUnits = [
           "podman-outline.service"
@@ -302,6 +319,7 @@ let
     }
     // optionalAttrs cfg.plane.enable {
       plane = application {
+        displayName = "Plane";
         path = cfg.plane.stateDir;
         quiesceUnits = [
           "podman-plane-admin.service"
@@ -340,6 +358,7 @@ let
     }
     // optionalAttrs cfg.postiz.enable {
       postiz = application {
+        displayName = "Postiz";
         path = cfg.postiz.stateDir;
         quiesceUnits = [
           "podman-postiz.service"
@@ -376,6 +395,7 @@ let
     }
     // optionalAttrs cfg.stirlingPdf.enable {
       stirling-pdf = application {
+        displayName = "Stirling PDF";
         path = "${cfg.appdataRoot}/stirling-pdf";
         user = "stirling-pdf";
         group = "stirling-pdf";
@@ -384,6 +404,7 @@ let
     }
     // optionalAttrs cfg.sure.enable {
       sure = application {
+        displayName = "Sure";
         path = cfg.sure.stateDir;
         user = "1000";
         quiesceUnits = [
