@@ -29,6 +29,7 @@ run_advisory() {
 
 need bash
 need nix
+need python3
 need rg
 
 cd "$ROOT"
@@ -40,6 +41,9 @@ printf 'Checking shell syntax...\n'
 for shell_file in "${shell_files[@]}"; do
   bash -n "$shell_file"
 done
+
+printf 'Checking repository-owned fleet agent skill...\n'
+python3 tests/validate-fleet-agent-skill.py
 
 printf 'Checking required secret manifests...\n'
 scripts/lib/required-secrets.sh validate-manifest "$ROOT"

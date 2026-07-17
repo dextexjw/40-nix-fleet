@@ -4,6 +4,8 @@ Fleet is managed as a Nix flake and deployed with Colmena, so changes should alw
 
 `PRINCIPLES.md` is the mandatory service blueprint. Apply it when adding or changing production services, especially guarded deployment, upgrade, security, secrets, backup, restore, and verification standards.
 
+For every production service addition, edit, diagnosis, move, removal, upgrade, deployment, recovery, or validation task, agents must use the repository-owned workflow at `.agents/skills/operate-40-nix-fleet/SKILL.md`. Read-only investigations remain non-mutating unless the user authorizes a fix or live action. A failed, blocked, skipped, or not-run required gate means the outcome is incomplete; a not-applicable gate requires a concrete reason.
+
 ## Fleet Engineering Principles
 - Treat MediaVM as the reference architecture for production services.
 - Prefer declarative, reproducible Nix over manual VM state.

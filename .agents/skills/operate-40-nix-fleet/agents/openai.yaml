@@ -1,0 +1,4 @@
+interface:
+  display_name: "Operate 40 Nix Fleet"
+  short_description: "Run the complete fleet service lifecycle"
+  default_prompt: "Use $operate-40-nix-fleet to operate and validate a fleet service safely."

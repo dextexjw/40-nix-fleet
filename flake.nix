@@ -92,6 +92,7 @@
           pkgs.deadnix
           pkgs.dnsutils
           pkgs.nixfmt
+          pkgs.python3
           pkgs.restic
           pkgs.ripgrep
           pkgs.shellcheck
@@ -103,8 +104,18 @@
 
       formatter.${system} = pkgs.nixfmt;
 
-      checks.${system}.testbed-recovery-lifecycle = import ./tests/testbed-recovery-lifecycle.nix {
-        inherit nixpkgs pkgs system;
+      checks.${system} = {
+        fleet-agent-skill = pkgs.runCommand "fleet-agent-skill-check" { } ''
+          ${pkgs.python3}/bin/python3 \
+            ${./tests/validate-fleet-agent-skill.py} \
+            ${./.agents/skills/operate-40-nix-fleet} \
+            ${./.}
+          touch "$out"
+        '';
+
+        testbed-recovery-lifecycle = import ./tests/testbed-recovery-lifecycle.nix {
+          inherit nixpkgs pkgs system;
+        };
       };
 
       # ==========================================================================
