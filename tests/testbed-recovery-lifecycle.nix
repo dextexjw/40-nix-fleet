@@ -82,6 +82,7 @@ let
     }).config.system.build.toplevel
   );
   applications = enabled.fleet.testbed.recovery.applications;
+  runtimeContract = enabled.environment.etc."fleet/testbed-recovery.sh".text;
   expectedApplications = [
     "affine"
     "firefly"
@@ -112,6 +113,12 @@ assert
     "/var/lib/metube-downloads"
   ];
 assert applications.metube.quiesceUnits == [ "podman-metube.service" ];
+assert nixpkgs.lib.hasInfix "podman-metube.service" runtimeContract;
+assert nixpkgs.lib.hasInfix "/srv/appsdata/metube" runtimeContract;
+assert
+  !(nixpkgs.lib.hasInfix "podman-metube.service"
+    withoutMetube.environment.etc."fleet/testbed-recovery.sh".text
+  );
 assert !unsafeRestoreTarget.success;
 assert !traversingRestoreTarget.success;
 assert !invalidDurablePath.success;

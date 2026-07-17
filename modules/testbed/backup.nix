@@ -23,6 +23,9 @@ let
   backupDumpUnits = unique (
     concatMap (application: map (dump: dump.unit) application.databaseDumps) recoveryApplications
   );
+  restoreCheckPaths = unique (
+    concatMap (application: map toString application.durablePaths) recoveryApplications
+  );
 in
 {
   config = mkIf cfg.enable {
@@ -274,6 +277,9 @@ in
           --retry-lock 30m
 
         test -d "$restore_root${cfg.backup.source}"
+        for durable_path in ${escapeShellArgs restoreCheckPaths}; do
+          test -d "$restore_root$durable_path"
+        done
       '';
     };
 

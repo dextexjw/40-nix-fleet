@@ -408,6 +408,16 @@ let
     };
 
   declarations = attrValues recoveryCfg.applications;
+  lifecycleQuiesceUnits = unique (concatMap (declaration: declaration.quiesceUnits) declarations);
+  lifecycleRestartUnits = unique (concatMap (declaration: declaration.restartUnits) declarations);
+  lifecycleVerificationUnits = unique (
+    concatMap (declaration: declaration.verificationUnits) declarations
+  );
+  lifecycleDurablePaths = unique (concatMap (declaration: declaration.durablePaths) declarations);
+  lifecycleOwnership = concatMap (
+    declaration:
+    map (rule: "${toString rule.path}|${rule.user}|${rule.group}|${rule.mode}") declaration.ownership
+  ) declarations;
   expectedApplications = attrNames applications;
   unitClaims = concatLists (
     mapAttrsToList (
@@ -445,6 +455,17 @@ in
   };
 
   config = mkIf cfg.enable {
+    environment.etc."fleet/testbed-recovery.sh" = {
+      mode = "0444";
+      text = ''
+        RECOVERY_QUIESCE_UNITS=(${escapeShellArgs lifecycleQuiesceUnits})
+        RECOVERY_RESTART_UNITS=(${escapeShellArgs lifecycleRestartUnits})
+        RECOVERY_VERIFICATION_UNITS=(${escapeShellArgs lifecycleVerificationUnits})
+        RECOVERY_DURABLE_PATHS=(${escapeShellArgs (map toString lifecycleDurablePaths)})
+        RECOVERY_OWNERSHIP=(${escapeShellArgs lifecycleOwnership})
+      '';
+    };
+
     assertions = [
       {
         assertion = attrNames recoveryCfg.applications == expectedApplications;
