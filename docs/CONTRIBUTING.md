@@ -20,3 +20,8 @@ Those remain guarded operator acceptance steps under `PRINCIPLES.md` and the
 host-specific lifecycle workflow. A failed required CI command fails the job;
 there is no CI representation that converts a failed, blocked, or unrun required
 gate into a complete lifecycle outcome.
+
+The project also supplies `.codex/hooks.json` for narrow pre-command lifecycle
+enforcement. Its allowed and denied scenarios run in CI. Review and trust the
+project hook through `/hooks`; the hook complements the fleet skill and does not
+replace lifecycle classification or operator authorization.

@@ -120,6 +120,22 @@ checks from the dev shell. CI runs this non-live gate without production
 credentials. See `docs/CONTRIBUTING.md` for the boundary between CI proof and
 guarded live acceptance.
 
+### Agent lifecycle command guard
+
+The trusted project hook in `.codex/hooks.json` runs a narrow mechanical policy
+before Bash commands. It rejects unscoped whole-fleet switches, generic reads or
+edits of the encrypted production secret file, plaintext secret decryption,
+implicit restore selection, destructive provisioning, and broad deletion of
+restore-critical appdata. Each rejection states the supported guarded path.
+
+Host-scoped builds, dry activations and switches, host deploy wrappers,
+SOPS-aware editing and silent decrypt validation, read-only diagnostics, and
+approved recovery scripts with an explicit snapshot ID remain available. The
+hook deliberately does not decide which hosts, backups, consumers, or lifecycle
+gates apply; those decisions remain in the repository fleet skill. Codex
+requires project hooks to be reviewed and trusted after their definition
+changes; inspect this hook with `/hooks` before relying on enforcement.
+
 ### Stateless service lifecycle command
 
 Use `scripts/fleet-lifecycle.py` as the canonical planning and validation

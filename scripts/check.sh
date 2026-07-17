@@ -49,6 +49,7 @@ printf 'Checking canonical fleet lifecycle command...\n'
 python3 tests/test-fleet-lifecycle.py
 python3 tests/test-fleet-upgrade-lifecycle.py
 python3 tests/test-ci-lifecycle-policy.py
+python3 tests/test-lifecycle-command-guard.py
 
 printf 'Checking required secret manifests...\n'
 scripts/lib/required-secrets.sh validate-manifest "$ROOT"
