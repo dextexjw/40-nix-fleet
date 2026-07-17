@@ -41,6 +41,7 @@ class FleetCommandGuardTests(unittest.TestCase):
     def test_allows_guarded_deployment_and_diagnostics(self) -> None:
         for command in (
             "colmena apply --on media-vm switch",
+            "colmena apply --on=media-vm switch",
             "scripts/media-vm/deploy-media.sh",
             "colmena build --on media-vm",
             "systemctl status jellyfin",
@@ -62,6 +63,8 @@ class FleetCommandGuardTests(unittest.TestCase):
             "vim secrets/secrets.yaml",
             "sops --decrypt secrets/secrets.yaml",
             "sops -d secrets/secrets.yaml",
+            "sops decrypt secrets/secrets.yaml",
+            "sops secrets/secrets.yaml; cat secrets/secrets.yaml",
         ):
             with self.subTest(command=command):
                 self.assert_denied(command, "SOPS-aware")
@@ -69,7 +72,10 @@ class FleetCommandGuardTests(unittest.TestCase):
     def test_denies_implicit_or_automatic_restore(self) -> None:
         for command in (
             "restic restore latest --target /",
+            "restic -r /repo restore latest --target /tmp/restore",
+            "restic -r /repo restore --target /tmp/restore latest",
             "scripts/media-vm/restore-media-appdata.sh",
+            "./scripts/media-vm/restore-media-appdata.sh",
             "scripts/gateway2-vm/restore-from-gateway-vm-backup.sh",
         ):
             with self.subTest(command=command):
@@ -78,6 +84,10 @@ class FleetCommandGuardTests(unittest.TestCase):
     def test_denies_destructive_provisioning_and_state_deletion(self) -> None:
         self.assert_denied("nixos-anywhere --flake .#media-vm root@host", "external provisioning")
         self.assert_denied("sudo rm -rf /srv/appsdata", "declarative removal")
+        self.assert_denied("rm -r -f /srv/appsdata/app", "declarative removal")
+        self.assert_denied(
+            "rm -rf --one-file-system /srv/appsdata/app", "declarative removal"
+        )
 
 
 if __name__ == "__main__":
