@@ -184,8 +184,8 @@ let
         quiesceUnits = [ "gitea.service" ];
         restartUnits = [
           "gitea.service"
-          "gitea-oidc-config.service"
-        ];
+        ]
+        ++ optional cfg.gitea.oidc.enable "gitea-oidc-config.service";
         verificationUnits = [ "gitea.service" ];
         databaseDumps = [ postgresqlDump ];
       };
@@ -257,6 +257,11 @@ let
         user = "listmonk";
         group = "listmonk";
         quiesceUnits = [ "listmonk.service" ];
+        restartUnits = [
+          "listmonk.service"
+          "listmonk-oidc-config.service"
+        ];
+        verificationUnits = [ "listmonk.service" ];
         databaseDumps = [ postgresqlDump ];
       };
     }
@@ -435,7 +440,7 @@ in
 {
   options.fleet.testbed.recovery.applications = mkOption {
     type = types.attrsOf applicationType;
-    default = applications;
+    default = optionalAttrs cfg.enable applications;
     description = "Evaluated recovery lifecycle facts for enabled stateful Testbed applications.";
   };
 

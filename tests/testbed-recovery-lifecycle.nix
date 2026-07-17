@@ -20,9 +20,20 @@ let
     };
 
   enabled = (evalTestbed { }).config;
+  disabled =
+    (evalTestbed (
+      { lib, ... }:
+      {
+        fleet.testbed.stack.enable = lib.mkForce false;
+      }
+    )).config;
   withoutMetube = (evalTestbed { fleet.testbed.stack.metube.enable = false; }).config;
   unsafeRestoreTarget = builtins.tryEval (
     (evalTestbed { fleet.testbed.stack.backup.restoreCheckTarget = "/srv/restore-check"; })
+    .config.system.build.toplevel
+  );
+  traversingRestoreTarget = builtins.tryEval (
+    (evalTestbed { fleet.testbed.stack.backup.restoreCheckTarget = "/var/tmp/../srv"; })
     .config.system.build.toplevel
   );
   invalidDurablePath = builtins.tryEval (
@@ -90,7 +101,10 @@ let
   ];
 in
 assert builtins.attrNames applications == expectedApplications;
+assert disabled.fleet.testbed.recovery.applications == { };
 assert !(withoutMetube.fleet.testbed.recovery.applications ? metube);
+assert !(builtins.elem "gitea-oidc-config.service" applications.gitea.restartUnits);
+assert builtins.elem "listmonk-oidc-config.service" applications.listmonk.restartUnits;
 assert applications.metube.durablePaths == [ "/srv/appsdata/metube" ];
 assert
   applications.metube.excludedPaths == [
@@ -99,6 +113,7 @@ assert
   ];
 assert applications.metube.quiesceUnits == [ "podman-metube.service" ];
 assert !unsafeRestoreTarget.success;
+assert !traversingRestoreTarget.success;
 assert !invalidDurablePath.success;
 assert !duplicateUnitOwnership.success;
 assert !missingEnabledApplication.success;
