@@ -9,6 +9,11 @@ with lib;
 let
   cfg = config.fleet.testbed.stack;
   recoveryCfg = config.fleet.testbed.recovery;
+  resticPasswordFile =
+    if cfg.secrets.enable then
+      config.sops.secrets.restic-password.path
+    else
+      "/run/secrets/restic-password";
 
   ownershipType = types.submodule {
     options = {
@@ -435,10 +440,9 @@ let
     concatMap (declaration: declaration.verificationUnits) declarations
   );
   lifecycleDurablePaths = unique (concatMap (declaration: declaration.durablePaths) declarations);
-  lifecycleOwnership = concatMap (
-    declaration:
-    map (rule: "${toString rule.path}|${rule.user}|${rule.group}|${rule.mode}") declaration.ownership
-  ) declarations;
+  lifecycleOwnership = map (rule: "${toString rule.path}|${rule.user}|${rule.group}|${rule.mode}") (
+    concatMap (declaration: declaration.ownership) declarations ++ recoveryCfg.sharedOwnership
+  );
   expectedApplications = attrNames applications;
   unitClaims = concatLists (
     mapAttrsToList (
@@ -475,10 +479,27 @@ in
     description = "Evaluated recovery lifecycle facts for enabled stateful Testbed applications.";
   };
 
+  options.fleet.testbed.recovery.sharedOwnership = mkOption {
+    type = types.listOf ownershipType;
+    default = optionals cfg.enable [
+      (owner "${cfg.appdataRoot}/postgresql" "postgres" "postgres" "0750")
+      (owner "${cfg.appdataRoot}/postgresql-dumps" "postgres" "postgres" "0700")
+      (owner "${cfg.appdataRoot}/mariadb" "mysql" "mysql" "0750")
+      (owner "${cfg.appdataRoot}/mariadb-dumps" "root" "root" "0700")
+    ];
+    description = "Ownership recovery for shared database state outside one application declaration.";
+  };
+
   config = mkIf cfg.enable {
     environment.etc."fleet/testbed-recovery.sh" = {
       mode = "0444";
       text = ''
+        RECOVERY_REPOSITORY=${escapeShellArg (toString cfg.backup.repository)}
+        RECOVERY_HOST=${escapeShellArg cfg.backup.snapshotHost}
+        RECOVERY_SOURCE=${escapeShellArg (toString cfg.backup.source)}
+        RECOVERY_TAG=${escapeShellArg cfg.backup.tag}
+        RECOVERY_PASSWORD_FILE=${escapeShellArg resticPasswordFile}
+        RECOVERY_BACKUP_MOUNT=${escapeShellArg (toString cfg.smb.backupMount)}
         RECOVERY_QUIESCE_UNITS=(${escapeShellArgs lifecycleQuiesceUnits})
         RECOVERY_RESTART_UNITS=(${escapeShellArgs lifecycleRestartUnits})
         RECOVERY_VERIFICATION_UNITS=(${escapeShellArgs lifecycleVerificationUnits})
@@ -524,6 +545,10 @@ in
           declaration: all (dump: pathIsUnderAppdata dump.path) declaration.databaseDumps
         ) declarations;
         message = "Testbed recovery database dump paths must be within fleet.testbed.stack.appdataRoot.";
+      }
+      {
+        assertion = all (rule: pathIsUnderAppdata rule.path) recoveryCfg.sharedOwnership;
+        message = "Testbed shared recovery ownership paths must be within fleet.testbed.stack.appdataRoot.";
       }
       {
         assertion =

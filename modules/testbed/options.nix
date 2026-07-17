@@ -1186,10 +1186,22 @@ in
         description = "Restic repository path.";
       };
 
+      snapshotHost = mkOption {
+        type = types.strMatching "[A-Za-z0-9][A-Za-z0-9._-]*";
+        default = "testbed-vm";
+        description = "Restic host identity used for Testbed appdata snapshots.";
+      };
+
       source = mkOption {
         type = types.path;
         default = "/srv/appsdata";
         description = "Path backed up by testbed-appdata-backup.service.";
+      };
+
+      tag = mkOption {
+        type = types.strMatching "[A-Za-z0-9][A-Za-z0-9._-]*";
+        default = "appsdata";
+        description = "Restic tag used for Testbed appdata snapshots.";
       };
 
       restoreCheckTarget = mkOption {

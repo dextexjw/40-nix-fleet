@@ -26,6 +26,8 @@ let
   restoreCheckPaths = unique (
     concatMap (application: map toString application.durablePaths) recoveryApplications
   );
+  snapshotHostArg = escapeShellArg cfg.backup.snapshotHost;
+  snapshotTagArg = escapeShellArg cfg.backup.tag;
 in
 {
   config = mkIf cfg.enable {
@@ -181,29 +183,29 @@ in
           restic init
         else
           restic snapshots \
-            --host testbed-vm \
+            --host ${snapshotHostArg} \
             --path '${cfg.backup.source}' \
-            --tag appsdata \
+            --tag ${snapshotTagArg} \
             --latest 1 \
             --retry-lock 30m \
             >/dev/null
         fi
 
         restic backup '${cfg.backup.source}' \
-          --host testbed-vm \
+          --host ${snapshotHostArg} \
           --one-file-system \
           --exclude-caches \
           --retry-lock 30m \
-          --tag appsdata
+          --tag ${snapshotTagArg}
         restic forget \
-          --host testbed-vm \
+          --host ${snapshotHostArg} \
           --keep-daily ${toString cfg.backup.retention.daily} \
           --keep-weekly ${toString cfg.backup.retention.weekly} \
           --keep-monthly ${toString cfg.backup.retention.monthly} \
           --path '${cfg.backup.source}' \
           --prune \
           --retry-lock 30m \
-          --tag appsdata
+          --tag ${snapshotTagArg}
 
       '';
     };
@@ -269,9 +271,9 @@ in
 
         restic check --retry-lock 30m
         restic restore latest \
-          --host testbed-vm \
+          --host ${snapshotHostArg} \
           --path '${cfg.backup.source}' \
-          --tag appsdata \
+          --tag ${snapshotTagArg} \
           --target "$restore_root" \
           --verify \
           --retry-lock 30m

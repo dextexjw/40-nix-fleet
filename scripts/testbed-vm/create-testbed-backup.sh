@@ -5,8 +5,6 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="testbed-vm"
 HOST_IP="10.2.20.129"
 REMOTE_USER="smoke"
-REPOSITORY="/mnt/backups/restic/appdata/testbed-vm"
-SOURCE="/srv/appsdata"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -46,7 +44,7 @@ printf 'Running the declaration-driven backup and restore validation...\n'
 ssh_testbed_vm "sudo systemctl start testbed-appdata-backup.service"
 ssh_testbed_vm "sudo systemctl start testbed-appdata-restore-check.service"
 
-printf 'Recent testbed-vm appdata snapshots:\n'
-ssh_testbed_vm "sudo env RESTIC_REPOSITORY='$REPOSITORY' RESTIC_PASSWORD_FILE=/run/secrets/restic-password restic snapshots --host '$HOST' --path '$SOURCE' --tag appsdata --latest 5"
+printf 'Verifying recent testbed-vm appdata snapshots and lifecycle health:\n'
+ssh_testbed_vm "sudo /etc/fleet/testbed-recovery-verify"
 
 SKIP_OUTLINE_SMOKE="$SKIP_OUTLINE_SMOKE" SKIP_SURE_SMOKE="$SKIP_SURE_SMOKE" "$ROOT/scripts/testbed-vm/test-testbed-services.sh"

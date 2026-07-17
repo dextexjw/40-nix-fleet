@@ -22,13 +22,14 @@ cd "$ROOT"
 remote_script="$({ cat <<'SCRIPT'
 set -euo pipefail
 
-repository=/mnt/backups/restic/appdata/testbed-vm
-source_path=/srv/appsdata
-tag=appsdata
 requested_snapshot=__SNAPSHOT__
 
 # shellcheck source=/dev/null
 source /etc/fleet/testbed-recovery.sh
+
+repository=$RECOVERY_REPOSITORY
+source_path=$RECOVERY_SOURCE
+tag=$RECOVERY_TAG
 
 active_units=()
 snapshots_file=
@@ -48,7 +49,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 export RESTIC_REPOSITORY="$repository"
-export RESTIC_PASSWORD_FILE=/run/secrets/restic-password
+export RESTIC_PASSWORD_FILE="$RECOVERY_PASSWORD_FILE"
 
 systemctl stop testbed-appdata-backup.timer
 for unit in "${RECOVERY_QUIESCE_UNITS[@]}"; do
@@ -58,7 +59,7 @@ for unit in "${RECOVERY_QUIESCE_UNITS[@]}"; do
 done
 systemctl stop "${RECOVERY_QUIESCE_UNITS[@]}"
 
-findmnt -rn --target /mnt/backups >/dev/null || mount /mnt/backups
+findmnt -rn --target "$RECOVERY_BACKUP_MOUNT" >/dev/null || mount "$RECOVERY_BACKUP_MOUNT"
 test -r "$RESTIC_PASSWORD_FILE" || { echo "$RESTIC_PASSWORD_FILE is not readable" >&2; exit 1; }
 
 if [ ! -d "$repository/data" ]; then
@@ -67,7 +68,7 @@ if [ ! -d "$repository/data" ]; then
 fi
 
 snapshots_file=$(mktemp /tmp/testbed-appdata-snapshots.XXXXXX)
-restic snapshots --host testbed-vm --path "$source_path" --tag "$tag" >"$snapshots_file"
+restic snapshots --host "$RECOVERY_HOST" --path "$source_path" --tag "$tag" >"$snapshots_file"
 snapshot_ids=$(awk '/^[[:xdigit:]]{8}[[:space:]]/ { print $1 }' "$snapshots_file")
 snapshot_count=$(printf '%s\n' "$snapshot_ids" | sed '/^$/d' | wc -l)
 
@@ -91,12 +92,12 @@ else
 fi
 
 restore_stamp=$(date +%Y%m%d-%H%M%S)
-current_backup="/srv/appsdata.pre-restore-$snapshot-$restore_stamp"
+current_backup="${source_path%/}.pre-restore-$snapshot-$restore_stamp"
 if [ -e "$source_path" ]; then
   mv "$source_path" "$current_backup"
 fi
 
-restic restore "$snapshot" --host testbed-vm --path "$source_path" --tag "$tag" --target / --verify
+restic restore "$snapshot" --host "$RECOVERY_HOST" --path "$source_path" --tag "$tag" --target / --verify
 
 chown root:root "$source_path"
 chmod 0755 "$source_path"
@@ -107,10 +108,6 @@ for ownership in "${RECOVERY_OWNERSHIP[@]}"; do
     chmod "$mode" "$path"
   fi
 done
-[ -d "$source_path/postgresql" ] && chown -R postgres:postgres "$source_path/postgresql"
-[ -d "$source_path/postgresql-dumps" ] && chown -R postgres:postgres "$source_path/postgresql-dumps"
-[ -d "$source_path/mariadb" ] && chown -R mysql:mysql "$source_path/mariadb"
-[ -d "$source_path/mariadb-dumps" ] && chown -R root:root "$source_path/mariadb-dumps"
 find "$source_path" -type f -name '*.pid' -delete
 
 systemd-tmpfiles --create

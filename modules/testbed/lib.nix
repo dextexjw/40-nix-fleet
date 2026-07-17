@@ -71,46 +71,6 @@ let
     option != "_netdev" && option != "noauto" && option != "nofail" && !(hasPrefix "x-systemd." option)
   ) cfg.smb.mountOptions;
 
-  statefulServices = [
-    "redis-affine.service"
-    "podman-affine.service"
-    "gitea.service"
-    "podman-fizzy.service"
-    "homebox.service"
-    "phpfpm-firefly-iii.service"
-    "firefly-iii-cron.timer"
-    "phpfpm-invoiceplane.service"
-    "invoiceplane-bootstrap.service"
-    "podman-kaneo.service"
-    "podman-keeper.service"
-    "redis-keeper.service"
-    "listmonk.service"
-    "podman-metube.service"
-    "podman-outline.service"
-    "redis-outline.service"
-    "nginx.service"
-    "plane-admin-bootstrap.service"
-    "plane-migrate.service"
-    "plane-rabbitmq-config.service"
-    "podman-plane-api.service"
-    "podman-plane-beat-worker.service"
-    "podman-plane-live.service"
-    "podman-plane-rabbitmq.service"
-    "podman-plane-worker.service"
-    "podman-postiz.service"
-    "podman-postiz-postgres.service"
-    "podman-postiz-redis.service"
-    "podman-postiz-temporal.service"
-    "podman-postiz-temporal-elasticsearch.service"
-    "podman-postiz-temporal-postgres.service"
-    "stirling-pdf.service"
-    "podman-sure-web.service"
-    "podman-sure-worker.service"
-    "postgresql.service"
-    "redis-sure.service"
-    "mailpit-testbed.service"
-    "mysql.service"
-  ];
 in
 {
   inherit
@@ -122,7 +82,6 @@ in
     serviceHosts
     serviceRouteLines
     smbCredentialsFile
-    statefulServices
     systemdMountOptions
     ;
 }

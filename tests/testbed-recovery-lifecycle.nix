@@ -54,6 +54,24 @@ let
         };
       }
     )).config;
+  withMutatedRepository =
+    (evalTestbed {
+      fleet.testbed.stack.backup.repository = "/mnt/backups/restic/appdata/testbed-proof";
+      fleet.testbed.stack.backup.snapshotHost = "testbed-proof";
+      fleet.testbed.stack.backup.source = "/srv/appsdata-proof";
+      fleet.testbed.stack.backup.tag = "appsdata-proof";
+    }).config;
+  withMutatedSharedOwnership =
+    (evalTestbed {
+      fleet.testbed.recovery.sharedOwnership = [
+        {
+          group = "shared-proof";
+          mode = "0710";
+          path = "/srv/appsdata/shared-ownership-proof";
+          user = "shared-proof";
+        }
+      ];
+    }).config;
   unsafeRestoreTarget = builtins.tryEval (
     (evalTestbed { fleet.testbed.stack.backup.restoreCheckTarget = "/srv/restore-check"; })
     .config.system.build.toplevel
@@ -115,6 +133,19 @@ let
   mutatedGuidance = withMutatedMetube.environment.etc."fleet/testbed-vm.md".text;
   mutatedVerification = withMutatedMetube.environment.etc."fleet/testbed-recovery-verify".text;
   mutatedRuntimeContract = withMutatedMetube.environment.etc."fleet/testbed-recovery.sh".text;
+  repositoryGuidance = withMutatedRepository.environment.etc."fleet/testbed-vm.md".text;
+  repositoryVerification = withMutatedRepository.environment.etc."fleet/testbed-recovery-verify".text;
+  repositoryRuntimeContract = withMutatedRepository.environment.etc."fleet/testbed-recovery.sh".text;
+  repositoryBackupRuntime = withMutatedRepository.systemd.services.testbed-appdata-backup.script;
+  repositoryRestoreCheckRuntime =
+    withMutatedRepository.systemd.services.testbed-appdata-restore-check.script;
+  sharedOwnershipGuidance = withMutatedSharedOwnership.environment.etc."fleet/testbed-vm.md".text;
+  sharedOwnershipRuntime =
+    withMutatedSharedOwnership.environment.etc."fleet/testbed-recovery.sh".text;
+  manualBackup = builtins.readFile ../scripts/testbed-vm/create-testbed-backup.sh;
+  explicitRestore = builtins.readFile ../scripts/testbed-vm/restore-testbed-appdata.sh;
+  guardedUpgrade = builtins.readFile ../scripts/testbed-vm/upgrade-testbed-vm.sh;
+  backupService = enabled.systemd.services.testbed-appdata-backup;
   runtimeContract = enabled.environment.etc."fleet/testbed-recovery.sh".text;
   expectedApplications = [
     "affine"
@@ -166,6 +197,32 @@ assert nixpkgs.lib.hasInfix "/srv/appsdata/metube-shared-proof" mutatedRuntimeCo
 assert nixpkgs.lib.hasInfix "metube-shared-proof.service" mutatedGuidance;
 assert nixpkgs.lib.hasInfix "metube-shared-proof.service" mutatedVerification;
 assert nixpkgs.lib.hasInfix "metube-shared-proof.service" mutatedRuntimeContract;
+assert nixpkgs.lib.hasInfix "systemctl start testbed-appdata-backup.service" manualBackup;
+assert nixpkgs.lib.hasInfix "/etc/fleet/testbed-recovery-verify" manualBackup;
+assert nixpkgs.lib.hasInfix "source /etc/fleet/testbed-recovery.sh" explicitRestore;
+assert nixpkgs.lib.hasInfix ''current_backup="''${source_path%/}.pre-restore-'' explicitRestore;
+assert nixpkgs.lib.hasInfix "/srv/appsdata/postgresql|postgres|postgres|0750" runtimeContract;
+assert nixpkgs.lib.hasInfix "/srv/appsdata/mariadb|mysql|mysql|0750" runtimeContract;
+assert nixpkgs.lib.hasInfix "/srv/appsdata/shared-ownership-proof -> shared-proof:shared-proof 0710"
+  sharedOwnershipGuidance;
+assert nixpkgs.lib.hasInfix "/srv/appsdata/shared-ownership-proof|shared-proof|shared-proof|0710"
+  sharedOwnershipRuntime;
+assert backupService.serviceConfig.TimeoutStopSec == "10min";
+assert nixpkgs.lib.hasInfix "trap cleanup EXIT" backupService.script;
+assert nixpkgs.lib.hasInfix "systemctl start --no-block" backupService.script;
+assert nixpkgs.lib.hasInfix "seq 1 60" backupService.script;
+assert !(nixpkgs.lib.hasInfix "restic restore" guardedUpgrade);
+assert !(nixpkgs.lib.hasInfix "restore-testbed-appdata" guardedUpgrade);
+assert nixpkgs.lib.hasInfix "RECOVERY_REPOSITORY=/mnt/backups/restic/appdata/testbed-proof"
+  repositoryRuntimeContract;
+assert nixpkgs.lib.hasInfix "RECOVERY_HOST=testbed-proof" repositoryRuntimeContract;
+assert nixpkgs.lib.hasInfix "RECOVERY_SOURCE=/srv/appsdata-proof" repositoryRuntimeContract;
+assert nixpkgs.lib.hasInfix "RECOVERY_TAG=appsdata-proof" repositoryRuntimeContract;
+assert nixpkgs.lib.hasInfix "/mnt/backups/restic/appdata/testbed-proof" repositoryGuidance;
+assert nixpkgs.lib.hasInfix "/mnt/backups/restic/appdata/testbed-proof" repositoryVerification;
+assert nixpkgs.lib.hasInfix "/mnt/backups/restic/appdata/testbed-proof" repositoryBackupRuntime;
+assert nixpkgs.lib.hasInfix "/mnt/backups/restic/appdata/testbed-proof"
+  repositoryRestoreCheckRuntime;
 assert nixpkgs.lib.hasInfix "podman-metube.service" runtimeContract;
 assert nixpkgs.lib.hasInfix "/srv/appsdata/metube" runtimeContract;
 assert
