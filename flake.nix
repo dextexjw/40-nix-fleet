@@ -79,6 +79,63 @@
         }
         // hostConfigs
       );
+
+      gatewayCluster = import ./lib/gateway-cluster.nix { inherit hosts; };
+      serviceDomains = import ./lib/service-domains.nix;
+
+      mkLifecycleConsumer =
+        _: node:
+        let
+          config = node.config;
+          applications = lib.attrByPath [ "fleet" "gateway" "authentik" "applications" ] { } config;
+          dnsHosts = lib.attrByPath [ "networking" "hosts" gatewayCluster.clientAddress ] [ ] config;
+          homepageGroups = lib.attrByPath [ "fleet" "gateway" "homepage" "serviceGroups" ] [ ] config;
+          monitoringTarget = lib.attrByPath [
+            "environment"
+            "etc"
+            "fleet/checkmate-targets.json"
+          ] null config;
+          routes = lib.attrByPath [ "fleet" "gateway" "traefik" "routes" ] { } config;
+          routeHosts = lib.concatMap (route: route.hosts or [ ]) (builtins.attrValues routes);
+          smokeTarget = lib.attrByPath [ "environment" "etc" "fleet/gateway-exposure-smoke.tsv" ] null config;
+          technitiumEnabled = lib.attrByPath [ "services" "technitium-dns-server" "enable" ] false config;
+          rendered = {
+            authentication = applications != { };
+            dns = technitiumEnabled || dnsHosts != [ ];
+            firewall = routes != { } && lib.attrByPath [ "networking" "firewall" "enable" ] false config;
+            homepage = homepageGroups != [ ];
+            monitoring = monitoringTarget != null;
+            route = routes != { };
+            smoke = smokeTarget != null;
+            tls = builtins.any (lib.hasSuffix ".${serviceDomains.primary}") routeHosts;
+          };
+          artifacts = {
+            authentication = applications;
+            dns = {
+              hosts = dnsHosts;
+              technitium = technitiumEnabled;
+            };
+            firewall = {
+              enable = config.networking.firewall.enable;
+              inherit routes;
+            };
+            homepage = homepageGroups;
+            monitoring = if monitoringTarget == null then null else builtins.toString monitoringTarget.source;
+            route = routes;
+            smoke = if smokeTarget == null then null else smokeTarget.text;
+            tls = builtins.filter (lib.hasSuffix ".${serviceDomains.primary}") routeHosts;
+          };
+          evidence = lib.mapAttrs (
+            surface: enabled:
+            if enabled then builtins.hashString "sha256" (builtins.toJSON artifacts.${surface}) else null
+          ) rendered;
+        in
+        {
+          inherit evidence rendered;
+          consumerSurfaces = builtins.attrNames (lib.filterAttrs (_: enabled: enabled) rendered);
+        };
+
+      fleetLifecycleConsumers = lib.mapAttrs mkLifecycleConsumer colmenaHive.nodes;
     in
     {
       # ==========================================================================
@@ -124,6 +181,11 @@
               touch "$out"
             '';
 
+        fleet-lifecycle-consumers = import ./tests/fleet-lifecycle-consumers.nix {
+          consumers = fleetLifecycleConsumers;
+          inherit pkgs;
+        };
+
         testbed-recovery-lifecycle = import ./tests/testbed-recovery-lifecycle.nix {
           inherit nixpkgs pkgs system;
         };
@@ -134,5 +196,7 @@
       # ==========================================================================
 
       legacyPackages.${system}.colmenaHive = colmenaHive;
+
+      inherit fleetLifecycleConsumers;
     };
 }
