@@ -13,35 +13,16 @@ let
     inherit config lib pkgs;
   };
   inherit (testbedLib) cfg appdata resticPasswordFile;
-  backupGuardedServices = [
-    "podman-affine.service"
-    "gitea.service"
-    "phpfpm-firefly-iii.service"
-    "stirling-pdf.service"
-    "podman-plane-rabbitmq.service"
-    "podman-plane-api.service"
-    "podman-plane-worker.service"
-    "podman-plane-beat-worker.service"
-    "podman-plane-live.service"
-    "podman-plane-web.service"
-    "podman-plane-admin.service"
-    "podman-plane-space.service"
-    "podman-postiz.service"
-    "podman-postiz-postgres.service"
-    "podman-postiz-redis.service"
-    "podman-postiz-temporal.service"
-    "podman-postiz-temporal-elasticsearch.service"
-    "podman-postiz-temporal-postgres.service"
-    "podman-fizzy.service"
-    "phpfpm-invoiceplane.service"
-    "homebox.service"
-    "podman-kaneo.service"
-    "podman-keeper.service"
-    "podman-metube.service"
-    "podman-outline.service"
-    "podman-sure-web.service"
-    "podman-sure-worker.service"
-  ];
+  recoveryApplications = attrValues config.fleet.testbed.recovery.applications;
+  backupGuardedServices = unique (
+    concatMap (application: application.quiesceUnits) recoveryApplications
+  );
+  backupRestartOrder = unique (
+    concatMap (application: application.restartUnits) recoveryApplications
+  );
+  backupDumpUnits = unique (
+    concatMap (application: map (dump: dump.unit) application.databaseDumps) recoveryApplications
+  );
 in
 {
   config = mkIf cfg.enable {
@@ -105,18 +86,10 @@ in
       description = "Back up testbed-vm /srv/appsdata with restic";
       after = [
         "network-online.target"
-        "testbed-mariadb-dump.service"
-        "testbed-postgresql-dump.service"
         "${utils.escapeSystemdPath cfg.smb.backupMount}.mount"
       ];
-      wants = [
-        "network-online.target"
-        "testbed-mariadb-dump.service"
-        "testbed-postgresql-dump.service"
-      ];
+      wants = [ "network-online.target" ];
       requires = [
-        "testbed-mariadb-dump.service"
-        "testbed-postgresql-dump.service"
         "${utils.escapeSystemdPath cfg.smb.backupMount}.mount"
       ];
       path = [
@@ -134,60 +107,43 @@ in
       script = ''
         set -euo pipefail
 
-        restarted_services=
+        active_services=
         cleanup() {
-          queue_start() {
-            systemctl start --no-block "$1" || true
+          status=$?
+          trap - EXIT HUP INT TERM
+
+          restart_services=
+          queue_restart() {
+            case " $active_services " in
+              *" $1 "*) restart_services="$restart_services $1" ;;
+            esac
           }
 
-          for service in \
-            affine-postgresql-password.service \
-            affine-postgresql-extensions.service \
-            gitea-oidc-config.service \
-            plane-postgresql-password.service \
-            plane-rabbitmq-config.service \
-            plane-migrate.service \
-            podman-plane-api.service \
-            podman-plane-worker.service \
-            podman-plane-beat-worker.service \
-            podman-plane-live.service \
-            plane-admin-bootstrap.service \
-            invoiceplane-mysql-password.service \
-            invoiceplane-prepare.service \
-            invoiceplane-bootstrap.service \
-            phpfpm-invoiceplane.service
-          do
-            systemctl reset-failed "$service" || true
+          for service in ${concatStringsSep " " backupRestartOrder}; do
+            queue_restart "$service"
           done
-
-          for service in $restarted_services; do
-            queue_start "$service"
-          done
-          queue_start affine-postgresql-extensions.service
-          queue_start affine-postgresql-password.service
-          queue_start gitea-oidc-config.service
-          queue_start plane-postgresql-password.service
-          queue_start plane-rabbitmq-config.service
-          queue_start plane-migrate.service
-          queue_start podman-plane-api.service
-          queue_start podman-plane-worker.service
-          queue_start podman-plane-beat-worker.service
-          queue_start podman-plane-live.service
-          queue_start plane-admin-bootstrap.service
-          queue_start invoiceplane-mysql-password.service
-          queue_start invoiceplane-prepare.service
-          queue_start phpfpm-invoiceplane.service
-          queue_start invoiceplane-bootstrap.service
+          if [ -n "$restart_services" ]; then
+            systemctl reset-failed $restart_services || true
+            systemctl start --no-block $restart_services || true
+          fi
+          exit "$status"
         }
         trap cleanup EXIT
+        trap 'exit 129' HUP
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
 
         stop_pending=
         for service in ${concatStringsSep " " backupGuardedServices}; do
           if systemctl is-active --quiet "$service"; then
-            restarted_services="$restarted_services $service"
+            active_services="$active_services $service"
             stop_pending="$stop_pending $service"
             systemctl stop --no-block "$service"
           fi
+        done
+
+        for dump_unit in ${concatStringsSep " " backupDumpUnits}; do
+          systemctl start "$dump_unit"
         done
 
         for service in $stop_pending; do
@@ -246,8 +202,6 @@ in
           --retry-lock 30m \
           --tag appsdata
 
-        trap - EXIT
-        cleanup
       '';
     };
 
