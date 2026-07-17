@@ -993,15 +993,6 @@ def move_gates(scope: dict[str, Any]) -> list[dict[str, Any]]:
     )
     items.extend(
         gate(
-            f"consumer-guarded-deployment:{host}",
-            phase="consumer-cutover",
-            required=True,
-            command=[f"scripts/{host}/deploy-{host.removesuffix('-vm')}.sh"],
-        )
-        for host in other_consumer_hosts
-    )
-    items.extend(
-        gate(
             f"consumer-deployment:{host}",
             phase="consumer-cutover",
             required=True,
@@ -1504,6 +1495,21 @@ def parse_arguments() -> argparse.Namespace:
         ]
         if missing:
             parser.error(f"move requires explicit decisions: {', '.join(missing)}")
+        try:
+            validate_verification(
+                {"command": [arguments.move_verification_command]},
+                "move verification command",
+            )
+            verification_path = Path(arguments.move_verification_command)
+            if verification_path.is_absolute() or ".." in verification_path.parts:
+                raise ValueError(
+                    "move verification command must stay beneath the repository scripts directory"
+                )
+            (arguments.repo_root.resolve() / verification_path).resolve().relative_to(
+                arguments.repo_root.resolve()
+            )
+        except ValueError as error:
+            parser.error(str(error))
         if arguments.source_host == arguments.target_host:
             parser.error("move source and target owners must differ")
         if arguments.host is not None:

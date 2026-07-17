@@ -144,7 +144,7 @@ class FleetLifecycleCommandTests(unittest.TestCase):
             f"#!{self.shell}\n"
             "set -eu\n"
             "printf 'scripts/test-move-evidence.sh %s\\n' \"$*\" >> \"$FLEET_TEST_COMMAND_LOG\"\n"
-            "printf '%s\\n' true\n",
+            "printf '%s\\n' ' true '\n",
         )
 
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
@@ -755,7 +755,7 @@ class FleetLifecycleCommandTests(unittest.TestCase):
 
         recovery_hash = gates["source-recovery-point:productivity-vm"]["outputSha256"]
         self.assertIn(recovery_hash, gates["transfer-evidence"]["command"])
-        self.assertNotIn("\ntrue\n", result.stderr)
+        self.assertNotIn("\n true \n", result.stderr)
 
         commands = self.command_log.read_text(encoding="utf-8").splitlines()
         target_health = commands.index(
@@ -831,6 +831,35 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertEqual(
             gates["source-retirement:productivity-vm"]["status"], "not_run"
         )
+
+    def test_move_rejects_mutating_verification_command_before_scope_discovery(self) -> None:
+        result = self.run_command(
+            "plan",
+            "--action",
+            "move",
+            "--service-class",
+            "stateful",
+            "--service",
+            "example",
+            "--source-host",
+            "productivity-vm",
+            "--target-host",
+            "testbed-vm",
+            "--state-boundary",
+            "/srv/appsdata/example",
+            "--transfer-method",
+            "operator-controlled transfer",
+            "--consistency-window",
+            "source quiesced through cutover",
+            "--cutover-order",
+            "backup, transfer, target, consumers, source retirement",
+            "--move-verification-command",
+            "scripts/testbed-vm/deploy-testbed.sh",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("repository test script", result.stderr)
+        self.assertFalse(self.command_log.exists())
 
     def test_upgrade_plan_records_reproducibility_migration_and_rollback_decisions(self) -> None:
         result = self.run_command(

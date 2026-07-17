@@ -206,7 +206,7 @@ scripts/fleet-lifecycle.py plan \
   --transfer-method "restore an explicitly selected source snapshot on the target" \
   --consistency-window "source quiesced from recovery point through route cutover" \
   --cutover-order "backup, transfer, target, consumers, source retirement" \
-  --move-verification-command scripts/testbed-vm/verify-example-move.sh
+  --move-verification-command scripts/testbed-vm/test-example-move.sh
 ```
 
 A live move additionally requires `--mutation-mode live` and `--receipt-dir`.
