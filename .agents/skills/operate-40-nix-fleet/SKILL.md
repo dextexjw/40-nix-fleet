@@ -38,7 +38,9 @@ Read [references/repo-surfaces.md](references/repo-surfaces.md) before adding, r
    - backup consistency, restore procedure, retention, and rollback limits.
 3. Default restore-critical state to `/srv/appsdata/<service>`. Ask before choosing a boundary when durable state is mixed with large downloaded or reproducible payloads.
 4. Keep secrets encrypted in Git and runtime-only on hosts. Never expose decrypted values in logs, diffs, docs, or chat.
-5. Pin releases reproducibly. Do not introduce a floating `latest` or `stable` tag as the deployed artifact.
+5. Pin releases reproducibly. Do not introduce a floating `latest` or `stable`
+   tag as the deployed artifact unless the repository deployment-pin policy has
+   an exact, owned, reasoned, time-bounded exception.
 
 ## Execute the lifecycle
 

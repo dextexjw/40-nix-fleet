@@ -65,13 +65,17 @@ for host in "${FLEET_REQUIRED_SECRET_HOSTS[@]}"; do
 done
 
 printf 'Checking Nix formatting...\n'
-nix develop --command nixfmt --check "${nix_files[@]}"
+nixfmt --check "${nix_files[@]}"
 
 printf 'Checking flake evaluation...\n'
 nix flake check
 
 printf 'Checking Colmena host evaluation...\n'
-for host in "${FLEET_REQUIRED_SECRET_HOSTS[@]}"; do
+mapfile -t fleet_hosts < <(
+  nix eval --json .#colmenaHive.nodes --apply builtins.attrNames \
+    | python3 -c 'import json, sys; print("\n".join(json.load(sys.stdin)))'
+)
+for host in "${fleet_hosts[@]}"; do
   nix eval ".#colmenaHive.nodes.${host}.config.system.build.toplevel.drvPath" >/dev/null
 done
 

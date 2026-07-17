@@ -16,4 +16,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v19
       - name: Run deterministic non-live lifecycle gates
-        run: scripts/check.sh
+        run: nix develop --command scripts/check.sh

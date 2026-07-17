@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 import sys
+from datetime import date
 from pathlib import Path
 
 
@@ -44,6 +45,16 @@ def main() -> int:
                 raise ValueError(
                     f"deployment pin exception {index} requires non-empty "
                     f"{', '.join(required)}"
+                )
+            try:
+                review_by = date.fromisoformat(item["reviewBy"])
+            except ValueError as error:
+                raise ValueError(
+                    f"deployment pin exception {index} reviewBy must be an ISO date"
+                ) from error
+            if review_by < date.today():
+                raise ValueError(
+                    f"deployment pin exception {index} reviewBy has expired"
                 )
             allowed.add((item["host"], item["container"], item["image"]))
     except (OSError, json.JSONDecodeError, ValueError) as error:

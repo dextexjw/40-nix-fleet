@@ -72,6 +72,23 @@ class DeploymentPinPolicyTests(unittest.TestCase):
         result = self.run_policy({"host": {"app": {"image": "registry/app:latest"}}}, exception)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_rejects_invalid_or_expired_exception_review_dates(self) -> None:
+        for review_by in ("later", "2000-01-01"):
+            with self.subTest(review_by=review_by):
+                exception = {
+                    "schemaVersion": 1,
+                    "exceptions": [{
+                        "host": "host", "container": "app", "image": "registry/app:latest",
+                        "reason": "temporary upstream limitation",
+                        "owner": "fleet maintainers", "reviewBy": review_by,
+                    }],
+                }
+                result = self.run_policy(
+                    {"host": {"app": {"image": "registry/app:latest"}}}, exception
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("reviewBy", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
