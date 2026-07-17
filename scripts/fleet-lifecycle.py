@@ -37,6 +37,7 @@ REMOVAL_SURFACES = (
     "endpoint",
 )
 RECOVERY_DISPOSITIONS = {"retained", "exported", "destroyed", "not_applicable"}
+GENERATED_REMOVAL_SURFACES = ("routes", "homepage", "authentication", "monitoring")
 
 
 def immutable_upgrade_target(target: str, target_kind: str, immutable_reference: str) -> bool:
@@ -90,7 +91,7 @@ def move_plan(arguments: argparse.Namespace) -> dict[str, Any] | None:
     return plan
 
 
-def validate_verification(check: Any, context: str) -> None:
+def validate_verification(check: Any, context: str, repo_root: Path) -> None:
     if not isinstance(check, dict):
         raise ValueError(f"{context} must be an object")
     command = check.get("command")
@@ -109,19 +110,23 @@ def validate_verification(check: Any, context: str) -> None:
         raise ValueError(f"{context} expectedExitCodes must be a non-empty integer array")
     if "expectedStdout" in check and not isinstance(check["expectedStdout"], str):
         raise ValueError(f"{context} expectedStdout must be a string")
-    executable = command[0]
-    repository_test = executable.startswith("scripts/") and Path(executable).name.startswith(
-        "test-"
-    )
-    read_only_tool = (
-        executable == "rg"
-        or executable == "curl"
-        or (executable == "nix" and len(command) > 1 and command[1] == "eval")
-    )
-    if not repository_test and not read_only_tool:
+    executable = Path(command[0])
+    try:
+        resolved_executable = (repo_root / executable).resolve(strict=True)
+        relative_executable = resolved_executable.relative_to(repo_root.resolve())
+    except (FileNotFoundError, ValueError) as error:
         raise ValueError(
-            f"{context} must use a repository test script, nix eval, rg, or curl"
-        )
+            f"{context} must use a repository test script inside the repository scripts directory"
+        ) from error
+    if (
+        executable.is_absolute()
+        or not relative_executable.parts
+        or relative_executable.parts[0] != "scripts"
+        or not relative_executable.name.startswith("test-")
+        or not resolved_executable.is_file()
+        or not os.access(resolved_executable, os.X_OK)
+    ):
+        raise ValueError(f"{context} must use an executable repository test script")
 
 
 def validate_recovery_disposition(value: Any, context: str) -> None:
@@ -159,6 +164,13 @@ def load_removal_plan(arguments: argparse.Namespace) -> dict[str, Any] | None:
 
     validate_recovery_disposition(plan.get("state"), "state")
     validate_recovery_disposition(plan.get("snapshots"), "snapshots")
+    if arguments.service_class == "stateless" and any(
+        plan[subject]["disposition"] != "not_applicable"
+        for subject in ("state", "snapshots")
+    ):
+        raise ValueError(
+            "stateless removal requires reasoned not_applicable state and snapshot dispositions"
+        )
     destruction_requested = any(
         plan[subject]["disposition"] == "destroyed" for subject in ("state", "snapshots")
     )
@@ -205,7 +217,38 @@ def load_removal_plan(arguments: argparse.Namespace) -> dict[str, Any] | None:
                 raise ValueError(f"{context} disposition must be remove or retain")
             if resource["ownership"] == "shared" and resource["disposition"] != "retain":
                 raise ValueError("shared resources must be retained during removal")
-            validate_verification(resource.get("verification"), f"{context} verification")
+            validate_verification(
+                resource.get("verification"),
+                f"{context} verification",
+                arguments.repo_root,
+            )
+
+    for required_absence_surface in ("runtime", "endpoint"):
+        resources = inventory[required_absence_surface].get("resources")
+        if not resources or not any(
+            resource["ownership"] == "unshared" and resource["disposition"] == "remove"
+            for resource in resources
+        ):
+            raise ValueError(
+                f"removal inventory {required_absence_surface} requires an unshared removal resource"
+            )
+
+    generated_surfaces_apply = any(
+        inventory[surface].get("resources") for surface in GENERATED_REMOVAL_SURFACES
+    )
+    if generated_surfaces_apply and arguments.consumer_impact == "host-local":
+        raise ValueError(
+            "host-local consumer impact is invalid while generated removal surfaces apply"
+        )
+    shared_generator_proven = any(
+        resource["ownership"] == "shared" and resource["disposition"] == "retain"
+        for surface in GENERATED_REMOVAL_SURFACES
+        for resource in inventory[surface].get("resources", [])
+    )
+    if generated_surfaces_apply and not shared_generator_proven:
+        raise ValueError(
+            "generated removal surfaces require a retained shared generator verification resource"
+        )
 
     retained_or_exported = any(
         plan[subject]["disposition"] in ("retained", "exported")
@@ -219,7 +262,9 @@ def load_removal_plan(arguments: argparse.Namespace) -> dict[str, Any] | None:
     for index, check in enumerate(retained_checks):
         if not isinstance(check, dict) or not isinstance(check.get("id"), str):
             raise ValueError(f"retainedRecoveryChecks item {index} requires an id")
-        validate_verification(check, f"retainedRecoveryChecks item {index}")
+        validate_verification(
+            check, f"retainedRecoveryChecks item {index}", arguments.repo_root
+        )
 
     surviving_checks = plan.get("survivingServiceChecks")
     if not isinstance(surviving_checks, list) or not surviving_checks:
@@ -227,7 +272,9 @@ def load_removal_plan(arguments: argparse.Namespace) -> dict[str, Any] | None:
     for index, check in enumerate(surviving_checks):
         if not isinstance(check, dict) or not isinstance(check.get("id"), str):
             raise ValueError(f"survivingServiceChecks item {index} requires an id")
-        validate_verification(check, f"survivingServiceChecks item {index}")
+        validate_verification(
+            check, f"survivingServiceChecks item {index}", arguments.repo_root
+        )
     return plan
 
 
@@ -385,7 +432,7 @@ def resolve_consumer_impact(
 ) -> tuple[str, str]:
     if requested_impact != "auto":
         return requested_impact, "consumer impact was explicitly selected by the operator"
-    if action in ("addition", "move", "upgrade"):
+    if action in ("addition", "move", "removal", "upgrade"):
         return (
             "generated",
             f"service {action}s are validated against generated fleet consumers",
@@ -1256,7 +1303,8 @@ def run_stateful_workflow(
     output_hashes: dict[str, str] = {}
     for index, item in enumerate(items):
         if item["id"] in completed:
-            item["status"] = "passed"
+            if item["status"] != "not_applicable":
+                item["status"] = "passed"
             item["resumed"] = True
             item["receipt"] = str(receipt_dir / receipt_filename(item["id"]))
             receipt = json.loads(Path(item["receipt"]).read_text(encoding="utf-8"))
@@ -1499,6 +1547,7 @@ def parse_arguments() -> argparse.Namespace:
             validate_verification(
                 {"command": [arguments.move_verification_command]},
                 "move verification command",
+                arguments.repo_root,
             )
             verification_path = Path(arguments.move_verification_command)
             if verification_path.is_absolute() or ".." in verification_path.parts:

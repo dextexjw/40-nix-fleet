@@ -112,6 +112,11 @@ class FleetLifecycleCommandTests(unittest.TestCase):
             "printf 'scripts/testbed-vm/test-removal-evidence.sh %s\\n' \"$*\" >> \"$FLEET_TEST_COMMAND_LOG\"\n"
             "printf '%s verified\\n' \"$*\"\n",
         )
+        self.write_executable(
+            self.root / "scripts" / "testbed-vm" / "test-testbed-services.sh",
+            f"#!{self.shell}\n"
+            "printf 'scripts/testbed-vm/test-testbed-services.sh\\n' >> \"$FLEET_TEST_COMMAND_LOG\"\n",
+        )
         consumer_checks = {
             "gateway-vm": "test-gateway-services.sh",
             "gateway2-vm": "test-gateway2-services.sh",
@@ -264,19 +269,29 @@ class FleetLifecycleCommandTests(unittest.TestCase):
                 },
             }
         )
+        def recovery_disposition(disposition: str, material: str) -> dict[str, str]:
+            if disposition == "not_applicable":
+                return {
+                    "disposition": disposition,
+                    "reason": "the stateless service has no recovery material",
+                }
+            return {
+                "disposition": disposition,
+                "recoveryMaterial": material,
+                "documentation": "hosts/testbed-vm/README.md",
+            }
+
+        retained_recovery = state_disposition in ("retained", "exported") or snapshot_disposition in (
+            "retained",
+            "exported",
+        )
         manifest = {
             "schemaVersion": 1,
             "service": "example",
-            "state": {
-                "disposition": state_disposition,
-                "recoveryMaterial": "/srv/appsdata/example",
-                "documentation": "hosts/testbed-vm/README.md",
-            },
-            "snapshots": {
-                "disposition": snapshot_disposition,
-                "recoveryMaterial": "restic snapshots tagged example",
-                "documentation": "hosts/testbed-vm/README.md",
-            },
+            "state": recovery_disposition(state_disposition, "/srv/appsdata/example"),
+            "snapshots": recovery_disposition(
+                snapshot_disposition, "restic snapshots tagged example"
+            ),
             "inventory": inventory,
             "retainedRecoveryChecks": [
                 {
@@ -287,7 +302,9 @@ class FleetLifecycleCommandTests(unittest.TestCase):
                     ],
                     "expectedStdout": "retained-recovery-material verified\n",
                 }
-            ],
+            ]
+            if retained_recovery
+            else [],
             "survivingServiceChecks": [
                 {
                     "id": "surviving-services",
@@ -1142,6 +1159,9 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertEqual(shared["ownership"], "shared")
         self.assertEqual(shared["disposition"], "retain")
         self.assertEqual(report["scope"]["removalPlan"], removal)
+        self.assertEqual(report["scope"]["consumerImpact"], "generated")
+        self.assertIn("gateway-vm", report["scope"]["consumerHosts"])
+        self.assertIn("monitoring-vm", report["scope"]["consumerHosts"])
         self.assertEqual(report["outcome"], "incomplete")
         self.assertEqual(
             self.command_log.read_text(encoding="utf-8").splitlines(),
@@ -1217,7 +1237,154 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         )
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("repository test script", result.stderr)
+        self.assertIn("inside the repository scripts directory", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_removal_rejects_generic_network_verification_command(self) -> None:
+        manifest_path = self.write_removal_manifest()
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["inventory"]["endpoint"]["resources"][0]["verification"]["command"] = [
+            "curl",
+            "-X",
+            "DELETE",
+            "https://example.invalid",
+        ]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = self.run_command(
+            "plan",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("inside the repository scripts directory", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_removal_rejects_verification_script_outside_repository(self) -> None:
+        outside_script = self.root.parent / "test-outside-removal.sh"
+        self.write_executable(outside_script, f"#!{self.shell}\nprintf 'absent\\n'\n")
+        self.addCleanup(outside_script.unlink, missing_ok=True)
+        manifest_path = self.write_removal_manifest()
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["inventory"]["endpoint"]["resources"][0]["verification"]["command"] = [
+            "scripts/../../test-outside-removal.sh",
+        ]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = self.run_command(
+            "plan",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("inside the repository scripts directory", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_removal_requires_former_endpoint_absence_proof(self) -> None:
+        manifest_path = self.write_removal_manifest()
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["inventory"]["endpoint"] = {
+            "notApplicableReason": "endpoint proof omitted"
+        }
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = self.run_command(
+            "plan",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("endpoint requires an unshared removal resource", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_removal_requires_runtime_absence_proof(self) -> None:
+        manifest_path = self.write_removal_manifest()
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["inventory"]["runtime"] = {
+            "notApplicableReason": "runtime proof omitted"
+        }
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = self.run_command(
+            "plan",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("runtime requires an unshared removal resource", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_removal_rejects_host_local_scope_when_generated_surfaces_apply(self) -> None:
+        manifest_path = self.write_removal_manifest()
+
+        result = self.run_command(
+            "plan",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--consumer-impact",
+            "host-local",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("generated removal surfaces", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_removal_requires_shared_generator_proof_for_generated_surfaces(self) -> None:
+        manifest_path = self.write_removal_manifest()
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["inventory"]["routes"]["resources"] = [
+            manifest["inventory"]["routes"]["resources"][0]
+        ]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = self.run_command(
+            "plan",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateful",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("shared generator", result.stderr)
         self.assertFalse(self.command_log.exists())
 
     def test_removal_rejects_destruction_without_explicit_authority(self) -> None:
@@ -1336,6 +1503,111 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertEqual(gates["removed:runtime:example-runtime"]["status"], "failed")
         self.assertEqual(gates["removed:listeners:example-listeners"]["status"], "not_run")
         self.assertEqual(gates["surviving:surviving-services"]["status"], "not_run")
+
+    def test_stateless_removal_run_marks_backup_not_applicable_and_proves_absence(self) -> None:
+        manifest_path = self.write_removal_manifest(
+            state_disposition="not_applicable",
+            snapshot_disposition="not_applicable",
+        )
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for surface in ("routes", "homepage", "authentication", "monitoring"):
+            manifest["inventory"][surface] = {
+                "notApplicableReason": "the stateless service is host-local"
+            }
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = self.run_command(
+            "run",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateless",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "host-local",
+            "--removal-manifest",
+            str(manifest_path),
+            "--receipt-dir",
+            str(self.receipts),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = self.read_evidence()
+        gates = {gate["id"]: gate for gate in report["gates"]}
+        self.assertEqual(report["outcome"], "complete")
+        self.assertEqual(gates["pre-change-backup"]["status"], "not_applicable")
+        self.assertIn("stateless", gates["pre-change-backup"]["reason"])
+        self.assertEqual(gates["removed:runtime:example-runtime"]["status"], "passed")
+        commands = self.command_log.read_text(encoding="utf-8").splitlines()
+        self.assertIn("colmena apply --on testbed-vm switch", commands)
+        self.assertIn("scripts/testbed-vm/test-testbed-services.sh", commands)
+        self.assertFalse(any("create-pre-upgrade-backup" in command for command in commands))
+
+    def test_stateless_removal_rejects_recovery_material_dispositions(self) -> None:
+        manifest_path = self.write_removal_manifest()
+
+        result = self.run_command(
+            "plan",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateless",
+            "--removal-manifest",
+            str(manifest_path),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("stateless removal", result.stderr)
+        self.assertIn("not_applicable", result.stderr)
+        self.assertFalse(self.command_log.exists())
+
+    def test_stateless_removal_resume_preserves_not_applicable_backup_evidence(self) -> None:
+        manifest_path = self.write_removal_manifest(
+            state_disposition="not_applicable",
+            snapshot_disposition="not_applicable",
+        )
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for surface in ("routes", "homepage", "authentication", "monitoring"):
+            manifest["inventory"][surface] = {
+                "notApplicableReason": "the stateless service is host-local"
+            }
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        arguments = (
+            "run",
+            "--action",
+            "removal",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateless",
+            "--mutation-mode",
+            "live",
+            "--consumer-impact",
+            "host-local",
+            "--removal-manifest",
+            str(manifest_path),
+            "--receipt-dir",
+            str(self.receipts),
+        )
+        first = self.run_command(*arguments)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.command_log.unlink()
+
+        resumed = self.run_command(*arguments, "--resume")
+
+        self.assertEqual(resumed.returncode, 0, resumed.stderr)
+        self.assertEqual(
+            self.command_log.read_text(encoding="utf-8").splitlines(),
+            ["nix eval --json .#fleetLifecycleConsumers"],
+        )
+        gates = {gate["id"]: gate for gate in self.read_evidence()["gates"]}
+        self.assertEqual(gates["pre-change-backup"]["status"], "not_applicable")
+        self.assertTrue(gates["pre-change-backup"]["resumed"])
 
     def test_stateful_run_delegates_guarded_phases_and_records_receipts(self) -> None:
         result = self.run_command(

@@ -238,11 +238,12 @@ backup, restore, smoke, documentation, and former-endpoint surface.
 Each applicable inventory resource records whether it is `shared` or
 `unshared`, whether removal retains or removes it, and a read-only verification
 command with expected exit codes or standard output. A surface with no
-applicable resource requires `notApplicableReason`. Shared resources cannot be
+applicable resource requires `notApplicableReason`, except that the former
+endpoint always requires an unshared removal proof. Shared resources cannot be
 marked for removal. Retained or exported recovery material requires documented
 pre- and post-switch checks, and every manifest requires surviving-service
-checks. Verification commands are restricted to repository `test-*` scripts,
-`nix eval`, `rg`, or `curl`.
+checks. Verification commands must resolve to existing executable repository
+`scripts/**/test-*` entrypoints; generic command execution is rejected.
 
 ```sh
 scripts/fleet-lifecycle.py plan \
@@ -271,7 +272,9 @@ unchanged retained-recovery fingerprint. Any mismatched, failed, blocked, or
 unrun required proof leaves the removal incomplete. A manifest that marks
 state or snapshots `destroyed` is rejected unless the operator also passes
 `--authorize-destruction`; the lifecycle itself never deletes state, snapshots,
-or invokes restore.
+or invokes restore. A stateless removal uses the same live proof contract with
+`--service-class stateless`; state and snapshot dispositions require explicit
+`not_applicable` reasons and the backup gate records that applicability decision.
 
 ### Stable service upgrade lifecycle
 
