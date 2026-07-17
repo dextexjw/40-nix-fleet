@@ -12,6 +12,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "scripts" / "check-deployment-pins.py"
+WORKFLOW = ROOT / ".github" / "workflows" / "lifecycle-gates.yml"
+
+
+class LifecycleWorkflowTests(unittest.TestCase):
+    def test_runs_for_integration_branches(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("      - main\n", workflow)
+        self.assertIn("      - staging\n", workflow)
 
 
 class DeploymentPinPolicyTests(unittest.TestCase):
