@@ -119,8 +119,9 @@ Statix, and Deadnix run as advisory checks from the dev shell.
 ### Stateless service lifecycle command
 
 Use `scripts/fleet-lifecycle.py` as the canonical planning and validation
-interface for a stateless service addition or edit. It evaluates `hosts.nix`,
-reports the runtime owner and every generated exposure consumer, then
+interface for a stateless service addition or edit. It evaluates
+`fleetLifecycleConsumers` from the rendered Colmena configurations, reports
+the runtime owner and every generated consumer surface, then
 delegates to `scripts/check.sh` and the standard Colmena build and dry-activate
 commands for every affected host.
 
@@ -138,12 +139,21 @@ scripts/fleet-lifecycle.py validate \
 ```
 
 For additions, consumer impact defaults to `generated`. For edits, `auto`
-inspects working-tree paths and includes every host tagged
-`exposure-consumer` when the owning catalog, exposure definition, or shared
+inspects working-tree paths and includes every rendered consumer when the
+owning catalog, exposure definition, or shared
 exposure libraries changed; otherwise the scope remains host-local. Use
 `--consumer-impact generated` or `--consumer-impact host-local` only to record
 an explicit applicability override when path discovery cannot express the
 change.
+
+The evaluated surface map is the authoritative consumer inventory. Shared
+exposure changes include both Gateway nodes by default and add stable required
+gates for each applicable rendered route, Homepage, authentication, DNS/TLS,
+firewall, monitoring, and smoke surface. A failed or unrun consumer gate keeps
+the owner outcome incomplete. Gateway gates compare the rendered service IDs,
+hosts, upstreams, Homepage groups, authentication applications, and smoke data
+with the authoritative exposure catalog; each surface also records a content
+fingerprint in the evidence report.
 
 Both operations are non-mutating and never run a Colmena switch. A live switch
 requires separate explicit authorization and the owning host's guarded deploy
@@ -157,6 +167,8 @@ output contains only the structured JSON report. It uses stable gate statuses: `
 reason. A required `failed`, `blocked`, or `not_run` gate makes the overall
 outcome `incomplete` and the command exits non-zero. The report is printed to
 standard output and is also written to the path supplied with `--evidence`.
+Each gate also classifies failures as `target-service` or `repository-wide`, so
+an unrelated static failure remains distinct from consumer verification.
 
 For a stateful production change, use the explicit live mutation mode. The
 command delegates every phase to the owning host's existing guarded upgrade

@@ -44,13 +44,49 @@ class FleetLifecycleCommandTests(unittest.TestCase):
             f"#!{self.shell}\n"
             "printf 'scripts/check.sh\\n' >> \"$FLEET_TEST_COMMAND_LOG\"\n",
         )
+        consumer_surfaces = {
+            "gateway-vm": [
+                "authentication",
+                "dns",
+                "firewall",
+                "homepage",
+                "route",
+                "smoke",
+                "tls",
+            ],
+            "gateway2-vm": [
+                "authentication",
+                "dns",
+                "firewall",
+                "homepage",
+                "route",
+                "smoke",
+                "tls",
+            ],
+            "media-vm": [],
+            "monitoring-vm": ["dns", "monitoring"],
+            "productivity-vm": ["dns"],
+            "testbed-vm": ["dns"],
+        }
+        consumers = {
+            host: {
+                "consumerSurfaces": surfaces,
+                "evidence": {surface: "rendered" for surface in surfaces},
+            }
+            for host, surfaces in consumer_surfaces.items()
+        }
         self.write_executable(
             self.bin_dir / "nix",
             f"#!{self.shell}\n"
             "set -eu\n"
             "printf 'nix %s\\n' \"$*\" >> \"$FLEET_TEST_COMMAND_LOG\"\n"
-            "if [[ \"$*\" == eval\\ --json\\ --file* ]]; then\n"
-            "  printf '%s\\n' '{\"gateway-vm\":{\"tags\":[\"gateway\",\"exposure-consumer\"]},\"gateway2-vm\":{\"tags\":[\"gateway\",\"exposure-consumer\"]},\"monitoring-vm\":{\"tags\":[\"monitoring\",\"exposure-consumer\"]},\"productivity-vm\":{\"tags\":[\"productivity\",\"exposure-consumer\"]},\"testbed-vm\":{\"tags\":[\"testbed\",\"exposure-consumer\"]}}'\n"
+            "if [[ \"$*\" == 'eval --json .#fleetLifecycleConsumers' ]]; then\n"
+            f"  printf '%s\\n' '{json.dumps(consumers, separators=(',', ':'))}'\n"
+            "  exit 0\n"
+            "fi\n"
+            "if [[ \"$*\" == eval\\ --json\\ .#fleetLifecycleConsumers.*.rendered.* ]]; then\n"
+            "  if [[ \"${FLEET_TEST_FAIL_CONSUMER_GATE:-}\" == \"${*:3}\" ]]; then printf '%s\\n' false; exit 0; fi\n"
+            "  printf '%s\\n' true\n"
             "  exit 0\n"
             "fi\n"
             "exit 64\n",
@@ -110,6 +146,8 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         }
         if hasattr(self, "failed_upgrade_phase"):
             environment["FLEET_TEST_FAIL_UPGRADE_PHASE"] = self.failed_upgrade_phase
+        if hasattr(self, "failed_consumer_gate"):
+            environment["FLEET_TEST_FAIL_CONSUMER_GATE"] = self.failed_consumer_gate
         return subprocess.run(
             [
                 sys.executable,
@@ -162,7 +200,62 @@ class FleetLifecycleCommandTests(unittest.TestCase):
                     "gateway2-vm",
                     "monitoring-vm",
                     "productivity-vm",
+                    "testbed-vm",
                 ],
+                "consumerSurfaces": {
+                    "gateway-vm": [
+                        "authentication",
+                        "dns",
+                        "firewall",
+                        "homepage",
+                        "route",
+                        "smoke",
+                        "tls",
+                    ],
+                    "gateway2-vm": [
+                        "authentication",
+                        "dns",
+                        "firewall",
+                        "homepage",
+                        "route",
+                        "smoke",
+                        "tls",
+                    ],
+                    "media-vm": [],
+                    "monitoring-vm": ["dns", "monitoring"],
+                    "productivity-vm": ["dns"],
+                    "testbed-vm": ["dns"],
+                },
+                "consumerEvidence": {
+                    "gateway-vm": {
+                        surface: "rendered"
+                        for surface in (
+                            "authentication",
+                            "dns",
+                            "firewall",
+                            "homepage",
+                            "route",
+                            "smoke",
+                            "tls",
+                        )
+                    },
+                    "gateway2-vm": {
+                        surface: "rendered"
+                        for surface in (
+                            "authentication",
+                            "dns",
+                            "firewall",
+                            "homepage",
+                            "route",
+                            "smoke",
+                            "tls",
+                        )
+                    },
+                    "media-vm": {},
+                    "monitoring-vm": {"dns": "rendered", "monitoring": "rendered"},
+                    "productivity-vm": {"dns": "rendered"},
+                    "testbed-vm": {"dns": "rendered"},
+                },
                 "consumerImpact": "generated",
                 "consumerReason": "consumer impact was explicitly selected by the operator",
                 "runtimeHost": "testbed-vm",
@@ -175,6 +268,11 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertTrue(gates["pre-change-backup"]["reason"])
         self.assertEqual(gates["guarded-deployment"]["status"], "not_applicable")
         self.assertTrue(gates["guarded-deployment"]["reason"])
+        for host in report["scope"]["consumerHosts"]:
+            for surface in report["scope"]["consumerSurfaces"][host]:
+                consumer_gate = gates[f"consumer:{host}:{surface}"]
+                self.assertEqual(consumer_gate["status"], "passed")
+                self.assertEqual(consumer_gate["applicability"], "applicable")
 
         commands = self.command_log.read_text(encoding="utf-8").splitlines()
         self.assertIn("scripts/check.sh", commands)
@@ -230,7 +328,13 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertEqual(scope["consumerImpact"], "generated")
         self.assertEqual(
             scope["consumerHosts"],
-            ["gateway-vm", "gateway2-vm", "monitoring-vm", "productivity-vm"],
+            [
+                "gateway-vm",
+                "gateway2-vm",
+                "monitoring-vm",
+                "productivity-vm",
+                "testbed-vm",
+            ],
         )
 
     def test_edit_auto_keeps_host_local_change_on_runtime_owner(self) -> None:
@@ -251,6 +355,29 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertEqual(scope["consumerImpact"], "host-local")
         self.assertEqual(scope["consumerHosts"], [])
         self.assertEqual(scope["affectedHosts"], ["testbed-vm"])
+
+    def test_edit_auto_includes_both_gateways_for_shared_gateway_change(self) -> None:
+        self.write_executable(
+            self.bin_dir / "git",
+            f"#!{self.shell}\n"
+            "printf '%s\\n' ' M hosts/gateway-vm/shared.nix'\n",
+        )
+
+        result = self.run_command(
+            "plan",
+            "--action",
+            "edit",
+            "--host",
+            "gateway-vm",
+            "--service-class",
+            "stateless",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        scope = self.read_evidence()["scope"]
+        self.assertEqual(scope["consumerImpact"], "generated")
+        self.assertIn("gateway-vm", scope["affectedHosts"])
+        self.assertIn("gateway2-vm", scope["affectedHosts"])
 
     def test_failed_required_gate_stops_later_gates_and_is_incomplete(self) -> None:
         self.write_executable(
@@ -278,6 +405,36 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertEqual(gates["build:testbed-vm"]["status"], "not_run")
         self.assertEqual(gates["dry-activate:testbed-vm"]["status"], "not_run")
         self.assertTrue(gates["build:testbed-vm"]["reason"])
+        self.assertEqual(
+            gates["static-validation"]["failureClassification"], "repository-wide"
+        )
+
+    def test_failed_consumer_surface_keeps_owner_outcome_incomplete(self) -> None:
+        self.failed_consumer_gate = ".#fleetLifecycleConsumers.gateway2-vm.rendered.route"
+
+        result = self.run_command(
+            "validate",
+            "--action",
+            "edit",
+            "--host",
+            "testbed-vm",
+            "--service-class",
+            "stateless",
+            "--consumer-impact",
+            "generated",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        report = self.read_evidence()
+        self.assertEqual(report["outcome"], "incomplete")
+        gate = next(
+            item
+            for item in report["gates"]
+            if item["id"] == "consumer:gateway2-vm:route"
+        )
+        self.assertEqual(gate["status"], "failed")
+        self.assertEqual(gate["applicability"], "applicable")
+        self.assertEqual(gate["failureClassification"], "target-service")
 
     def test_missing_gate_command_is_blocked(self) -> None:
         (self.bin_dir / "colmena").unlink()
@@ -391,7 +548,7 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertEqual(
             commands,
             [
-                f"nix eval --json --file {self.root / 'hosts.nix'}",
+                "nix eval --json .#fleetLifecycleConsumers",
                 f"{wrapper} check-upgrade-readiness",
                 f"{wrapper} create-pre-upgrade-backup",
                 f"{wrapper} dry-activate-testbed-vm",
@@ -440,6 +597,10 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         gates = {gate["id"]: gate for gate in report["gates"]}
         commands = self.command_log.read_text(encoding="utf-8").splitlines()
         for host in report["scope"]["consumerHosts"]:
+            for surface in report["scope"]["consumerSurfaces"][host]:
+                self.assertEqual(gates[f"consumer:{host}:{surface}"]["status"], "passed")
+            if host == report["scope"]["runtimeHost"]:
+                continue
             self.assertEqual(gates[f"build:{host}"]["status"], "passed")
             self.assertEqual(gates[f"dry-activate:{host}"]["status"], "passed")
             self.assertEqual(
@@ -497,7 +658,7 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertEqual(resumed.returncode, 0, resumed.stderr)
         self.assertEqual(
             self.command_log.read_text(encoding="utf-8").splitlines(),
-            [f"nix eval --json --file {self.root / 'hosts.nix'}"],
+            ["nix eval --json .#fleetLifecycleConsumers"],
         )
         gates = {gate["id"]: gate for gate in self.read_evidence()["gates"]}
         self.assertTrue(all(gate["resumed"] for gate in gates.values() if gate["id"] != "scope-discovery"))
@@ -538,7 +699,7 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertEqual(
             self.command_log.read_text(encoding="utf-8").splitlines(),
             [
-                f"nix eval --json --file {self.root / 'hosts.nix'}",
+                "nix eval --json .#fleetLifecycleConsumers",
                 "scripts/testbed-vm/upgrade-testbed-vm.sh deploy-testbed-vm",
                 "scripts/testbed-vm/upgrade-testbed-vm.sh verify-testbed-vm",
             ],
@@ -660,7 +821,7 @@ class FleetLifecycleCommandTests(unittest.TestCase):
         self.assertIn("target scope changed", resumed.stderr)
         self.assertEqual(
             self.command_log.read_text(encoding="utf-8").splitlines(),
-            [f"nix eval --json --file {self.root / 'hosts.nix'}"],
+            ["nix eval --json .#fleetLifecycleConsumers"],
         )
 
 

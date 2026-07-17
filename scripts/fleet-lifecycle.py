@@ -16,7 +16,6 @@ from typing import Any
 
 
 STATUSES = ("passed", "failed", "blocked", "not_run", "not_applicable")
-CONSUMER_TAG = "exposure-consumer"
 
 
 def gate(
@@ -28,6 +27,10 @@ def gate(
     reason: str | None = None,
     command: list[str] | None = None,
     exit_code: int | None = None,
+    failure_classification: str = "target-service",
+    applicability: str | None = None,
+    expected_json: Any | None = None,
+    evidence_sha256: str | None = None,
 ) -> dict[str, Any]:
     if status not in STATUSES:
         raise ValueError(f"unsupported gate status: {status}")
@@ -36,6 +39,7 @@ def gate(
         "phase": phase,
         "required": required,
         "status": status,
+        "failureClassification": failure_classification,
     }
     if reason is not None:
         result["reason"] = reason
@@ -43,6 +47,12 @@ def gate(
         result["command"] = command
     if exit_code is not None:
         result["exitCode"] = exit_code
+    if applicability is not None:
+        result["applicability"] = applicability
+    if expected_json is not None:
+        result["expectedJson"] = expected_json
+    if evidence_sha256 is not None:
+        result["evidenceSha256"] = evidence_sha256
     return result
 
 
@@ -60,7 +70,8 @@ def run_gate(item: dict[str, Any], *, cwd: Path, capture_output: bool = False) -
 
     print(f"==> {item['id']}: {' '.join(command)}", file=sys.stderr, flush=True)
     try:
-        run_options: dict[str, Any] = {"capture_output": True} if capture_output else {
+        should_capture = capture_output or "expectedJson" in item
+        run_options: dict[str, Any] = {"capture_output": True} if should_capture else {
             "stdout": sys.stderr,
             "stderr": sys.stderr,
         }
@@ -71,19 +82,30 @@ def run_gate(item: dict[str, Any], *, cwd: Path, capture_output: bool = False) -
         return False
 
     item["exitCode"] = result.returncode
-    if capture_output:
+    if should_capture:
         stdout = result.stdout or b""
         stderr = result.stderr or b""
         sys.stderr.buffer.write(stdout)
         sys.stderr.buffer.write(stderr)
         sys.stderr.flush()
         item["outputSha256"] = hashlib.sha256(stdout + stderr).hexdigest()
-    if result.returncode == 0:
-        item["status"] = "passed"
-        return True
-    item["status"] = "failed"
-    item["reason"] = f"command exited with status {result.returncode}"
-    return False
+    if result.returncode != 0:
+        item["status"] = "failed"
+        item["reason"] = f"command exited with status {result.returncode}"
+        return False
+    if "expectedJson" in item:
+        try:
+            actual_json = json.loads((result.stdout or b"").decode())
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            item["status"] = "failed"
+            item["reason"] = "command did not emit the required JSON evidence"
+            return False
+        if actual_json != item["expectedJson"]:
+            item["status"] = "failed"
+            item["reason"] = "rendered consumer surface is not enabled"
+            return False
+    item["status"] = "passed"
+    return True
 
 
 def changed_paths(repo_root: Path) -> list[str] | None:
@@ -123,8 +145,13 @@ def resolve_consumer_impact(
         "lib/exposure.nix",
         "lib/gateway-cluster.nix",
         "lib/service-domains.nix",
+        "hosts/gateway-vm/shared.nix",
     }
-    if any(path in generated_paths for path in paths):
+    generated_prefixes = ("modules/gateway/", "modules/monitoring/checkmate-provisioning.nix")
+    if any(
+        path in generated_paths or path.startswith(generated_prefixes)
+        for path in paths
+    ):
         return "generated", "changed paths affect the generated exposure catalog"
     return "host-local", "changed paths do not affect a generated exposure surface"
 
@@ -132,7 +159,7 @@ def resolve_consumer_impact(
 def discover_scope(
     repo_root: Path, runtime_host: str, consumer_impact: str, consumer_reason: str
 ) -> tuple[dict[str, Any] | None, dict[str, Any]]:
-    command = ["nix", "eval", "--json", "--file", str(repo_root / "hosts.nix")]
+    command = ["nix", "eval", "--json", ".#fleetLifecycleConsumers"]
     item = gate(
         "scope-discovery",
         phase="scope",
@@ -148,31 +175,39 @@ def discover_scope(
         result = subprocess.run(command, cwd=repo_root, check=False, capture_output=True, text=True)
     except OSError as error:
         item["status"] = "blocked"
-        item["reason"] = f"unable to evaluate host inventory: {error.strerror or error}"
+        item["reason"] = f"unable to evaluate lifecycle consumers: {error.strerror or error}"
         return None, item
     item["exitCode"] = result.returncode
     if result.returncode != 0:
         item["status"] = "failed"
-        item["reason"] = f"host inventory evaluation exited with status {result.returncode}"
+        item["reason"] = f"lifecycle consumer evaluation exited with status {result.returncode}"
         return None, item
 
     try:
-        hosts = json.loads(result.stdout)
+        consumers = json.loads(result.stdout)
     except json.JSONDecodeError:
         item["status"] = "failed"
-        item["reason"] = "host inventory evaluation did not emit valid JSON"
+        item["reason"] = "lifecycle consumer evaluation did not emit valid JSON"
         return None, item
 
-    if runtime_host not in hosts:
+    if runtime_host not in consumers:
         item["status"] = "failed"
-        item["reason"] = f"owning host is absent from hosts.nix: {runtime_host}"
+        item["reason"] = f"owning host is absent from evaluated fleet config: {runtime_host}"
         return None, item
 
+    consumer_surfaces = {
+        name: consumer.get("consumerSurfaces", [])
+        for name, consumer in consumers.items()
+    }
+    consumer_evidence = {
+        name: consumer.get("evidence", {})
+        for name, consumer in consumers.items()
+    }
     consumer_hosts = (
         [
             name
-            for name, host in hosts.items()
-            if name != runtime_host and CONSUMER_TAG in host.get("tags", [])
+            for name, surfaces in consumer_surfaces.items()
+            if surfaces
         ]
         if consumer_impact == "generated"
         else []
@@ -180,7 +215,9 @@ def discover_scope(
     scope = {
         "runtimeHost": runtime_host,
         "consumerHosts": consumer_hosts,
-        "affectedHosts": [runtime_host, *consumer_hosts],
+        "consumerSurfaces": consumer_surfaces,
+        "consumerEvidence": consumer_evidence,
+        "affectedHosts": [runtime_host, *[host for host in consumer_hosts if host != runtime_host]],
         "consumerImpact": consumer_impact,
         "consumerReason": consumer_reason,
     }
@@ -198,6 +235,7 @@ def stateless_gates(scope: dict[str, Any], operation: str) -> list[dict[str, Any
             required=True,
             reason=initial_reason,
             command=["scripts/check.sh"],
+            failure_classification="repository-wide",
         )
     ]
     items.extend(
@@ -241,7 +279,32 @@ def stateless_gates(scope: dict[str, Any], operation: str) -> list[dict[str, Any
             ),
         )
     )
+    items.extend(consumer_surface_gates(scope, initial_reason))
     return items
+
+
+def consumer_surface_gates(
+    scope: dict[str, Any], reason: str | None = None
+) -> list[dict[str, Any]]:
+    return [
+        gate(
+            f"consumer:{host}:{surface}",
+            phase="consumer-verification",
+            required=True,
+            reason=reason,
+            command=[
+                "nix",
+                "eval",
+                "--json",
+                f".#fleetLifecycleConsumers.{host}.rendered.{surface}",
+            ],
+            applicability="applicable",
+            expected_json=True,
+            evidence_sha256=scope["consumerEvidence"][host][surface],
+        )
+        for host in scope["consumerHosts"]
+        for surface in scope["consumerSurfaces"][host]
+    ]
 
 
 def stateful_gates(
@@ -249,6 +312,7 @@ def stateful_gates(
 ) -> list[dict[str, Any]]:
     wrapper = f"scripts/{runtime_host}/upgrade-{runtime_host}.sh"
     consumer_hosts = [] if scope is None else scope["consumerHosts"]
+    other_consumer_hosts = [host for host in consumer_hosts if host != runtime_host]
     items = [
         gate(
             "readiness",
@@ -264,8 +328,10 @@ def stateful_gates(
             required=True,
             command=["colmena", "build", "--on", host],
         )
-        for host in consumer_hosts
+        for host in other_consumer_hosts
     )
+    if scope is not None:
+        items.extend(consumer_surface_gates(scope))
     items.append(
         gate(
             "pre-change-backup",
@@ -289,7 +355,7 @@ def stateful_gates(
             required=True,
             command=["colmena", "apply", "--on", host, "dry-activate"],
         )
-        for host in consumer_hosts
+        for host in other_consumer_hosts
     )
     items.append(
         gate(
@@ -316,7 +382,7 @@ def stateful_gates(
                 f"scripts/{host}/test-{host.removesuffix('-vm')}-services.sh"
             ],
         )
-        for host in consumer_hosts
+        for host in other_consumer_hosts
     )
     items.append(
         gate(
@@ -707,6 +773,8 @@ def main() -> int:
             scope = {
                 "runtimeHost": arguments.host,
                 "consumerHosts": [],
+                "consumerSurfaces": {},
+                "consumerEvidence": {},
                 "affectedHosts": [arguments.host],
                 "consumerImpact": consumer_impact,
                 "consumerReason": consumer_reason,
@@ -746,6 +814,8 @@ def main() -> int:
             scope = {
                 "runtimeHost": arguments.host,
                 "consumerHosts": [],
+                "consumerSurfaces": {},
+                "consumerEvidence": {},
                 "affectedHosts": [arguments.host],
                 "consumerImpact": consumer_impact,
                 "consumerReason": consumer_reason,
