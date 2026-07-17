@@ -45,6 +45,9 @@ done
 printf 'Checking repository-owned fleet agent skill...\n'
 python3 tests/validate-fleet-agent-skill.py
 
+printf 'Checking canonical fleet lifecycle command...\n'
+python3 tests/test-fleet-lifecycle.py
+
 printf 'Checking required secret manifests...\n'
 scripts/lib/required-secrets.sh validate-manifest "$ROOT"
 

@@ -16,6 +16,7 @@
     user = "smoke";
     tags = [
       "gateway"
+      "exposure-consumer"
     ];
     timezone = "America/New_York";
     vm = {
@@ -39,6 +40,7 @@
     user = "smoke";
     tags = [
       "gateway"
+      "exposure-consumer"
     ];
     timezone = "America/New_York";
     vm = {
@@ -85,6 +87,7 @@
     user = "smoke";
     tags = [
       "productivity"
+      "exposure-consumer"
     ];
     timezone = "America/New_York";
     vm = {
@@ -108,6 +111,7 @@
     user = "smoke";
     tags = [
       "monitoring"
+      "exposure-consumer"
     ];
     timezone = "America/New_York";
     vm = {
@@ -131,6 +135,7 @@
     user = "smoke";
     tags = [
       "testbed"
+      "exposure-consumer"
     ];
     timezone = "America/New_York";
     vm = {

@@ -113,6 +113,12 @@
           touch "$out"
         '';
 
+        fleet-lifecycle = pkgs.runCommand "fleet-lifecycle-check" { } ''
+          export FLEET_LIFECYCLE_COMMAND=${./scripts/fleet-lifecycle.py}
+          ${pkgs.python3}/bin/python3 ${./tests/test-fleet-lifecycle.py}
+          touch "$out"
+        '';
+
         testbed-recovery-lifecycle = import ./tests/testbed-recovery-lifecycle.nix {
           inherit nixpkgs pkgs system;
         };

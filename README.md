@@ -23,12 +23,12 @@ should follow that blueprint before being treated as production-ready.
 
 | Host | IP | Tags | Role | Runbook |
 | --- | --- | --- | --- | --- |
-| `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway` | Preferred Gateway VIP owner, ingress, DNS, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
-| `gateway2-vm` | `10.2.20.122` | `gateway` | Gateway VIP failover node on pve2 | [`hosts/gateway2-vm/README.md`](hosts/gateway2-vm/README.md) |
+| `gateway-vm` | `10.2.20.112` | `control-plane`, `gateway`, `exposure-consumer` | Preferred Gateway VIP owner, ingress, DNS, mesh networking | [`hosts/gateway-vm/README.md`](hosts/gateway-vm/README.md) |
+| `gateway2-vm` | `10.2.20.122` | `gateway`, `exposure-consumer` | Gateway VIP failover node on pve2 | [`hosts/gateway2-vm/README.md`](hosts/gateway2-vm/README.md) |
 | `media-vm` | `10.2.20.113` | `media` | Media services, BookOrbit, Gluetun-gated downloads, SMB media, Restic appdata backups | [`hosts/media-vm/README.md`](hosts/media-vm/README.md) |
-| `productivity-vm` | `10.2.20.114` | `productivity` | Productivity services, documents, Forgejo, speed tests, IT-Tools, remote desktop relay, notes, short links, object storage, netboot, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
-| `monitoring-vm` | `10.2.20.115` | `monitoring` | Checkmate, Beszel, ntfy notifications, fleet monitoring agents, Restic appdata backups | [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md) |
-| `testbed-vm` | `10.2.20.129` | `testbed` | AFFiNE, Gitea, Stirling PDF, Firefly III, Homebox inventory testbed, InvoicePlane invoicing testbed, Kaneo and Plane project-management testbeds, Listmonk newsletter testbed, Sure personal-finance testbed, Mailpit local and homelab SMTP capture, Restic appdata backups | [`hosts/testbed-vm/README.md`](hosts/testbed-vm/README.md) |
+| `productivity-vm` | `10.2.20.114` | `productivity`, `exposure-consumer` | Productivity services, documents, Forgejo, speed tests, IT-Tools, remote desktop relay, notes, short links, object storage, netboot, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
+| `monitoring-vm` | `10.2.20.115` | `monitoring`, `exposure-consumer` | Checkmate, Beszel, ntfy notifications, fleet monitoring agents, Restic appdata backups | [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md) |
+| `testbed-vm` | `10.2.20.129` | `testbed`, `exposure-consumer` | AFFiNE, Gitea, Stirling PDF, Firefly III, Homebox inventory testbed, InvoicePlane invoicing testbed, Kaneo and Plane project-management testbeds, Listmonk newsletter testbed, Sure personal-finance testbed, Mailpit local and homelab SMTP capture, Restic appdata backups | [`hosts/testbed-vm/README.md`](hosts/testbed-vm/README.md) |
 
 Inventory lives in `hosts.nix`. Per-host configuration and host-specific
 runbooks live under `hosts/<name>/`.
@@ -115,6 +115,48 @@ scripts/media-vm/check.sh
 `scripts/check.sh` is the repo-wide hygiene gate. It checks shell syntax,
 required-secret manifests, Nix formatting, and `nix flake check`; ShellCheck,
 Statix, and Deadnix run as advisory checks from the dev shell.
+
+### Stateless service lifecycle command
+
+Use `scripts/fleet-lifecycle.py` as the canonical planning and validation
+interface for a stateless service addition or edit. It evaluates `hosts.nix`,
+reports the runtime owner and every generated exposure consumer, then
+delegates to `scripts/check.sh` and the standard Colmena build and dry-activate
+commands for every affected host.
+
+```sh
+scripts/fleet-lifecycle.py plan \
+  --action addition \
+  --host productivity-vm \
+  --service-class stateless
+
+scripts/fleet-lifecycle.py validate \
+  --action edit \
+  --host testbed-vm \
+  --service-class stateless \
+  --evidence /tmp/testbed-lifecycle.json
+```
+
+For additions, consumer impact defaults to `generated`. For edits, `auto`
+inspects working-tree paths and includes every host tagged
+`exposure-consumer` when the owning catalog, exposure definition, or shared
+exposure libraries changed; otherwise the scope remains host-local. Use
+`--consumer-impact generated` or `--consumer-impact host-local` only to record
+an explicit applicability override when path discovery cannot express the
+change.
+
+Both operations are non-mutating and never run a Colmena switch. A live switch
+requires separate explicit authorization and the owning host's guarded deploy
+workflow. `plan` intentionally leaves required execution gates `not_run`, so it
+returns a non-zero incomplete outcome; `validate` returns success only when all
+required static, build, and dry-activation gates pass.
+
+Command progress and delegated output go to standard error, while standard
+output contains only the structured JSON report. It uses stable gate statuses: `passed`, `failed`,
+`blocked`, `not_run`, and `not_applicable`. Every `not_applicable` result has a
+reason. A required `failed`, `blocked`, or `not_run` gate makes the overall
+outcome `incomplete` and the command exits non-zero. The report is printed to
+standard output and is also written to the path supplied with `--evidence`.
 
 ## Ubuntu Development Base
 

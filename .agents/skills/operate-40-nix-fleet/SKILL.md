@@ -21,6 +21,8 @@ Treat the checkout as the source of truth and `PRINCIPLES.md` as the production 
 4. Identify every affected host: runtime owner, both Gateway consumers when shared exposure changes, Homepage/Auth consumers, monitoring, backup owner, and any old owner during a move or removal.
 5. Read the target host README, host config, domain `default.nix`, `options.nix`, `catalog.nix`, one closest service module, and host deploy/upgrade/test scripts.
 
+For a stateless service addition or edit, use `scripts/fleet-lifecycle.py plan --action <addition|edit> --host <owner> --service-class stateless` to record scope before editing, then use the same command with `validate` after editing. The command is the public non-mutating lifecycle seam: it delegates repository checks, affected-host builds, and dry activations, emits structured evidence, and never performs a live switch.
+
 Read [references/repo-surfaces.md](references/repo-surfaces.md) before adding, removing, moving, or changing cross-host behavior. Read [references/validation-and-deployment.md](references/validation-and-deployment.md) before any live switch or recovery action. Read [references/stable-upgrades.md](references/stable-upgrades.md) for every version, package, image, flake-input, or “latest stable” request.
 
 ## Make design decisions from evidence
