@@ -350,6 +350,7 @@
             ''
               export FLEET_LIFECYCLE_COMMAND=${./scripts/fleet-lifecycle.py}
               ${pkgs.python3}/bin/python3 ${./tests/test-fleet-lifecycle.py}
+              ${pkgs.python3}/bin/python3 ${./tests/test-fleet-upgrade-lifecycle.py}
               touch "$out"
             '';
 
