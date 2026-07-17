@@ -1,0 +1,19 @@
+name: lifecycle gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  non-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v19
+      - name: Run deterministic non-live lifecycle gates
+        run: scripts/check.sh

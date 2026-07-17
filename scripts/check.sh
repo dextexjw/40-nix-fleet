@@ -47,6 +47,8 @@ python3 tests/validate-fleet-agent-skill.py
 
 printf 'Checking canonical fleet lifecycle command...\n'
 python3 tests/test-fleet-lifecycle.py
+python3 tests/test-fleet-upgrade-lifecycle.py
+python3 tests/test-ci-lifecycle-policy.py
 
 printf 'Checking required secret manifests...\n'
 scripts/lib/required-secrets.sh validate-manifest "$ROOT"
@@ -72,6 +74,16 @@ printf 'Checking Colmena host evaluation...\n'
 for host in "${FLEET_REQUIRED_SECRET_HOSTS[@]}"; do
   nix eval ".#colmenaHive.nodes.${host}.config.system.build.toplevel.drvPath" >/dev/null
 done
+
+printf 'Checking evaluated deployment image pins...\n'
+evaluated_containers="$(mktemp)"
+trap 'rm -f "$evaluated_containers"' EXIT
+nix eval --json .#colmenaHive.nodes \
+  --apply 'nodes: builtins.mapAttrs (_: node: node.config.virtualisation.oci-containers.containers) nodes' \
+  >"$evaluated_containers"
+scripts/check-deployment-pins.py \
+  --evaluated-containers "$evaluated_containers" \
+  --exceptions policy/deployment-pin-exceptions.json
 
 if command -v shellcheck >/dev/null 2>&1; then
   run_advisory shellcheck shellcheck "${shell_files[@]}"

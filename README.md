@@ -113,8 +113,12 @@ scripts/media-vm/check.sh
 ```
 
 `scripts/check.sh` is the repo-wide hygiene gate. It checks shell syntax,
-required-secret manifests, Nix formatting, and `nix flake check`; ShellCheck,
-Statix, and Deadnix run as advisory checks from the dev shell.
+required-secret manifests, Nix formatting, `nix flake check`, host evaluation,
+generated consumers, immutable evaluated deployment images, and the canonical
+lifecycle evidence contract; ShellCheck, Statix, and Deadnix run as advisory
+checks from the dev shell. CI runs this non-live gate without production
+credentials. See `docs/CONTRIBUTING.md` for the boundary between CI proof and
+guarded live acceptance.
 
 ### Stateless service lifecycle command
 
