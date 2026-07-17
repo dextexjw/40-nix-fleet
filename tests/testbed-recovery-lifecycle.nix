@@ -189,6 +189,7 @@ assert nixpkgs.lib.hasInfix "Excluded: /mnt/media/downloads/metube /var/lib/metu
 assert nixpkgs.lib.hasInfix "test -s '/srv/appsdata/postgresql-dumps/latest.sql.gz'" verification;
 assert nixpkgs.lib.hasInfix "systemctl is-active --quiet 'testbed-appdata-backup.timer'"
   verification;
+assert nixpkgs.lib.hasInfix "for attempt in $(seq 1 60)" verification;
 assert nixpkgs.lib.hasInfix "systemctl is-active --quiet 'podman-metube.service'" verification;
 assert !(nixpkgs.lib.hasInfix "MeTube (metube)" guidanceWithoutMetube);
 assert !(nixpkgs.lib.hasInfix "podman-metube.service" verificationWithoutMetube);
@@ -198,6 +199,8 @@ assert nixpkgs.lib.hasInfix "metube-shared-proof.service" mutatedGuidance;
 assert nixpkgs.lib.hasInfix "metube-shared-proof.service" mutatedVerification;
 assert nixpkgs.lib.hasInfix "metube-shared-proof.service" mutatedRuntimeContract;
 assert nixpkgs.lib.hasInfix "systemctl start testbed-appdata-backup.service" manualBackup;
+assert nixpkgs.lib.hasInfix "sudo test -x /etc/fleet/testbed-recovery-verify" manualBackup;
+assert nixpkgs.lib.hasInfix "bootstrap-compatible backup contract" manualBackup;
 assert nixpkgs.lib.hasInfix "/etc/fleet/testbed-recovery-verify" manualBackup;
 assert nixpkgs.lib.hasInfix "source /etc/fleet/testbed-recovery.sh" explicitRestore;
 assert nixpkgs.lib.hasInfix ''current_backup="''${source_path%/}.pre-restore-'' explicitRestore;
@@ -209,6 +212,12 @@ assert nixpkgs.lib.hasInfix "/srv/appsdata/shared-ownership-proof|shared-proof|s
   sharedOwnershipRuntime;
 assert backupService.serviceConfig.TimeoutStopSec == "10min";
 assert nixpkgs.lib.hasInfix "trap cleanup EXIT" backupService.script;
+assert nixpkgs.lib.hasInfix ''
+  done
+  for service in $stop_pending; do
+    systemctl stop --no-block "$service"
+  done
+'' backupService.script;
 assert nixpkgs.lib.hasInfix "systemctl start --no-block" backupService.script;
 assert nixpkgs.lib.hasInfix "seq 1 60" backupService.script;
 assert !(nixpkgs.lib.hasInfix "restic restore" guardedUpgrade);

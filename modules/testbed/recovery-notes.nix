@@ -52,6 +52,7 @@ let
   unitAssertions = concatMapStringsSep "\n" (
     unit: "systemctl is-active --quiet '${unit}'"
   ) verificationUnits;
+  verificationUnitArgs = concatMapStringsSep " " escapeShellArg verificationUnits;
   snapshotHostArg = escapeShellArg cfg.backup.snapshotHost;
   snapshotTagArg = escapeShellArg cfg.backup.tag;
 in
@@ -131,6 +132,14 @@ in
             systemctl show -P Result 'testbed-appdata-backup.service' | grep -Fxq success
             systemctl show -P Result 'testbed-appdata-restore-check.service' | grep -Fxq success
             systemctl is-active --quiet 'testbed-appdata-backup.timer'
+            for unit in ${verificationUnitArgs}; do
+              for attempt in $(seq 1 60); do
+                if systemctl is-active --quiet "$unit"; then
+                  break
+                fi
+                sleep 1
+              done
+            done
         ${dumpAssertions}
         ${unitAssertions}
             env \

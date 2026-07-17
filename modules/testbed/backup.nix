@@ -143,8 +143,10 @@ in
           if systemctl is-active --quiet "$service"; then
             active_services="$active_services $service"
             stop_pending="$stop_pending $service"
-            systemctl stop --no-block "$service"
           fi
+        done
+        for service in $stop_pending; do
+          systemctl stop --no-block "$service"
         done
 
         for dump_unit in ${concatStringsSep " " backupDumpUnits}; do

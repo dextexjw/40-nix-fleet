@@ -263,8 +263,11 @@ state is kept under `/srv/appsdata/metube/state` and is included in the normal
 testbed appdata backup. Temporary and in-progress files use local VM storage at
 `/var/lib/metube-downloads`.
 
-Keeper uses SOPS-backed auth, encryption, PostgreSQL, and Google/Microsoft
-OAuth client secrets. The Google OAuth app must allow
+Keeper uses SOPS-backed auth, encryption, and PostgreSQL secrets. Its optional
+Google and Microsoft calendar integrations use SOPS-backed OAuth client
+credentials when configured; empty OAuth values leave the corresponding
+provider capability disabled without blocking core Keeper service health or a
+Testbed deployment. The Google OAuth app must allow
 `https://keeper.jax22.com/api/sources/callback/google` and
 `https://keeper.jax22.com/api/destinations/callback/google`. The Microsoft app
 must allow `https://keeper.jax22.com/api/sources/callback/outlook` and

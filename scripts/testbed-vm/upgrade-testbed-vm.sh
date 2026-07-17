@@ -79,7 +79,6 @@ phase_check_upgrade_readiness() {
   fi
 
   check_required_secrets_for_host "$HOST" "$decrypted_secrets" "$SECRETS"
-  check_testbed_keeper_oauth_secrets "$decrypted_secrets" "$SECRETS"
 
   if grep -q 'CHANGE_ME' <<<"$decrypted_secrets"; then
     die "$SECRETS still contains CHANGE_ME placeholders"

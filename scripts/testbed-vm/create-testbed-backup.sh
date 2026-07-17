@@ -45,6 +45,25 @@ ssh_testbed_vm "sudo systemctl start testbed-appdata-backup.service"
 ssh_testbed_vm "sudo systemctl start testbed-appdata-restore-check.service"
 
 printf 'Verifying recent testbed-vm appdata snapshots and lifecycle health:\n'
-ssh_testbed_vm "sudo /etc/fleet/testbed-recovery-verify"
+if ssh_testbed_vm "sudo test -x /etc/fleet/testbed-recovery-verify"; then
+  ssh_testbed_vm "sudo /etc/fleet/testbed-recovery-verify"
+else
+  printf 'The generated recovery verifier is not deployed yet; using the bootstrap-compatible backup contract.\n'
+  ssh_testbed_vm "sudo sh -eu -c '
+    systemctl show -P Result testbed-appdata-backup.service | grep -Fxq success
+    systemctl show -P Result testbed-appdata-restore-check.service | grep -Fxq success
+    systemctl is-active --quiet testbed-appdata-backup.timer
+    test -s /srv/appsdata/postgresql-dumps/latest.sql.gz
+    test -s /srv/appsdata/mariadb-dumps/latest.sql.gz
+    env \
+      RESTIC_REPOSITORY=/mnt/backups/restic/appdata/testbed-vm \
+      RESTIC_PASSWORD_FILE=/run/secrets/restic-password \
+      restic snapshots \
+        --host testbed-vm \
+        --path /srv/appsdata \
+        --tag appsdata \
+        --latest 3
+  '"
+fi
 
 SKIP_OUTLINE_SMOKE="$SKIP_OUTLINE_SMOKE" SKIP_SURE_SMOKE="$SKIP_SURE_SMOKE" "$ROOT/scripts/testbed-vm/test-testbed-services.sh"
