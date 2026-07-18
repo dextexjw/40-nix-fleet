@@ -17,6 +17,7 @@ let
     homebox = "homebox";
     invoiceplane = "invoiceplane";
     kaneo = "kaneo";
+    karakeep = "karakeep";
     keeper = "keeper";
     listmonk = "listmonk";
     mailpit = "mailpit";
@@ -34,6 +35,7 @@ let
     "homebox"
     "invoiceplane"
     "kaneo"
+    "karakeep"
     "keeper"
     "listmonk"
     "mailpit"

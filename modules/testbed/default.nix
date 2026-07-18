@@ -10,6 +10,7 @@
     ./services/homebox.nix
     ./services/invoiceplane.nix
     ./services/kaneo.nix
+    ./services/karakeep.nix
     ./services/keeper.nix
     ./services/listmonk.nix
     ./services/metube.nix

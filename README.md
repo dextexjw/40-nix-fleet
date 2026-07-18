@@ -12,7 +12,7 @@ The current fleet is intentionally small:
 - `media-vm` runs Jellyfin, Audiobookshelf, Kavita, declaratively provisioned BookOrbit, ARR apps, Gluetun-gated downloads, SMB media mounts, and appdata backups.
 - `productivity-vm` runs Forgejo, docs, documents, RSS, search, vault, file sync, cloud files, speed tests, IT-Tools, remote desktop relay, notes, short links, S3-compatible object storage, netboot.xyz, and appdata backups.
 - `monitoring-vm` runs Checkmate, Beszel, ntfy notifications, fleet monitoring agents, and appdata backups.
-- `testbed-vm` runs AFFiNE, Gitea, Stirling PDF, Firefly III, Homebox, InvoicePlane, Kaneo, Listmonk, Plane, Sure, and Mailpit SMTP capture with appdata backups.
+- `testbed-vm` runs AFFiNE, Gitea, Karakeep, Stirling PDF, Firefly III, Homebox, InvoicePlane, Kaneo, Listmonk, Plane, Sure, and Mailpit SMTP capture with appdata backups.
 
 Treat this repo as the source of truth for hosts, services, secrets workflow,
 and recovery notes. The fleet-wide service standard is captured in
@@ -28,7 +28,7 @@ should follow that blueprint before being treated as production-ready.
 | `media-vm` | `10.2.20.113` | `media` | Media services, BookOrbit, Gluetun-gated downloads, SMB media, Restic appdata backups | [`hosts/media-vm/README.md`](hosts/media-vm/README.md) |
 | `productivity-vm` | `10.2.20.114` | `productivity`, `exposure-consumer` | Productivity services, documents, Forgejo, speed tests, IT-Tools, remote desktop relay, notes, short links, object storage, netboot, Restic appdata backups | [`hosts/productivity-vm/README.md`](hosts/productivity-vm/README.md) |
 | `monitoring-vm` | `10.2.20.115` | `monitoring`, `exposure-consumer` | Checkmate, Beszel, ntfy notifications, fleet monitoring agents, Restic appdata backups | [`hosts/monitoring-vm/README.md`](hosts/monitoring-vm/README.md) |
-| `testbed-vm` | `10.2.20.129` | `testbed`, `exposure-consumer` | AFFiNE, Gitea, Stirling PDF, Firefly III, Homebox inventory testbed, InvoicePlane invoicing testbed, Kaneo and Plane project-management testbeds, Listmonk newsletter testbed, Sure personal-finance testbed, Mailpit local and homelab SMTP capture, Restic appdata backups | [`hosts/testbed-vm/README.md`](hosts/testbed-vm/README.md) |
+| `testbed-vm` | `10.2.20.129` | `testbed`, `exposure-consumer` | AFFiNE, Gitea, Karakeep bookmark manager, Stirling PDF, Firefly III, Homebox inventory testbed, InvoicePlane invoicing testbed, Kaneo and Plane project-management testbeds, Listmonk newsletter testbed, Sure personal-finance testbed, Mailpit local and homelab SMTP capture, Restic appdata backups | [`hosts/testbed-vm/README.md`](hosts/testbed-vm/README.md) |
 
 Inventory lives in `hosts.nix`. Per-host configuration and host-specific
 runbooks live under `hosts/<name>/`.
@@ -50,7 +50,7 @@ runbooks live under `hosts/<name>/`.
 - `modules/media/`: the `media-vm` service modules, SMB mounts, backups, and recovery notes.
 - `modules/productivity/`: the `productivity-vm` service modules, netboot.xyz, PostgreSQL, backups, and recovery notes.
 - `modules/monitoring/`: Checkmate, Beszel, ntfy, fleet monitoring agents, and available Prometheus/Grafana/node exporter modules.
-- `modules/testbed/`: the `testbed-vm` Homebox, InvoicePlane, Kaneo, Listmonk, Plane, Sure, Mailpit, MariaDB, PostgreSQL, backups, and recovery notes.
+- `modules/testbed/`: the `testbed-vm` Homebox, InvoicePlane, Kaneo, Karakeep, Listmonk, Plane, Sure, Mailpit, MariaDB, PostgreSQL, backups, and recovery notes.
 - `modules/networking/reverse-proxy.nix`: available nginx virtual hosts module.
 - `modules/security/self-signed-ca.nix`: internal self-signed CA and per-domain cert generation.
 - `modules/dev/`: available Jenkins and Gitea modules.

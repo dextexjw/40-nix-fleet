@@ -270,6 +270,36 @@ in
           };
         }
         {
+          id = "karakeep";
+          name = "Karakeep";
+          route = {
+            description = "Karakeep bookmark and read-it-later manager";
+            hosts = hostnames "karakeep";
+            url = backend 9090;
+          };
+          homepage = {
+            description = "Bookmark and read-it-later manager\n${backend 9090}";
+            href = publicServiceUrl "karakeep";
+            icon = "karakeep.png";
+            siteMonitor = "${backend 9090}/";
+          };
+          auth = {
+            mode = "native-oidc";
+            groups = [ "fleet-admins" ];
+            oidc = {
+              clientId = "karakeep";
+              clientSecretFile = "/run/secrets/karakeep-oidc-client-secret";
+              launchUrl = "https://karakeep.jax22.com/";
+              redirectUris = [ "https://karakeep.jax22.com/api/auth/callback/custom" ];
+            };
+          };
+          checkmate.url = "https://karakeep.jax22.com/";
+          smoke.http = {
+            discard = true;
+            path = "/";
+          };
+        }
+        {
           id = "listmonk";
           name = "Listmonk";
           route = {

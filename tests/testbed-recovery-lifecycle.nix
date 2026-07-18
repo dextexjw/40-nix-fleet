@@ -155,6 +155,7 @@ let
     "homebox"
     "invoiceplane"
     "kaneo"
+    "karakeep"
     "keeper"
     "listmonk"
     "metube"
@@ -177,6 +178,8 @@ assert
     "/var/lib/metube-downloads"
   ];
 assert applications.metube.quiesceUnits == [ "podman-metube.service" ];
+assert applications.karakeep.durablePaths == [ "/srv/appsdata/karakeep" ];
+assert builtins.elem "podman-karakeep-meilisearch.service" applications.karakeep.quiesceUnits;
 assert nixpkgs.lib.hasInfix "Repository: /mnt/backups/restic/appdata/testbed-vm" guidance;
 assert nixpkgs.lib.hasInfix "Host: testbed-vm" guidance;
 assert nixpkgs.lib.hasInfix "Path: /srv/appsdata" guidance;

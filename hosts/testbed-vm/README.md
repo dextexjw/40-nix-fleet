@@ -1,6 +1,6 @@
 # testbed-vm
 
-`testbed-vm` runs AFFiNE, Gitea, Stirling PDF, Firefly III, Fizzy as a project-board testbed, Homebox as a home-inventory
+`testbed-vm` runs AFFiNE, Gitea, Karakeep as a bookmark and read-it-later manager, Stirling PDF, Firefly III, Fizzy as a project-board testbed, Homebox as a home-inventory
 testbed, InvoicePlane as an invoicing testbed, Kaneo as a project-management testbed, Keeper as a calendar-sync
 testbed, Listmonk as a newsletter and mailing-list testbed, Outline as a
 knowledge-base testbed, Plane as a project-management testbed, Postiz as a
@@ -40,6 +40,9 @@ intentionally added.
 - Kaneo LAN alias: `http://kaneo.h/`
 - Kaneo direct backend: `http://10.2.20.129:5173/` from Gateway nodes only
 - Kaneo health: `http://10.2.20.129:5173/api/health` from Gateway nodes only
+- Karakeep public route: `https://karakeep.jax22.com/`
+- Karakeep LAN alias: `http://karakeep.h/`
+- Karakeep direct backend: `http://10.2.20.129:9090/` from Gateway nodes only
 - Listmonk public route: `https://listmonk.jax22.com/`
 - Listmonk LAN alias: `http://listmonk.h/`
 - Listmonk direct backend: `http://10.2.20.129:9000/` from Gateway nodes only
@@ -80,6 +83,7 @@ intentionally added.
 - InvoicePlane MariaDB database: `invoiceplane`
 - Kaneo runtime scratch directory: `/srv/appsdata/kaneo`
 - Kaneo durable state: PostgreSQL database `kaneo` plus Garage bucket `kaneo-uploads`
+- Karakeep SQLite database, assets, and Meilisearch index: `/srv/appsdata/karakeep`
 - Keeper Redis state and local service data: `/srv/appsdata/keeper`
 - Listmonk uploads and service state: `/srv/appsdata/listmonk`
 - Outline runtime state: `/srv/appsdata/outline`
@@ -127,6 +131,9 @@ Required SOPS keys:
 - `kaneo-garage-secret-access-key`
 - `kaneo-oidc-client-secret`
 - `kaneo-postgres-password`
+- `karakeep-meili-master-key`
+- `karakeep-nextauth-secret`
+- `karakeep-oidc-client-secret`
 - `keeper-better-auth-secret`
 - `keeper-encryption-key`
 - `keeper-google-client-id`
@@ -208,6 +215,15 @@ for reference, but no route, Homepage card, or enabled service imports it.
 
 Listmonk uses a SOPS-backed local admin account for break-glass access. Native
 OIDC is provisioned through Authentik client `listmonk` for `fleet-admins`.
+
+Karakeep is exposed at `https://karakeep.jax22.com/` and `http://karakeep.h/`
+with native OIDC through Authentik client `karakeep` for `fleet-admins` and
+callback `https://karakeep.jax22.com/api/auth/callback/custom`. Its pinned
+0.32.0 application, Chromium crawler, and Meilisearch index keep all
+restore-critical state under `/srv/appsdata/karakeep`. Karakeep crawls submitted
+links from the Testbed VM, so access is restricted to trusted `fleet-admins`.
+Local password login remains available as a break-glass path until native OIDC
+has been verified interactively.
 
 InvoicePlane is exposed at `https://invoiceplane.jax22.com/` and
 `http://invoiceplane.h/`. Public HTTPS uses Gateway Authentik forward-auth for
@@ -350,7 +366,7 @@ scripts/testbed-vm/test-testbed-services.sh
 ```
 
 The helper checks AFFiNE, Gitea, Stirling PDF, Firefly III, Fizzy, Homebox,
-InvoicePlane, Kaneo, Keeper, Listmonk, Outline, Plane, Postiz, Sure, MariaDB,
+InvoicePlane, Kaneo, Karakeep, Keeper, Listmonk, Outline, Plane, Postiz, Sure, MariaDB,
 PostgreSQL, Redis, Mailpit, OIDC and admin provisioning, local HTTP,
 Gateway-routed URLs,
 homelab SMTP capture, Homepage output, backup and restore validation, and recent

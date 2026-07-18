@@ -29,6 +29,7 @@ in
       (mkGatewayAccept cfg.ports.homebox)
       (mkGatewayAccept cfg.ports.invoiceplane)
       (mkGatewayAccept cfg.ports.kaneo)
+      (mkGatewayAccept cfg.ports.karakeep)
       (mkGatewayAccept cfg.ports.keeper)
       (mkGatewayAccept cfg.ports.listmonk)
       (mkGatewayAccept cfg.ports.mailpit)

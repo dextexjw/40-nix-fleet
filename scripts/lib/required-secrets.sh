@@ -34,6 +34,7 @@ GATEWAY_REQUIRED_SECRET_KEYS=(
   gluetun-openvpn-username
   gluetun-shadowsocks-password
   kaneo-oidc-client-secret
+  karakeep-oidc-client-secret
   listmonk-oidc-client-secret
   homebox-oidc-client-secret
   outline-oidc-client-secret
@@ -129,6 +130,9 @@ TESTBED_REQUIRED_SECRET_KEYS=(
   kaneo-garage-secret-access-key
   kaneo-oidc-client-secret
   kaneo-postgres-password
+  karakeep-meili-master-key
+  karakeep-nextauth-secret
+  karakeep-oidc-client-secret
   keeper-better-auth-secret
   keeper-encryption-key
   keeper-google-client-id

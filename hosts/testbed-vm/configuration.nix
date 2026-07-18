@@ -144,6 +144,15 @@ in
           "podman-kaneo.service"
         ];
       };
+      karakeep-meili-master-key = {
+        restartUnits = [ "podman-karakeep-meilisearch.service" ];
+      };
+      karakeep-nextauth-secret = {
+        restartUnits = [ "podman-karakeep.service" ];
+      };
+      karakeep-oidc-client-secret = {
+        restartUnits = [ "podman-karakeep.service" ];
+      };
       keeper-better-auth-secret = {
         restartUnits = [ "podman-keeper.service" ];
       };
@@ -364,6 +373,20 @@ in
       mode = "0400";
       restartUnits = [ "podman-kaneo.service" ];
     };
+    templates."karakeep-environment" = {
+      content = ''
+        MEILI_MASTER_KEY=${config.sops.placeholder."karakeep-meili-master-key"}
+        NEXTAUTH_SECRET=${config.sops.placeholder."karakeep-nextauth-secret"}
+        OAUTH_CLIENT_SECRET=${config.sops.placeholder."karakeep-oidc-client-secret"}
+      '';
+      owner = "root";
+      group = "root";
+      mode = "0400";
+      restartUnits = [
+        "podman-karakeep.service"
+        "podman-karakeep-meilisearch.service"
+      ];
+    };
     templates."outline-environment" = {
       content = ''
         AWS_ACCESS_KEY_ID=${config.sops.placeholder."outline-garage-access-key-id"}
@@ -471,6 +494,11 @@ in
         config.sops.templates."kaneo-environment".path
       else
         "/run/secrets/kaneo-environment";
+    karakeep.environmentFile =
+      if secretsEnabled then
+        config.sops.templates."karakeep-environment".path
+      else
+        "/run/secrets/karakeep-environment";
     gitea.oidc = lib.mkIf secretsEnabled {
       enable = true;
       clientSecretFile = config.sops.secrets.gitea-oidc-client-secret.path;

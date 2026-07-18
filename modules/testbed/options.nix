@@ -17,6 +17,7 @@ let
     homebox = "homebox";
     invoiceplane = "invoiceplane";
     kaneo = "kaneo";
+    karakeep = "karakeep";
     keeper = "keeper";
     listmonk = "listmonk";
     mailpit = "mailpit";
@@ -84,6 +85,9 @@ in
         homebox = 7745;
         invoiceplane = 9060;
         kaneo = 5173;
+        karakeep = 9090;
+        karakeepBrowser = 9222;
+        karakeepMeilisearch = 7700;
         keeper = 3000;
         keeperApi = 3001;
         keeperRedis = 6380;
@@ -502,6 +506,50 @@ in
         type = types.path;
         default = "${cfg.appdataRoot}/kaneo";
         description = "Small Kaneo runtime working directory; durable app state is PostgreSQL plus Garage S3.";
+      };
+    };
+
+    karakeep = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Run Karakeep on testbed-vm.";
+      };
+
+      environmentFile = mkOption {
+        type = types.path;
+        default = "/run/secrets/karakeep-environment";
+        description = "Runtime environment file containing Karakeep and Meilisearch secrets.";
+      };
+
+      externalUrl = mkOption {
+        type = types.str;
+        default = "https://${cfg.serviceHosts.karakeep}";
+        description = "Canonical external Karakeep URL used by NextAuth and OIDC.";
+      };
+
+      image = mkOption {
+        type = types.str;
+        default = "ghcr.io/karakeep-app/karakeep@sha256:64d6a9bbf2d37b5c808cf06b5d87f1f1c7846fdd3844724145a9741aeb06fd31";
+        description = "Pinned Karakeep 0.32.0 OCI image.";
+      };
+
+      browserImage = mkOption {
+        type = types.str;
+        default = "gcr.io/zenika-hub/alpine-chrome@sha256:1a0046448e0bb6c275c88f86e01faf0de62b02ec8572901256ada0a8c08be23f";
+        description = "Pinned Chromium OCI image used for Karakeep crawling.";
+      };
+
+      meilisearchImage = mkOption {
+        type = types.str;
+        default = "docker.io/getmeili/meilisearch@sha256:860fa4baed04ae1c235de870edab0c8006227546dea1bbb6411fbfc5e27cf1db";
+        description = "Pinned Meilisearch 1.41.0 OCI image used for Karakeep search.";
+      };
+
+      stateDir = mkOption {
+        type = types.path;
+        default = "${cfg.appdataRoot}/karakeep";
+        description = "Restore-critical Karakeep SQLite, assets, and Meilisearch state.";
       };
     };
 

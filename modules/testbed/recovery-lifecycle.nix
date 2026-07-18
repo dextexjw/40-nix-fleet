@@ -249,6 +249,28 @@ let
         databaseDumps = [ postgresqlDump ];
       };
     }
+    // optionalAttrs cfg.karakeep.enable {
+      karakeep = application {
+        displayName = "Karakeep";
+        path = cfg.karakeep.stateDir;
+        quiesceUnits = [
+          "podman-karakeep.service"
+          "podman-karakeep-browser.service"
+          "podman-karakeep-meilisearch.service"
+        ];
+        restartUnits = [
+          "podman-karakeep-browser.service"
+          "podman-karakeep-meilisearch.service"
+          "podman-karakeep.service"
+        ];
+        verificationUnits = [ "podman-karakeep.service" ];
+        ownership = [
+          (owner cfg.karakeep.stateDir "root" "testbed" "0750")
+          (owner "${cfg.karakeep.stateDir}/data" "root" "testbed" "0750")
+          (owner "${cfg.karakeep.stateDir}/meilisearch" "1000" "1000" "0750")
+        ];
+      };
+    }
     // optionalAttrs cfg.keeper.enable {
       keeper = application {
         displayName = "Keeper";

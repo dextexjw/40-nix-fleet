@@ -6,6 +6,7 @@ HOST="testbed-vm"
 HOST_IP="10.2.20.129"
 SKIP_SURE_SMOKE="${SKIP_SURE_SMOKE:-0}"
 SKIP_OUTLINE_SMOKE="${SKIP_OUTLINE_SMOKE:-0}"
+SKIP_KARAKEEP_SMOKE="${SKIP_KARAKEEP_SMOKE:-0}"
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -18,6 +19,11 @@ cd "$ROOT"
 
 printf 'Checking key testbed services...\n'
 services=(postgresql mysql redis-affine redis-keeper redis-plane listmonk homebox mailpit-testbed gitea phpfpm-firefly-iii phpfpm-invoiceplane podman-affine podman-fizzy podman-kaneo podman-keeper podman-metube podman-plane-rabbitmq podman-plane-api podman-plane-worker podman-plane-beat-worker podman-plane-live podman-plane-web podman-plane-admin podman-plane-space podman-postiz podman-postiz-postgres podman-postiz-redis podman-postiz-temporal podman-postiz-temporal-elasticsearch podman-postiz-temporal-postgres stirling-pdf nginx)
+if [ "$SKIP_KARAKEEP_SMOKE" != 1 ] && colmena exec --on "$HOST" -- "test \"\$(systemctl show -P LoadState podman-karakeep.service 2>/dev/null || true)\" = loaded"; then
+  services+=(podman-karakeep podman-karakeep-browser podman-karakeep-meilisearch)
+else
+  SKIP_KARAKEEP_SMOKE=1
+fi
 if [ "$SKIP_OUTLINE_SMOKE" != 1 ]; then
   services+=(redis-outline podman-outline)
 fi
@@ -51,6 +57,11 @@ colmena exec --on "$HOST" -- "test \"\$(systemctl show -P Result plane-admin-boo
 
 printf 'Checking testbed appdata and local listeners...\n'
 colmena exec --on "$HOST" -- test -d /srv/appsdata/affine/storage
+if [ "$SKIP_KARAKEEP_SMOKE" != 1 ]; then
+  colmena exec --on "$HOST" -- test -d /srv/appsdata/karakeep/data
+  colmena exec --on "$HOST" -- test -d /srv/appsdata/karakeep/meilisearch
+  colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://127.0.0.1:9090/ >/dev/null"
+fi
 colmena exec --on "$HOST" -- test -d /srv/appsdata/affine/config
 colmena exec --on "$HOST" -- "curl -fsS --max-time 10 http://${HOST_IP}:3010/ >/dev/null"
 colmena exec --on "$HOST" -- "sudo -u postgres psql -d affine -tAc 'select 1' | tr -d '[:space:]' | grep -Fxq 1"
@@ -204,6 +215,14 @@ colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve auth.jax22.co
 colmena exec --on gateway-vm -- "sh -lc 'body=\$(mktemp); trap \"rm -f \\\"\$body\\\"\" EXIT; status=\$(curl -sS -o \"\$body\" -w \"%{http_code}\" --max-time 10 --resolve auth.jax22.com:443:127.0.0.1 \"https://auth.jax22.com/application/o/authorize/?client_id=kaneo&redirect_uri=https%3A%2F%2Fkaneo.jax22.com%2Fapi%2Fauth%2Foauth2%2Fcallback%2Fcustom&response_type=code&scope=openid%20profile%20email&state=test&nonce=test\"); case \"\$status\" in 2*|3*) ;; *) echo \"unexpected Kaneo authorize status \$status\" >&2; cat \"\$body\" >&2; exit 1 ;; esac; ! grep -Eiq \"invalid[ _-]*(client|redirect)\" \"\$body\"'"
 colmena exec --on gateway-vm -- "grep -Fq 'https://kaneo.jax22.com/' /etc/homepage-dashboard/services.yaml"
 colmena exec --on gateway-vm -- "grep -Fq 'http://${HOST_IP}:5173/api/health' /etc/homepage-dashboard/services.yaml"
+if [ "$SKIP_KARAKEEP_SMOKE" != 1 ]; then
+  colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve karakeep.jax22.com:443:127.0.0.1 https://karakeep.jax22.com/ >/dev/null"
+  colmena exec --on gateway-vm -- "curl -fsS --max-time 10 -H 'Host: karakeep.h' http://127.0.0.1/ >/dev/null"
+  colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve auth.jax22.com:443:127.0.0.1 https://auth.jax22.com/application/o/karakeep/.well-known/openid-configuration | grep -Fq '\"issuer\"'"
+  colmena exec --on gateway-vm -- "grep -Fq 'https://karakeep.jax22.com/' /etc/homepage-dashboard/services.yaml"
+  colmena exec --on gateway-vm -- "grep -Fq 'http://${HOST_IP}:9090/' /etc/homepage-dashboard/services.yaml"
+  colmena exec --on monitoring-vm -- "grep -Fq 'karakeep.jax22.com' /etc/fleet/checkmate-targets.json"
+fi
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve listmonk.jax22.com:443:127.0.0.1 https://listmonk.jax22.com/admin/login | grep -Fq 'Authentik'"
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 -H 'Host: listmonk.h' http://127.0.0.1/admin/login | grep -Fq 'Authentik'"
 colmena exec --on gateway-vm -- "curl -fsS --max-time 10 --resolve auth.jax22.com:443:127.0.0.1 https://auth.jax22.com/application/o/listmonk/.well-known/openid-configuration | grep -Fq '\"issuer\"'"
